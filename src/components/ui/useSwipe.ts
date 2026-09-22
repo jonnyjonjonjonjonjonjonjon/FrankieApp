@@ -5,6 +5,11 @@ export function useSwipe(onLeft: () => void, onRight: () => void, threshold = 70
   const start = useRef<{ x: number; y: number } | null>(null)
   return {
     onTouchStart: (e: TouchEvent) => {
+      // Anything that scrolls sideways itself (marked data-noswipe) keeps its own gesture.
+      if ((e.target as HTMLElement).closest('[data-noswipe]')) {
+        start.current = null
+        return
+      }
       const t = e.touches[0]
       start.current = { x: t.clientX, y: t.clientY }
     },

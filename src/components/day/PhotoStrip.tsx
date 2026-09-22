@@ -23,7 +23,7 @@ export function PhotoStrip({ date }: { date: ISODate }) {
         <PhotoInput size="sm" onPick={f => void store.addPhoto(date, f)} />
       </div>
       {photos.length > 0 && (
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="flex gap-3 overflow-x-auto pb-2" data-noswipe>
           {photos.map(p => (
             <button
               key={p.id}

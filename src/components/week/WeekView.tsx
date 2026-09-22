@@ -9,7 +9,6 @@ import { BigButton } from '../ui/BigButton'
 import { Photo } from '../ui/Photo'
 import { Symbol } from '../ui/Symbol'
 import { TopBar } from '../ui/TopBar'
-import { useSwipe } from '../ui/useSwipe'
 
 const MEALS: EventType[] = ['breakfast', 'lunch', 'dinner']
 
@@ -43,7 +42,6 @@ export function WeekView({ date }: { date: ISODate }) {
   const first = days[0]
   const last = days[6]
   const goWeek = (d: ISODate) => store.go({ kind: 'week', date: d })
-  const swipe = useSwipe(() => goWeek(addDays(date, 7)), () => goWeek(addDays(date, -7)))
   const items = store.state.items
   const range =
     monthName(first) === monthName(last)
@@ -51,7 +49,7 @@ export function WeekView({ date }: { date: ISODate }) {
       : `${dayNumber(first)} ${monthName(first)} – ${dayNumber(last)} ${monthName(last)} ${year(last)}`
 
   return (
-    <div className="flex h-full flex-col" {...swipe}>
+    <div className="flex h-full flex-col">
       <TopBar
         title={range}
         right={
