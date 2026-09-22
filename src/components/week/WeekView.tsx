@@ -1,0 +1,145 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { addDays, DAY_SHORT, dayNumber, monthName, today, weekDates, weekdayIndex, year } from '../../lib/dates'
+import { eventFace } from '../../lib/eventFace'
+import { useStore } from '../../lib/store'
+import { EVENT_TYPES, RATING_FACES } from '../../lib/symbols'
+import { to12 } from '../../lib/time'
+import type { DiaryEvent, EventType, ISODate } from '../../types'
+import { BigButton } from '../ui/BigButton'
+import { Photo } from '../ui/Photo'
+import { Symbol } from '../ui/Symbol'
+import { TopBar } from '../ui/TopBar'
+import { useSwipe } from '../ui/useSwipe'
+
+const MEALS: EventType[] = ['breakfast', 'lunch', 'dinner']
+
+/** One whiteboard meal line: meal symbol, then the food chosen (or a dash). */
+function MealCell({ type, ev }: { type: EventType; ev: DiaryEvent | undefined }) {
+  const store = useStore()
+  const items = store.state.items
+  const foods = ev ? ev.foodIds.map(id => items[id]).filter(Boolean) : []
+  return (
+    <div className="flex min-h-14 items-start gap-2 border-t-2 border-line px-1 py-1" aria-label={EVENT_TYPES[type].word}>
+      <Symbol symbol={EVENT_TYPES[type].symbol} size="text-3xl" className="shrink-0" />
+      <span className="flex min-w-0 flex-col gap-0.5 text-lg font-bold leading-tight">
+        {foods.length === 0 ? (
+          <span className="text-line">—</span>
+        ) : (
+          foods.map(f => (
+            <span key={f.id} className="min-w-0">
+              {f.name}
+            </span>
+          ))
+        )}
+      </span>
+    </div>
+  )
+}
+
+/** The whiteboard, bigger: a Monday–Sunday table (PRD §4.2). */
+export function WeekView({ date }: { date: ISODate }) {
+  const store = useStore()
+  const days = weekDates(date)
+  const first = days[0]
+  const last = days[6]
+  const goWeek = (d: ISODate) => store.go({ kind: 'week', date: d })
+  const swipe = useSwipe(() => goWeek(addDays(date, 7)), () => goWeek(addDays(date, -7)))
+  const items = store.state.items
+  const range =
+    monthName(first) === monthName(last)
+      ? `${dayNumber(first)} – ${dayNumber(last)} ${monthName(last)} ${year(last)}`
+      : `${dayNumber(first)} ${monthName(first)} – ${dayNumber(last)} ${monthName(last)} ${year(last)}`
+
+  return (
+    <div className="flex h-full flex-col" {...swipe}>
+      <TopBar
+        title={range}
+        right={
+          <div className="flex gap-2">
+            <BigButton onClick={() => goWeek(addDays(date, -7))} aria-label="Week before">
+              <ChevronLeft size={40} strokeWidth={3} />
+            </BigButton>
+            <BigButton onClick={() => goWeek(addDays(date, 7))} aria-label="Week after">
+              <ChevronRight size={40} strokeWidth={3} />
+            </BigButton>
+          </div>
+        }
+      />
+      <div className="flex-1 overflow-auto p-3">
+        <div className="grid min-w-[1080px] grid-cols-7 gap-2">
+          {days.map(d => {
+            const isToday = d === today()
+            const events = store.eventsFor(d)
+            const meals = MEALS.map(m => events.find(e => e.type === m))
+            const others = events.filter(e => !MEALS.includes(e.type))
+            const staying = store.stayingAt(d)
+            const birthdays = store.birthdaysOn(d)
+            return (
+              <div key={d} className={`flex flex-col rounded-3xl border-4 ${isToday ? 'border-orange' : 'border-ink'} bg-paper`}>
+                <button
+                  type="button"
+                  onClick={() => store.go({ kind: 'day', date: d, from: 'week' })}
+                  className={`flex min-h-20 flex-col items-center justify-center rounded-t-[1.25rem] px-1 py-1 ${isToday ? 'bg-orange text-white' : 'bg-soft'}`}
+                >
+                  <span className="text-xl font-extrabold">{DAY_SHORT[weekdayIndex(d)]}</span>
+                  <span className="text-3xl font-extrabold leading-none">{dayNumber(d)}</span>
+                </button>
+
+                {/* Birthdays band */}
+                {birthdays.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1 border-t-2 border-line bg-orange-light px-1 py-1 text-lg font-bold">
+                    <Symbol symbol="🎂" size="text-3xl" />
+                    {birthdays.map(p => p.name).join(' · ')}
+                  </div>
+                )}
+
+                {/* Staying at */}
+                <div className="flex min-h-14 items-center gap-2 bg-sky px-1 py-1">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-paper">
+                    {staying?.photoId && staying.showPhoto ? (
+                      <Photo id={staying.photoId} className="h-full w-full" />
+                    ) : (
+                      <Symbol symbol={staying?.symbol ?? '🏠'} size="text-4xl" />
+                    )}
+                  </div>
+                  <span className="text-lg font-bold leading-tight">{staying?.name ?? 'My house'}</span>
+                </div>
+
+                {MEALS.map((m, i) => (
+                  <MealCell key={m} type={m} ev={meals[i]} />
+                ))}
+
+                <div className="flex flex-col gap-1 border-t-4 border-line p-1">
+                  {others.map(e => {
+                    const face = eventFace(e, items)
+                    const t = to12(e.time)
+                    return (
+                      <div key={e.id} className={`flex flex-col gap-0.5 rounded-xl px-1 py-1 ${e.done ? 'opacity-50' : ''}`}>
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-soft">
+                            {face.photoId && face.showPhoto ? (
+                              <Photo id={face.photoId} className="h-full w-full" />
+                            ) : (
+                              <Symbol symbol={face.symbol} size="text-4xl" />
+                            )}
+                          </div>
+                          <span className="text-sm font-bold whitespace-nowrap text-ink-soft">
+                            {t.clock} {t.ampm} {t.ampm === 'am' ? '☀️' : '🌙'}
+                          </span>
+                        </div>
+                        <span className={`text-xl font-extrabold leading-tight break-words ${e.done ? 'line-through' : ''}`}>
+                          {face.word}
+                          {e.rating && <span className="symbol ml-1">{RATING_FACES[e.rating].symbol}</span>}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}

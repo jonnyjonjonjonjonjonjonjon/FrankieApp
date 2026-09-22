@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --color-orange: #f26f21;
+  --color-orange-dark: #c4560f;
+  --color-orange-light: #ffe9db;
+  --color-ink: #1a1a1a;
+  --color-ink-soft: #4a4a4a;
+  --color-paper: #ffffff;
+  --color-soft: #f3f3f3;
+  --color-line: #cfcfcf;
+  --color-green: #1e8e3e;
+  --color-green-light: #e3f5e8;
+  --color-sky: #e8f1fb;
+  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Everything scales from the root size: phones ~18px, tablets/desktops 22px
+   so body text lands at 28px+ on the tablet (PRD §6). */
+html {
+  font-size: 18px;
+  background: var(--color-paper);
+}
+@media (min-width: 900px) {
+  html {
+    font-size: 20px;
+  }
+}
+
+html,
+body {
+  overscroll-behavior: none;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+button,
+[role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  font: inherit;
+  color: inherit;
+}
+
+/* Emoji stand in for Makaton symbols until licensing is confirmed. */
+.symbol {
+  font-family: "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", sans-serif;
+  line-height: 1;
+}
+
+@keyframes tick-pop {
+  0% { transform: scale(0.6); opacity: 0.3; }
+  60% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.tick-pop {
+  animation: tick-pop 320ms ease-out;
+}
+
+@keyframes rise {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.rise {
+  animation: rise 180ms ease-out;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
