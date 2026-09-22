@@ -1,4 +1,7 @@
 import { useStore } from '../../lib/store'
+import { today } from '../../lib/dates'
+import { minutesOf, nowHHMM } from '../../lib/time'
+import { useNow } from '../ui/useNow'
 import type { ISODate } from '../../types'
 import { Photo } from '../ui/Photo'
 import { Symbol } from '../ui/Symbol'
@@ -18,6 +21,13 @@ export function DayPanel({ date, onOpen, onTime, onPickStay }: Props) {
   const events = store.eventsFor(date)
   const staying = store.stayingAt(date)
   const birthdays = store.birthdaysOn(date)
+  const now = useNow()
+  // Today: the last timed row whose time has passed is where the day has got to.
+  let currentId: string | null = null
+  if (date === today()) {
+    const mins = minutesOf(nowHHMM(now))
+    for (const e of events) if (e.time && minutesOf(e.time) <= mins) currentId = e.id
+  }
 
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
@@ -51,7 +61,7 @@ export function DayPanel({ date, onOpen, onTime, onPickStay }: Props) {
           </div>
         ))}
 
-        <DayEvents date={date} events={events} onOpen={onOpen} onTime={onTime} />
+        <DayEvents date={date} events={events} currentId={currentId} onOpen={onOpen} onTime={onTime} />
 
         <PhotoStrip date={date} />
       </div>

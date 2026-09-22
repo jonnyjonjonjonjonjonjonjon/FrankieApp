@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Settings as SettingsIcon } from 'lucide-react'
 import { addDays, longDate, today } from '../../lib/dates'
 import { useStore } from '../../lib/store'
 import type { ISODate, Tab } from '../../types'
@@ -50,16 +50,28 @@ export function DayView({ date, from }: Props) {
   return (
     <div className="flex h-full flex-col">
       <TopBar
-        onBack={back}
+        wrapTitle
+        onBack={from === 'today' ? undefined : back}
         title={<span className={isToday ? 'text-orange-dark' : ''}>{longDate(date)}</span>}
         right={
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <BigButton onClick={() => setSlide(s => ({ dir: -1, n: (s?.n ?? 0) + 1 }))} aria-label="Day before">
               <ChevronLeft size={40} strokeWidth={3} />
             </BigButton>
             <BigButton onClick={() => setSlide(s => ({ dir: 1, n: (s?.n ?? 0) + 1 }))} aria-label="Day after">
               <ChevronRight size={40} strokeWidth={3} />
             </BigButton>
+            {from === 'today' && (
+              <>
+                <span className="text-xs text-ink-soft" aria-label="App version">
+                  v{__APP_VERSION__}
+                </span>
+                <BigButton size="sm" variant="ghost" onClick={() => store.go({ kind: 'settings' })} aria-label="Family settings">
+                  <SettingsIcon size={32} strokeWidth={2.5} />
+                  <span className="text-lg">Family</span>
+                </BigButton>
+              </>
+            )}
           </div>
         }
       />

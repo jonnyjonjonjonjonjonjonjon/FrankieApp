@@ -7,9 +7,11 @@ interface Props {
   onBack?: () => void
   backWord?: string
   right?: ReactNode
+  /** On phones, drop the title onto its own line under the buttons. */
+  wrapTitle?: boolean
 }
 
-export function TopBar({ title, onBack, backWord = 'Back', right }: Props) {
+export function TopBar({ title, onBack, backWord = 'Back', right, wrapTitle = false }: Props) {
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b-4 border-line bg-paper px-3 py-1 sm:py-2">
       {onBack && (
@@ -18,7 +20,7 @@ export function TopBar({ title, onBack, backWord = 'Back', right }: Props) {
           <span>{backWord}</span>
         </BigButton>
       )}
-      <div className="min-w-0 flex-1 text-xl font-extrabold leading-tight sm:text-3xl">{title}</div>
+      <div className={`min-w-0 flex-1 text-xl font-extrabold leading-tight sm:text-3xl ${wrapTitle ? 'max-sm:order-last max-sm:basis-full' : ''}`}>{title}</div>
       {right && <div className="ml-auto flex items-center gap-2">{right}</div>}
     </header>
   )

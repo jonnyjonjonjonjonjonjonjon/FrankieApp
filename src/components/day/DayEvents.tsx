@@ -6,6 +6,8 @@ import { EventRow } from './EventRow'
 interface Props {
   date: ISODate
   events: DiaryEvent[]
+  /** The row the day has reached (today only). */
+  currentId?: string | null
   onOpen: (id: string) => void
   onTime: (id: string) => void
 }
@@ -15,7 +17,7 @@ interface Props {
  * finger, an orange bar shows where it will land, and the store applies the
  * ordering rule on release.
  */
-export function DayEvents({ date, events, onOpen, onTime }: Props) {
+export function DayEvents({ date, events, currentId = null, onOpen, onTime }: Props) {
   const store = useStore()
   const rows = useRef<Map<string, HTMLDivElement>>(new Map())
   const [drag, setDrag] = useState<{ id: string; startY: number; dy: number; to: number } | null>(null)
@@ -71,7 +73,7 @@ export function DayEvents({ date, events, onOpen, onTime }: Props) {
               }}
               style={isDragged ? { transform: `translateY(${drag.dy}px)`, zIndex: 10, position: 'relative' } : undefined}
             >
-              <EventRow event={e} dragging={isDragged} onOpen={() => onOpen(e.id)} onTime={() => onTime(e.id)} onGrip={start(e.id)} />
+              <EventRow event={e} dragging={isDragged} current={e.id === currentId} onOpen={() => onOpen(e.id)} onTime={() => onTime(e.id)} onGrip={start(e.id)} />
             </div>
           </div>
         )

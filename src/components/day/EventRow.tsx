@@ -15,10 +15,12 @@ interface Props {
   /** Pointer-down on the grip starts a drag (handled by the list). */
   onGrip?: (e: PointerEvent<HTMLButtonElement>) => void
   dragging?: boolean
+  /** Where today has got to: orange edge and tint. */
+  current?: boolean
 }
 
 /** One row of the day: symbol (tap for photo), word, time or a clock to add one, place, who, grip to reorder. */
-export function EventRow({ event, onOpen, onTime, onGrip, dragging }: Props) {
+export function EventRow({ event, onOpen, onTime, onGrip, dragging, current }: Props) {
   const store = useStore()
   const { items } = store.state
   const face = eventFace(event, items)
@@ -29,9 +31,10 @@ export function EventRow({ event, onOpen, onTime, onGrip, dragging }: Props) {
 
   return (
     <div
-      className={`flex items-stretch gap-3 rounded-3xl border-4 border-ink bg-paper p-1.5 ${
-        dragging ? 'scale-[1.02] shadow-2xl ring-4 ring-orange-light' : ''
-      }`}
+      className={`flex items-stretch gap-3 rounded-3xl border-4 p-1.5 ${
+        current ? 'border-orange bg-orange-light' : 'border-ink bg-paper'
+      } ${dragging ? 'scale-[1.02] shadow-2xl ring-4 ring-orange-light' : ''}`}
+      aria-current={current ? 'time' : undefined}
     >
       <button
         type="button"

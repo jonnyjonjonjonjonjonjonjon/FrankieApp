@@ -7,7 +7,7 @@ import { MonthView } from './components/month/MonthView'
 import { SettingsView } from './components/settings/SettingsView'
 import { TabBar } from './components/ui/TabBar'
 import { Toast } from './components/ui/Toast'
-import { TodayView } from './components/today/TodayView'
+import { today } from './lib/dates'
 import { WeekView } from './components/week/WeekView'
 
 function Screen() {
@@ -22,7 +22,7 @@ function Screen() {
   }
   switch (view.kind) {
     case 'today':
-      return <TodayView />
+      return <DayView date={today()} from="today" />
     case 'week':
       return <WeekView date={view.date} />
     case 'month':

@@ -4,7 +4,7 @@ import { useStore } from '../../lib/store'
 import type { Tab, View } from '../../types'
 
 const TABS: { tab: Tab; word: string; Icon: typeof Sun; view: () => View }[] = [
-  { tab: 'today', word: 'Today', Icon: Sun, view: () => ({ kind: 'today' }) },
+  { tab: 'today', word: 'Today', Icon: Sun, view: () => ({ kind: 'day', date: today(), from: 'today' }) },
   { tab: 'week', word: 'Week', Icon: CalendarRange, view: () => ({ kind: 'week', date: today() }) },
   { tab: 'month', word: 'Month', Icon: CalendarDays, view: () => ({ kind: 'month', date: today() }) },
   { tab: 'photos', word: 'Photos', Icon: Image, view: () => ({ kind: 'photos' }) },
