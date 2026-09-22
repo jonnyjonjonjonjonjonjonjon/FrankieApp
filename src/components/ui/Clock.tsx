@@ -9,9 +9,9 @@ export function Clock() {
   const hhmm = nowHHMM(now)
   const t = to12(hhmm)
   return (
-    <div className="flex items-center justify-center gap-5 rounded-3xl border-4 border-line bg-soft px-5 py-3">
+    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-3xl border-4 border-line bg-soft px-4 py-3">
       <TimeLabel time={hhmm} size="xl" />
-      <AnalogueFace hour={t.hour} minute={t.minute} size={110} />
+      <AnalogueFace hour={t.hour} minute={t.minute} size={110} className="h-20 w-20 sm:h-28 sm:w-28" />
     </div>
   )
 }

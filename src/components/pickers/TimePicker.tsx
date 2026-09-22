@@ -40,9 +40,9 @@ export function TimePicker({ title = 'When?', value, fineMinutes = false, onDone
       }
     >
       <div className="mx-auto flex max-w-4xl flex-col gap-5">
-        <div className="flex items-center justify-center gap-6 rounded-3xl border-4 border-line bg-soft px-4 py-3">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-3xl border-4 border-line bg-soft px-4 py-3">
           <TimeLabel time={result} size="xl" />
-          <AnalogueFace hour={hour} minute={minute} size={110} />
+          <AnalogueFace hour={hour} minute={minute} size={110} className="h-20 w-20 sm:h-28 sm:w-28" />
         </div>
 
         <div className="grid grid-cols-2 gap-4">

@@ -5,7 +5,7 @@ import type { HHMM } from '../../types'
 /** "5:30 pm" with the sun/moon icon always paired with am/pm. */
 export function TimeLabel({ time, size = 'md', className = '' }: { time: HHMM; size?: 'md' | 'lg' | 'xl'; className?: string }) {
   const t = to12(time)
-  const text = size === 'xl' ? 'text-5xl' : size === 'lg' ? 'text-4xl' : 'text-2xl'
+  const text = size === 'xl' ? 'text-4xl sm:text-5xl' : size === 'lg' ? 'text-3xl sm:text-4xl' : 'text-2xl'
   const icon = size === 'xl' ? 44 : size === 'lg' ? 36 : 28
   const Icon = t.ampm === 'am' ? Sun : Moon
   return (
