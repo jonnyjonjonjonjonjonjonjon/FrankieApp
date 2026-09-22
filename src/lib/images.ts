@@ -1,16 +1,14 @@
 import { getBlob } from './db'
 
-const MAX_EDGE = 1280
+const MAX_EDGE = 1024
+/** Firestore documents max out at 1 MB; photos are synced as one document each. */
+const MAX_BYTES = 700 * 1024
 
-/** Shrink a captured/uploaded image so the local store (and later cloud sync) stays small. */
+/** Shrink a captured/uploaded image so it stores and syncs quickly. */
 export async function shrinkImage(file: Blob): Promise<Blob> {
   const bitmap = await createImageBitmap(file).catch(() => null)
   if (!bitmap) return file
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height))
-  if (scale === 1 && file.type === 'image/jpeg') {
-    bitmap.close()
-    return file
-  }
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(bitmap.width * scale)
   canvas.height = Math.round(bitmap.height * scale)
@@ -21,9 +19,13 @@ export async function shrinkImage(file: Blob): Promise<Blob> {
   }
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
   bitmap.close()
-  return new Promise<Blob>(resolve =>
-    canvas.toBlob(b => resolve(b ?? file), 'image/jpeg', 0.85),
-  )
+  const encode = (q: number) => new Promise<Blob>(resolve => canvas.toBlob(b => resolve(b ?? file), 'image/jpeg', q))
+  let out = await encode(0.82)
+  for (const q of [0.7, 0.58, 0.45]) {
+    if (out.size <= MAX_BYTES) break
+    out = await encode(q)
+  }
+  return out
 }
 
 /** Set by the sync layer: fetch a blob from cloud storage and store it locally. */

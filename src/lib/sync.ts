@@ -10,6 +10,7 @@ import {
   type User,
 } from 'firebase/auth'
 import {
+  Bytes,
   collection,
   deleteDoc,
   doc,
@@ -23,7 +24,6 @@ import {
   type Firestore,
   type Unsubscribe,
 } from 'firebase/firestore'
-import { getBytes, getStorage, ref, uploadBytes, type FirebaseStorage } from 'firebase/storage'
 import * as db from './db'
 import { firebaseConfig } from './firebaseConfig'
 import { setRemoteBlobFetcher } from './images'
@@ -36,7 +36,10 @@ import { store } from './store'
  *   offline; every local write is pushed to Firestore (the SDK queues writes
  *   while offline) and every remote change is written back locally,
  *   last-write-wins on `updatedAt`.
- * - Photos go to Cloud Storage from an outbox that retries when online.
+ * - Photo bytes live in Firestore too (collection `blobs`, one doc per photo,
+ *   under the 1 MB doc limit because images.ts shrinks them), pushed from an
+ *   outbox that retries when online. This avoids Cloud Storage, which needs a
+ *   billing account on new projects.
  * - Access: Google sign-in, and the signed-in email must exist in the
  *   `members` collection (enforced by firestore.rules / storage.rules).
  */
@@ -61,7 +64,6 @@ class Sync {
   private app: FirebaseApp | null = null
   private auth: Auth | null = null
   private fs: Firestore | null = null
-  private storage: FirebaseStorage | null = null
   private unsubs: Unsubscribe[] = []
   private flushing = false
   private listeners = new Set<() => void>()
@@ -93,7 +95,6 @@ class Sync {
       ignoreUndefinedProperties: true,
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
     })
-    this.storage = getStorage(this.app)
 
     window.addEventListener('online', () => {
       this.online = true
@@ -245,12 +246,15 @@ class Sync {
   }
 
   async flushOutbox() {
-    if (!this.storage || this.status !== 'ready' || this.flushing || !navigator.onLine) return
+    if (!this.fs || this.status !== 'ready' || this.flushing || !navigator.onLine) return
     this.flushing = true
     try {
       for (const id of await db.outboxIds()) {
         const blob = await db.getBlob(id)
-        if (blob) await uploadBytes(ref(this.storage, `photos/${id}.jpg`), blob, { contentType: blob.type || 'image/jpeg' })
+        if (blob) {
+          const data = Bytes.fromUint8Array(new Uint8Array(await blob.arrayBuffer()))
+          await setDoc(doc(this.fs, 'blobs', id), { id, type: blob.type || 'image/jpeg', data })
+        }
         await db.outboxDone(id)
       }
     } catch (e) {
@@ -261,10 +265,12 @@ class Sync {
   }
 
   private async fetchBlob(id: string): Promise<Blob | null> {
-    if (!this.storage || this.status !== 'ready') return null
+    if (!this.fs || this.status !== 'ready') return null
     try {
-      const bytes = await getBytes(ref(this.storage, `photos/${id}.jpg`))
-      const blob = new Blob([bytes], { type: 'image/jpeg' })
+      const snap = await getDoc(doc(this.fs, 'blobs', id))
+      if (!snap.exists()) return null
+      const { data, type } = snap.data() as { data: Bytes; type?: string }
+      const blob = new Blob([Uint8Array.from(data.toUint8Array())], { type: type || 'image/jpeg' })
       await db.putBlob(id, blob, true)
       return blob
     } catch {

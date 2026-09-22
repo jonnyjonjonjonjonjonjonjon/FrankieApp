@@ -35,16 +35,16 @@ Symbols are **emoji placeholders** until Makaton licensing is confirmed (PRD §1
 
 ## Cloud sync (PRD 4.12)
 
-Sync runs on Firebase: Firestore for the diary, Cloud Storage for photos, Google sign-in for access. It is switched on by pasting the Firebase web config into `src/lib/firebaseConfig.ts`; with `null` there the app runs on one device only.
+Sync runs on Firebase: Firestore for the diary and the photo bytes (no Cloud Storage, so no billing account is needed), Google sign-in for access. It is switched on by pasting the Firebase web config into `src/lib/firebaseConfig.ts`; with `null` there the app runs on one device only.
 
 How it works (`src/lib/sync.ts`):
 
 - IndexedDB stays the source the screens read from, so everything works offline. Every local write is pushed to Firestore (the SDK queues writes while offline) and every remote change is written back locally, last-write-wins on `updatedAt`.
-- Photos upload from an outbox that retries when the device comes online, and download on demand on other devices.
-- Access is by Google account: the signed-in email must be listed in the `members` collection. `firestore.rules` and `storage.rules` enforce it. Members are managed in Family settings → Family accounts; the very first member is added in the Firebase console.
+- Photos are shrunk to stay under Firestore's 1 MB document limit, upload from an outbox that retries when the device comes online, and download on demand on other devices.
+- Access is by Google account: the signed-in email must be listed in the `members` collection. `firestore.rules` enforces it. Members are managed in Family settings → Family accounts; the very first member is added in the Firebase console.
 - Frankie's tablet signs in once (with a family account) and stays signed in.
 
-Deploy rules and hosting with the Firebase CLI: `firebase deploy` (see `firebase.json`).
+The app is published to GitHub Pages by `.github/workflows/deploy.yml` on every push to `main` (served under `/FrankieApp/`, see `base` in `vite.config.ts`). Firestore rules are pasted into the Firebase console (or deployed with `firebase deploy --only firestore:rules`).
 
 ## Not built yet
 
@@ -69,6 +69,6 @@ src/
     pickers/            ItemPicker, NewItemForm, TimePicker, RatingPicker, PhotoInput
     auth/               sign-in gate (only shown when sync is configured)
     today/ week/ month/ day/ photos/ settings/
-firestore.rules, storage.rules, firebase.json
+firestore.rules, firebase.json, .github/workflows/deploy.yml
 public/icons/           app icon (icon.svg is the source; PNGs rendered from it)
 ```
