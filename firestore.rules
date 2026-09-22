@@ -5,7 +5,7 @@ service cloud.firestore {
     function isMember() {
       return request.auth != null
         && request.auth.token.email != null
-        && exists(/databases/$(database)/documents/members/$(lower(request.auth.token.email)));
+        && exists(/databases/$(database)/documents/members/$(request.auth.token.email.lower()));
     }
     match /{document=**} {
       allow read, write: if isMember();
