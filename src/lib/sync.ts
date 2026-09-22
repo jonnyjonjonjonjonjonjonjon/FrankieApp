@@ -145,8 +145,14 @@ class Sync {
     try {
       const snap = await getDoc(doc(this.fs, 'members', email))
       if (!snap.exists()) {
-        this.setStatus('not-member')
-        return
+        // The read was allowed but there is no entry: the rules let this account
+        // in as the project owner (isOwner in firestore.rules). Add it to the
+        // family list so it shows up like everyone else.
+        await setDoc(doc(this.fs, 'members', email), {
+          email,
+          name: this.user?.displayName?.split(' ')[0] || email,
+          addedAt: new Date().toISOString(),
+        })
       }
     } catch (e) {
       // Rules deny reads to non-members, which surfaces as permission-denied.

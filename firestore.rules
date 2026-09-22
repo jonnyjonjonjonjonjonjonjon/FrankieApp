@@ -1,14 +1,22 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Only Google accounts listed in the `members` collection can read or write anything.
+    // The project owner's Google account. Always allowed in, and the app adds
+    // it to the members list on first sign-in. Keep this in step with the
+    // rules published in the Firebase console.
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == 'OWNER_EMAIL';
+    }
+    // Everyone else: Google accounts listed in the `members` collection.
     function isMember() {
       return request.auth != null
         && request.auth.token.email != null
         && exists(/databases/$(database)/documents/members/$(request.auth.token.email.lower()));
     }
     match /{document=**} {
-      allow read, write: if isMember();
+      allow read, write: if isOwner() || isMember();
     }
   }
 }
