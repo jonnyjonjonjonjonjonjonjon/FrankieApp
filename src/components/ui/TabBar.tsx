@@ -30,7 +30,7 @@ export function TabBar() {
             type="button"
             aria-current={on ? 'page' : undefined}
             onClick={() => store.go(view())}
-            className={`flex min-h-20 flex-col items-center justify-center gap-0.5 rounded-2xl border-4 text-xl font-extrabold active:scale-95 ${
+            className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl border-4 text-base sm:min-h-20 sm:text-xl font-extrabold active:scale-95 ${
               on ? 'border-orange-dark bg-orange text-white' : 'border-ink bg-paper'
             }`}
           >
