@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type TouchEvent, type TransitionEvent } from 'react'
 
 interface Props {
   /** Render the panel for an offset of -1, 0 or +1 days from the current one. */
@@ -64,17 +64,17 @@ export function DayCarousel({ render, onSettle, request }: Props) {
     else setAnimTo(0)
   }
 
-  const onTransitionEnd = () => {
-    if (animTo === null) return
+  const onTransitionEnd = (e: TransitionEvent) => {
+    // Only the track's own slide counts, not transitions on rows inside it.
+    if (e.target !== e.currentTarget || animTo === null) return
     const dir = animTo
-    // Snap back without animating, then let the parent change the date.
+    // Snap back and change the date in the SAME render, so the panel that is
+    // now in the middle already shows the new day: no flash of the old one.
     setNoTransition(true)
     setDx(0)
     setAnimTo(null)
-    requestAnimationFrame(() => {
-      setNoTransition(false)
-      if (dir !== 0) onSettle(dir)
-    })
+    if (dir !== 0) onSettle(dir)
+    requestAnimationFrame(() => setNoTransition(false))
   }
 
   const shift = animTo === null ? dx : animTo === 0 ? 0 : -animTo * width
