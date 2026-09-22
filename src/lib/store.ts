@@ -18,6 +18,7 @@ import * as db from './db'
 import { seedItems, HOME_PLACE_ID } from './seed'
 import { shrinkImage, primeUrl, forgetUrl } from './images'
 import { minutesOf } from './time'
+import { today } from './dates'
 
 // ------------------------------------------------------------
 // State
@@ -105,6 +106,24 @@ class Store {
       photos: byId(data.photos),
       settings,
     })
+    await this.migrate()
+  }
+
+  /**
+   * Routine v2 (Sept 2026): "Wake up" left the default routine. Diaries saved
+   * with the old routine drop it once, along with unticked Wake up rows the
+   * routine had already written into today and future days.
+   */
+  async migrate() {
+    const s = this.state.settings
+    if ((s.templateVersion ?? 1) >= 2) return
+    const template = s.template.filter(t => t.type !== 'wake')
+    await this.updateSettings({ template, templateVersion: 2 })
+    const todayIso = today()
+    const stale = Object.values(this.state.events).filter(
+      e => e.type === 'wake' && e.fromTemplate && !e.done && !e.deleted && e.date >= todayIso,
+    )
+    for (const e of stale) await this.updateEvent(e.date, e.id, { deleted: true })
   }
 
   // ---------- navigation ----------
@@ -454,6 +473,7 @@ class Store {
       }
       case 'settings':
         this.set({ settings: record as Settings })
+        void this.migrate()
         break
     }
   }

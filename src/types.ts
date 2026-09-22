@@ -110,11 +110,12 @@ export interface Settings {
   pin: string | null
   template: TemplateItem[]
   homePlaceId: Id | null
+  /** Bumped when the default routine changes so existing diaries get tidied once. */
+  templateVersion?: number
   updatedAt: string
 }
 
 export const DEFAULT_TEMPLATE: TemplateItem[] = [
-  { type: 'wake', time: '07:00' },
   { type: 'breakfast', time: '07:30' },
   { type: 'lunch', time: '11:30' },
   { type: 'dinner', time: '17:30' },
