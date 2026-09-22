@@ -1,12 +1,18 @@
 import type { FirebaseOptions } from 'firebase/app'
 
 /**
- * Firebase web app settings, pasted from the Firebase console
- * (Project settings → Your apps → SDK setup and configuration → Config).
+ * Firebase web app settings for the "Frankies Diary" project.
  *
- * These values are not secret: access is controlled by the sign-in and the
- * security rules in firestore.rules / storage.rules, not by hiding this.
+ * These values are not secret: access is controlled by Google sign-in and
+ * the members list enforced by firestore.rules, not by hiding this.
  *
- * null = sync switched off; the app runs on this device only.
+ * Set to null to switch sync off (app runs on one device only).
  */
-export const firebaseConfig: FirebaseOptions | null = null
+export const firebaseConfig: FirebaseOptions | null = {
+  apiKey: 'AIzaSyAJTlk3tG9KxhCi8rh9qOvloI3Pwu2CkKs',
+  authDomain: 'frankies-diary-ced37.firebaseapp.com',
+  projectId: 'frankies-diary-ced37',
+  storageBucket: 'frankies-diary-ced37.firebasestorage.app',
+  messagingSenderId: '527517728759',
+  appId: '1:527517728759:web:7923684396255e55d0b8f2',
+}
