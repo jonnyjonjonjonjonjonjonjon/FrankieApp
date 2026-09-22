@@ -38,7 +38,7 @@ export function EventRow({ event, onOpen }: Props) {
         type="button"
         aria-label={face.photoId ? 'Show photo' : face.word}
         onClick={() => (face.itemId && face.photoId ? store.toggleItemPhoto(face.itemId) : onOpen())}
-        className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-soft active:scale-95 max-sm:h-20 max-sm:w-20"
+        className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-soft active:scale-95"
       >
         {showPhoto && face.photoId ? (
           <Photo id={face.photoId} alt={face.word} className="h-full w-full" />
@@ -48,7 +48,7 @@ export function EventRow({ event, onOpen }: Props) {
       </button>
 
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 flex-col justify-center gap-1 text-left">
-        <span className={`line-clamp-2 text-3xl font-extrabold leading-tight max-sm:text-2xl ${event.done ? 'line-through decoration-4' : ''}`}>
+        <span className={`line-clamp-2 text-3xl font-extrabold leading-tight ${event.done ? 'line-through decoration-4' : ''}`}>
           {face.word}
           {event.rating && (
             <span className="symbol ml-2 no-underline" aria-label={RATING_FACES[event.rating].word}>
@@ -85,7 +85,7 @@ export function EventRow({ event, onOpen }: Props) {
         aria-checked={event.done}
         aria-label="Done"
         onClick={tick}
-        className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border-4 active:scale-95 max-sm:h-20 max-sm:w-20 ${
+        className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border-4 active:scale-95 ${
           event.done ? 'border-green bg-green text-white' : 'border-ink bg-paper'
         }`}
       >

@@ -44,8 +44,8 @@ export function MonthView({ date }: { date: ISODate }) {
       />
       <div className="min-h-0 flex-1 p-3">
         <div
-          className="mx-auto grid h-full max-w-5xl grid-cols-7 gap-2"
-          style={{ gridTemplateRows: `auto repeat(${cells.length / 7}, minmax(0, 1fr))` }}
+          className="month-grid mx-auto grid max-w-5xl grid-cols-7 gap-2 sm:h-full"
+          style={{ '--rows': cells.length / 7 } as React.CSSProperties}
         >
           {DAY_SHORT.map(d => (
             <div key={d} className="text-center text-xl font-extrabold text-ink-soft">
@@ -64,7 +64,7 @@ export function MonthView({ date }: { date: ISODate }) {
                 key={d}
                 type="button"
                 onClick={() => store.go({ kind: 'day', date: d, from: 'month' })}
-                className={`flex min-h-0 flex-col items-center justify-center rounded-2xl border-4 p-1 active:scale-95 ${
+                className={`flex aspect-square min-h-0 flex-col items-center justify-center rounded-2xl border-4 p-1 active:scale-95 sm:aspect-auto ${
                   isToday ? 'border-orange-dark bg-orange text-white' : 'border-ink bg-paper'
                 }`}
               >

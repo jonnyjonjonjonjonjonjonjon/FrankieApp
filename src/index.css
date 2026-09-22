@@ -15,15 +15,45 @@
   --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Everything scales from the root size: phones ~18px, tablets/desktops 22px
-   so body text lands at 28px+ on the tablet (PRD §6). */
+/* Everything scales from the root size.
+   Phones (family, sighted users): a normal app size.
+   Tablets and desktops (Frankie): large, so body text lands at 28px+ (PRD §6). */
 html {
-  font-size: 18px;
+  font-size: 14px;
   background: var(--color-paper);
+}
+@media (min-width: 640px) {
+  html {
+    font-size: 18px;
+  }
 }
 @media (min-width: 900px) {
   html {
     font-size: 20px;
+  }
+}
+
+/* Month grid fills the screen height on tablets; natural rows on phones. */
+@media (min-width: 640px) {
+  .month-grid {
+    grid-template-rows: auto repeat(var(--rows), minmax(0, 1fr));
+  }
+}
+
+/* On phones, thinner borders and icons that follow the text size. */
+@media (max-width: 639px) {
+  .border-4 {
+    border-width: 2px;
+  }
+  .border-t-4 {
+    border-top-width: 2px;
+  }
+  .border-b-4 {
+    border-bottom-width: 2px;
+  }
+  .lucide {
+    width: 1.35em;
+    height: 1.35em;
   }
 }
 
