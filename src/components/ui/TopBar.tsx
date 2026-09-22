@@ -19,7 +19,7 @@ export function TopBar({ title, onBack, backWord = 'Back', right }: Props) {
         </BigButton>
       )}
       <div className="min-w-0 flex-1 text-xl font-extrabold leading-tight sm:text-3xl">{title}</div>
-      {right && <div className="ml-auto flex gap-2">{right}</div>}
+      {right && <div className="ml-auto flex items-center gap-2">{right}</div>}
     </header>
   )
 }

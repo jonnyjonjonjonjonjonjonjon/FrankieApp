@@ -77,10 +77,15 @@ export function TodayView() {
       <TopBar
         title={<span className="text-orange-dark">{longDate(date)}</span>}
         right={
-          <BigButton size="sm" variant="ghost" onClick={() => store.go({ kind: 'settings' })} aria-label="Family settings">
-            <SettingsIcon size={32} strokeWidth={2.5} />
-            <span className="text-lg">Family</span>
-          </BigButton>
+          <>
+            <span className="text-xs text-ink-soft" aria-label="App version">
+              v{__APP_VERSION__}
+            </span>
+            <BigButton size="sm" variant="ghost" onClick={() => store.go({ kind: 'settings' })} aria-label="Family settings">
+              <SettingsIcon size={32} strokeWidth={2.5} />
+              <span className="text-lg">Family</span>
+            </BigButton>
+          </>
         }
       />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-2 sm:py-3">
