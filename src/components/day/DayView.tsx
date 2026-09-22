@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Eye, EyeOff } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { addDays, longDate, today } from '../../lib/dates'
 import { useStore } from '../../lib/store'
 import type { ISODate, Tab } from '../../types'
@@ -24,11 +24,8 @@ export function DayView({ date, from }: Props) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [pickStay, setPickStay] = useState(false)
-  const [showDone, setShowDone] = useState(true)
 
   const events = store.eventsFor(date)
-  const todo = events.filter(e => !e.done)
-  const done = events.filter(e => e.done)
   const staying = store.stayingAt(date)
   const birthdays = store.birthdaysOn(date)
   const isToday = date === today()
@@ -102,24 +99,11 @@ export function DayView({ date, from }: Props) {
             </div>
           ))}
 
-          {/* Events */}
+          {/* Events, in time order; ticked ones stay in place */}
           <div className="flex flex-col gap-3">
-            {todo.map(e => (
+            {events.map(e => (
               <EventRow key={e.id} event={e} onOpen={() => void open(e.id)} />
             ))}
-            {done.length > 0 && (
-              <BigButton
-                size="sm"
-                variant={showDone ? 'ghost' : 'secondary'}
-                className="self-start"
-                onClick={() => setShowDone(s => !s)}
-                aria-pressed={showDone}
-              >
-                {showDone ? <EyeOff size={30} strokeWidth={2.5} /> : <Eye size={30} strokeWidth={2.5} />}
-                Done ✓ {done.length}
-              </BigButton>
-            )}
-            {showDone && done.map(e => <EventRow key={e.id} event={e} onOpen={() => void open(e.id)} />)}
           </div>
 
           <PhotoStrip date={date} />
