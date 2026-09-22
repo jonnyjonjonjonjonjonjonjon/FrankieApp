@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Photos: same family list as the diary.
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null
+        && request.auth.token.email != null
+        && firestore.exists(/databases/(default)/documents/members/$(lower(request.auth.token.email)));
+    }
+  }
+}

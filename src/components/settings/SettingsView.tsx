@@ -15,6 +15,7 @@ import { ItemPicker } from '../pickers/ItemPicker'
 import { NewItemForm } from '../pickers/NewItemForm'
 import { PhotoInput } from '../pickers/PhotoInput'
 import { TimePicker } from '../pickers/TimePicker'
+import { FamilyAccounts } from './FamilyAccounts'
 
 const KINDS: LibraryKind[] = ['person', 'place', 'food', 'activity']
 
@@ -194,6 +195,10 @@ export function SettingsView() {
             )}
           </Section>
 
+          <Section title="Family accounts" symbol="👨‍👩‍👧">
+            <FamilyAccounts />
+          </Section>
+
           <Section title="Data" symbol="💾">
             <div className="flex flex-wrap gap-3">
               <BigButton onClick={exportData}>
@@ -214,9 +219,7 @@ export function SettingsView() {
                 {resetArmed ? 'Tap again to wipe everything' : 'Start again'}
               </BigButton>
             </div>
-            <p className="text-lg text-ink-soft">
-              This device keeps its own copy of the diary. Sync between devices (PRD §4.12) is not wired up yet.
-            </p>
+            <p className="text-lg text-ink-soft">Export downloads a copy of everything on this device. Start again wipes this device only.</p>
           </Section>
         </div>
       </div>

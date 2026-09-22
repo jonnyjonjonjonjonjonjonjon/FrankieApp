@@ -1,6 +1,6 @@
 # Frankie's Diary
 
-A shared visual diary and calendar for Frankie: words + symbols, large type, tap to tick things off. The design source of truth is [`PRD.md`](PRD.md) (v0.5). This code covers the **Phase 1 MVP** screens, running locally on one device; cross-device sync is the main piece still to build (see below).
+A shared visual diary and calendar for Frankie: words + symbols, large type, tap to tick things off. The design source of truth is [`PRD.md`](PRD.md) (v0.5). This code covers the **Phase 1 MVP** screens plus cloud sync via Firebase (see below).
 
 ## Run
 
@@ -14,7 +14,7 @@ npm run preview    # serve dist/
 npm run lint
 ```
 
-Installable as a PWA (Android tablet, Chrome/Edge on Windows). Everything is stored in the browser's IndexedDB, so each device currently has its own copy of the diary.
+Installable as a PWA (Android tablet, Chrome/Edge on Windows). Everything is stored in the browser's IndexedDB and, once Firebase is configured, kept in sync across devices.
 
 ## What is built (PRD §4)
 
@@ -33,10 +33,22 @@ Installable as a PWA (Android tablet, Chrome/Edge on Windows). Everything is sto
 
 Symbols are **emoji placeholders** until Makaton licensing is confirmed (PRD §11.6); swapping in a licensed symbol set means replacing the `symbol` strings and `lib/symbols.ts`.
 
+## Cloud sync (PRD 4.12)
+
+Sync runs on Firebase: Firestore for the diary, Cloud Storage for photos, Google sign-in for access. It is switched on by pasting the Firebase web config into `src/lib/firebaseConfig.ts`; with `null` there the app runs on one device only.
+
+How it works (`src/lib/sync.ts`):
+
+- IndexedDB stays the source the screens read from, so everything works offline. Every local write is pushed to Firestore (the SDK queues writes while offline) and every remote change is written back locally, last-write-wins on `updatedAt`.
+- Photos upload from an outbox that retries when the device comes online, and download on demand on other devices.
+- Access is by Google account: the signed-in email must be listed in the `members` collection. `firestore.rules` and `storage.rules` enforce it. Members are managed in Family settings → Family accounts; the very first member is added in the Firebase console.
+- Frankie's tablet signs in once (with a family account) and stays signed in.
+
+Deploy rules and hosting with the Firebase CLI: `firebase deploy` (see `firebase.json`).
+
 ## Not built yet
 
-- **Sync between devices (4.12, Phase 1 "sync between tablet and Jon's phone").** The store (`lib/store.ts`, `lib/db.ts`) keeps every record with `updatedAt` and soft `deleted` flags so a Firestore/Supabase adapter can replay them last-write-wins. Needs a project + credentials before it can be wired up.
-- Trips (4.8), photo import via the Android share target, change tracking with green-tick acceptance (4.7), rating insights — Phases 2–3.
+- Trips (4.8), photo import via the Android share target, change tracking with green-tick acceptance (4.7), rating insights, family notifications — Phases 2–3.
 
 ## Code layout
 
@@ -50,9 +62,13 @@ src/
     symbols.ts          event types, rating faces, symbol grid for new words
     dates.ts, time.ts   date helpers; 12-hour / half-hour time helpers
     images.ts           image shrinking + object-URL cache
+    sync.ts             Firebase sync adapter (auth, members, Firestore, Storage outbox)
+    firebaseConfig.ts   paste the Firebase web config here to switch sync on
   components/
     ui/                 Tile, BigButton, Sheet, TopBar, TabBar, Clock, Toast, PinPad…
     pickers/            ItemPicker, NewItemForm, TimePicker, RatingPicker, PhotoInput
+    auth/               sign-in gate (only shown when sync is configured)
     today/ week/ month/ day/ photos/ settings/
+firestore.rules, storage.rules, firebase.json
 public/icons/           app icon (icon.svg is the source; PNGs rendered from it)
 ```

@@ -26,6 +26,12 @@ export async function shrinkImage(file: Blob): Promise<Blob> {
   )
 }
 
+/** Set by the sync layer: fetch a blob from cloud storage and store it locally. */
+let remoteFetch: ((id: string) => Promise<Blob | null>) | null = null
+export function setRemoteBlobFetcher(fn: ((id: string) => Promise<Blob | null>) | null) {
+  remoteFetch = fn
+}
+
 // Object-URL cache so tiles don't re-read IndexedDB on every render.
 const urlCache = new Map<string, string>()
 const pending = new Map<string, Promise<string | null>>()
@@ -48,6 +54,7 @@ export function loadUrl(id: string): Promise<string | null> {
   const inflight = pending.get(id)
   if (inflight) return inflight
   const p = getBlob(id)
+    .then(blob => blob ?? remoteFetch?.(id) ?? null)
     .then(blob => (blob ? primeUrl(id, blob) : null))
     .finally(() => pending.delete(id))
   pending.set(id, p)

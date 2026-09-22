@@ -87,13 +87,15 @@ class Store {
     const data = await db.loadAll()
     let items = data.items
     let settings = data.settings
+    // Boot-time defaults are written silently with an old timestamp so any
+    // version already in the cloud wins when sync connects.
     if (items.length === 0) {
-      items = seedItems()
-      await db.putItems(items)
+      items = seedItems(new Date(0).toISOString())
+      await db.putItems(items, true)
     }
     if (!settings.homePlaceId) {
-      settings = { ...settings, homePlaceId: HOME_PLACE_ID, updatedAt: stamp() }
-      await db.putSettings(settings)
+      settings = { ...settings, homePlaceId: HOME_PLACE_ID, updatedAt: new Date(1).toISOString() }
+      await db.putSettings(settings, true)
     }
     this.set({
       loading: false,
@@ -356,7 +358,8 @@ class Store {
     const small = await shrinkImage(file)
     await db.putBlob(id, small)
     primeUrl(id, small)
-    const rec: PhotoRecord = { id, date, eventId, deleted: false, createdAt: stamp() }
+    const now = stamp()
+    const rec: PhotoRecord = { id, date, eventId, deleted: false, createdAt: now, updatedAt: now }
     await db.putPhoto(rec)
     this.set({ photos: { ...this.state.photos, [id]: rec } })
     return rec
@@ -366,7 +369,7 @@ class Store {
     const cur = this.state.photos[id]
     if (!cur) return
     const setDeleted = async (deleted: boolean) => {
-      const next = { ...cur, deleted }
+      const next = { ...cur, deleted, updatedAt: stamp() }
       await db.putPhoto(next)
       this.set({ photos: { ...this.state.photos, [id]: next } })
     }
@@ -407,6 +410,52 @@ class Store {
   exportJSON(): string {
     const { items, events, days, photos, settings } = this.state
     return JSON.stringify({ exportedAt: stamp(), items, events, days, photos, settings }, null, 2)
+  }
+
+  // ---------- sync ----------
+
+  localRecord(coll: db.Collection, record: db.Record_): db.Record_ | null {
+    switch (coll) {
+      case 'items':
+        return this.state.items[(record as LibraryItem).id] ?? null
+      case 'events':
+        return this.state.events[(record as DiaryEvent).id] ?? null
+      case 'days':
+        return this.state.days[(record as DayRecord).date] ?? null
+      case 'photos':
+        return this.state.photos[(record as PhotoRecord).id] ?? null
+      case 'settings':
+        return this.state.settings
+    }
+  }
+
+  /** A record that arrived from the cloud (already written locally). */
+  applyRemote(coll: db.Collection, record: db.Record_) {
+    switch (coll) {
+      case 'items': {
+        const r = record as LibraryItem
+        this.set({ items: { ...this.state.items, [r.id]: r } })
+        break
+      }
+      case 'events': {
+        const r = record as DiaryEvent
+        this.set({ events: { ...this.state.events, [r.id]: r } })
+        break
+      }
+      case 'days': {
+        const r = record as DayRecord
+        this.set({ days: { ...this.state.days, [r.date]: r } })
+        break
+      }
+      case 'photos': {
+        const r = record as PhotoRecord
+        this.set({ photos: { ...this.state.photos, [r.id]: r } })
+        break
+      }
+      case 'settings':
+        this.set({ settings: record as Settings })
+        break
+    }
   }
 
   // ---------- derived ----------

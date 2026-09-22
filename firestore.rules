@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only Google accounts listed in the `members` collection can read or write anything.
+    function isMember() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/members/$(lower(request.auth.token.email)));
+    }
+    match /{document=**} {
+      allow read, write: if isMember();
+    }
+  }
+}

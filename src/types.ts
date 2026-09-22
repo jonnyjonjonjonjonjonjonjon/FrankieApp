@@ -94,6 +94,7 @@ export interface PhotoRecord {
   eventId: Id | null
   deleted: boolean
   createdAt: string
+  updatedAt: string
 }
 
 // ---------- Settings ----------

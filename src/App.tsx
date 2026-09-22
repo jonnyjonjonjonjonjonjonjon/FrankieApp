@@ -1,5 +1,6 @@
 import { useStore } from './lib/store'
 import { StoreProvider } from './lib/StoreProvider'
+import { SignInGate } from './components/auth/SignInGate'
 import { DayView } from './components/day/DayView'
 import { GalleryView } from './components/photos/GalleryView'
 import { MonthView } from './components/month/MonthView'
@@ -38,13 +39,15 @@ function Screen() {
 export default function App() {
   return (
     <StoreProvider>
-      <div className="flex h-dvh flex-col bg-paper">
-        <main className="min-h-0 flex-1">
-          <Screen />
-        </main>
-        <TabBar />
-      </div>
-      <Toast />
+      <SignInGate>
+        <div className="flex h-dvh flex-col bg-paper">
+          <main className="min-h-0 flex-1">
+            <Screen />
+          </main>
+          <TabBar />
+        </div>
+        <Toast />
+      </SignInGate>
     </StoreProvider>
   )
 }
