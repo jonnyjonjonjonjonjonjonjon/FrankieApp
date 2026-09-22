@@ -11,6 +11,8 @@ import { PhotoInput } from './PhotoInput'
 interface Props {
   kind: LibraryKind
   mealSlot?: MealSlot
+  /** Extra fields to set on the new item (e.g. a stay place). */
+  extra?: Partial<LibraryItem>
   onCreated: (item: LibraryItem) => void
   onBack: () => void
 }
@@ -19,7 +21,7 @@ interface Props {
  * Add a new word (PRD §4.6): Word → Picture (symbol and/or photo) → Done, on one screen.
  * This is the only place Frankie types.
  */
-export function NewItemForm({ kind, mealSlot, onCreated, onBack }: Props) {
+export function NewItemForm({ kind, mealSlot, extra, onCreated, onBack }: Props) {
   const store = useStore()
   const [name, setName] = useState('')
   const [query, setQuery] = useState('')
@@ -39,7 +41,7 @@ export function NewItemForm({ kind, mealSlot, onCreated, onBack }: Props) {
   const save = async () => {
     if (!canSave) return
     setSaving(true)
-    const item = await store.addItem(kind, name, symbol, photo, mealSlot ? { meals: [mealSlot] } : {})
+    const item = await store.addItem(kind, name, symbol, photo, { ...(mealSlot ? { meals: [mealSlot] } : {}), ...extra })
     setSaving(false)
     onCreated(item)
   }

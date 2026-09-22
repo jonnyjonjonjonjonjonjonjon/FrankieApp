@@ -18,18 +18,22 @@ interface Props {
   /** Food picker for a meal: preferred items first, others below. */
   mealSlot?: MealSlot
   allowNone?: boolean
+  /** Show only these items (in this order) instead of the whole list. */
+  subset?: LibraryItem[]
+  /** Fields set on items added from this picker. */
+  newItemExtra?: Partial<LibraryItem>
   onDone: (ids: Id[]) => void
   onBack: () => void
 }
 
 /** Scrollable grid of tiles answering one question (Where? Who? Food? Activity?). */
-export function ItemPicker({ kind, title, symbol, multi = false, initial = [], mealSlot, allowNone, onDone, onBack }: Props) {
+export function ItemPicker({ kind, title, symbol, multi = false, initial = [], mealSlot, allowNone, subset, newItemExtra, onDone, onBack }: Props) {
   const store = useStore()
   const [selected, setSelected] = useState<Id[]>(initial)
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState(false)
 
-  const all = store.itemsOfKind(kind)
+  const all = subset ?? store.itemsOfKind(kind)
   const items = useMemo(() => {
     const q = query.trim().toLowerCase()
     let list = q ? all.filter(i => i.name.toLowerCase().includes(q)) : all
@@ -53,6 +57,7 @@ export function ItemPicker({ kind, title, symbol, multi = false, initial = [], m
       <NewItemForm
         kind={kind}
         mealSlot={mealSlot}
+        extra={newItemExtra}
         onBack={() => setAdding(false)}
         onCreated={item => {
           setAdding(false)
@@ -106,7 +111,7 @@ export function ItemPicker({ kind, title, symbol, multi = false, initial = [], m
             selected={selected.includes(item.id)}
           />
         ))}
-        <AddTile onClick={() => setAdding(true)} />
+        <AddTile word="New" onClick={() => setAdding(true)} />
       </div>
     </Sheet>
   )

@@ -110,20 +110,43 @@ class Store {
   }
 
   /**
-   * Routine v2 (Sept 2026): "Wake up" left the default routine. Diaries saved
-   * with the old routine drop it once, along with unticked Wake up rows the
-   * routine had already written into today and future days.
+   * One-off tidy-ups for diaries saved by earlier versions (synced, so every
+   * device ends up the same):
+   *  v2 (Sept 2026): "Wake up" left the default routine.
+   *  v3 (Sept 2026): stay places — Rochester Road / Eastbourne / Jon's house /
+   *     Hotel are marked as places Frankie can stay; seeded items get an order.
    */
   async migrate() {
     const s = this.state.settings
-    if ((s.templateVersion ?? 1) >= 2) return
-    const template = s.template.filter(t => t.type !== 'wake')
-    await this.updateSettings({ template, templateVersion: 2 })
-    const todayIso = today()
-    const stale = Object.values(this.state.events).filter(
-      e => e.type === 'wake' && e.fromTemplate && !e.done && !e.deleted && e.date >= todayIso,
-    )
-    for (const e of stale) await this.updateEvent(e.date, e.id, { deleted: true })
+    const version = s.templateVersion ?? 1
+    if (version >= 3) return
+    if (version < 2) {
+      const todayIso = today()
+      const stale = Object.values(this.state.events).filter(
+        e => e.type === 'wake' && e.fromTemplate && !e.done && !e.deleted && e.date >= todayIso,
+      )
+      for (const e of stale) await this.updateEvent(e.date, e.id, { deleted: true })
+    }
+    const seeds = seedItems()
+    for (const seed of seeds) {
+      const cur = this.state.items[seed.id]
+      if (!cur) {
+        if (seed.kind === 'place' && seed.stayable) {
+          await db.putItem(seed)
+          this.set({ items: { ...this.state.items, [seed.id]: seed } })
+        }
+        continue
+      }
+      const patch: Partial<LibraryItem> = { order: seed.order }
+      if (seed.stayable) patch.stayable = true
+      // Rename only if the old seed name is still in place (not edited by the family).
+      if (cur.name === 'My house' || cur.name === "Mum and Dad's house") patch.name = seed.name
+      await this.updateItem(seed.id, patch)
+    }
+    await this.updateSettings({
+      template: s.template.filter(t => t.type !== 'wake'),
+      templateVersion: 3,
+    })
   }
 
   // ---------- navigation ----------
@@ -229,7 +252,19 @@ class Store {
   itemsOfKind(kind: LibraryKind): LibraryItem[] {
     return Object.values(this.state.items)
       .filter(i => i.kind === kind && !i.deleted)
-      .sort((a, b) => (a.seeded === b.seeded ? a.name.localeCompare(b.name) : a.seeded ? -1 : 1))
+      .sort((a, b) => {
+        if (a.seeded !== b.seeded) return a.seeded ? -1 : 1
+        if (a.seeded) return (a.order ?? 999) - (b.order ?? 999) || a.name.localeCompare(b.name)
+        return a.name.localeCompare(b.name)
+      })
+  }
+
+  /** Places Frankie can be staying at, home first. */
+  stayPlaces(): LibraryItem[] {
+    const home = this.state.settings.homePlaceId
+    return this.itemsOfKind('place')
+      .filter(p => p.stayable)
+      .sort((a, b) => (a.id === home ? -1 : b.id === home ? 1 : 0))
   }
 
   // ---------- days & template ----------

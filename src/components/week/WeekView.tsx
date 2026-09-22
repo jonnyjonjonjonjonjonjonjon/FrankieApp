@@ -100,7 +100,7 @@ export function WeekView({ date }: { date: ISODate }) {
                       <Symbol symbol={staying?.symbol ?? '🏠'} size="text-4xl" />
                     )}
                   </div>
-                  <span className="text-lg font-bold leading-tight">{staying?.name ?? 'My house'}</span>
+                  <span className="text-lg font-bold leading-tight">{staying?.name ?? 'Rochester Road'}</span>
                 </div>
 
                 {MEALS.map((m, i) => (

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Camera, Download, LogOut, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { BedDouble, Camera, Download, LogOut, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useStore } from '../../lib/store'
 import { EVENT_TYPES, EVENT_TYPE_ORDER, KIND_WORD } from '../../lib/symbols'
 import type { EventType, LibraryItem, LibraryKind, TemplateItem } from '../../types'
@@ -50,6 +50,18 @@ function WordRow({ item }: { item: LibraryItem }) {
             className="min-h-14 rounded-xl border-4 border-line px-2 text-lg font-bold"
           />
         </label>
+      )}
+      {item.kind === 'place' && (
+        <BigButton
+          size="sm"
+          variant={item.stayable ? 'primary' : 'secondary'}
+          aria-pressed={Boolean(item.stayable)}
+          onClick={() => void store.updateItem(item.id, { stayable: !item.stayable })}
+          title="Frankie can stay here"
+        >
+          <BedDouble size={28} strokeWidth={2.5} />
+          Stay
+        </BigButton>
       )}
       <PhotoInput size="sm" cameraWord="" galleryWord="" onPick={f => void store.setItemPhoto(item.id, f)} />
       {item.photoId && (

@@ -26,12 +26,16 @@ export interface LibraryItem {
   photoId: Id | null
   /** Tile flip state — remembered per tile (PRD §4.5, `showPhotoByDefault`). */
   showPhoto: boolean
+  /** Display order for seeded items (lower first); user-added items follow, by name. */
+  order?: number
   // person
   role?: PersonRole
   /** MM-DD, recurs yearly (PRD §4.9). */
   birthday?: string | null
   // place
   placeType?: PlaceType
+  /** Place Frankie can be "staying at" (shown in the Staying at picker). */
+  stayable?: boolean
   // food
   meals?: MealSlot[]
   seeded: boolean
@@ -110,7 +114,7 @@ export interface Settings {
   pin: string | null
   template: TemplateItem[]
   homePlaceId: Id | null
-  /** Bumped when the default routine changes so existing diaries get tidied once. */
+  /** Bumped when seed data or the default routine changes so existing diaries get tidied once. */
   templateVersion?: number
   updatedAt: string
 }

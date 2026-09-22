@@ -9,6 +9,7 @@ interface SeedSpec {
   symbol: string
   role?: PersonRole
   placeType?: PlaceType
+  stayable?: boolean
   meals?: MealSlot[]
 }
 
@@ -24,9 +25,10 @@ const SEED: SeedSpec[] = [
   { id: 'seed-person-tara', kind: 'person', name: 'Tara', symbol: '🧑‍⚕️', role: 'carer' },
 
   // Places
-  { id: HOME_PLACE_ID, kind: 'place', name: 'My house', symbol: '🏠', placeType: 'home' },
-  { id: 'seed-place-mum-dad', kind: 'place', name: "Mum and Dad's house", symbol: '🏡', placeType: 'home' },
-  { id: 'seed-place-jon', kind: 'place', name: "Jon's house", symbol: '🏠', placeType: 'friend' },
+  { id: HOME_PLACE_ID, kind: 'place', name: 'Rochester Road', symbol: '🏠', placeType: 'home', stayable: true },
+  { id: 'seed-place-mum-dad', kind: 'place', name: 'Eastbourne', symbol: '🏡', placeType: 'home', stayable: true },
+  { id: 'seed-place-jon', kind: 'place', name: "Jon's house", symbol: '🏠', placeType: 'friend', stayable: true },
+  { id: 'seed-place-hotel', kind: 'place', name: 'Hotel', symbol: '🏨', placeType: 'accommodation', stayable: true },
   { id: 'seed-place-liz', kind: 'place', name: "Liz's house", symbol: '🏠', placeType: 'friend' },
   { id: 'seed-place-ria', kind: 'place', name: "Ria's house", symbol: '🏠', placeType: 'friend' },
   { id: 'seed-place-supermarket', kind: 'place', name: 'Supermarket', symbol: '🛒', placeType: 'shop' },
@@ -73,16 +75,18 @@ const SEED: SeedSpec[] = [
 ]
 
 export function seedItems(now = new Date().toISOString()): LibraryItem[] {
-  return SEED.map(s => ({
+  return SEED.map((s, i) => ({
     id: s.id,
     kind: s.kind,
     name: s.name,
     symbol: s.symbol,
     photoId: null,
     showPhoto: false,
+    order: i,
     role: s.role,
     birthday: s.kind === 'person' ? null : undefined,
     placeType: s.placeType,
+    stayable: s.stayable,
     meals: s.meals,
     seeded: true,
     deleted: false,

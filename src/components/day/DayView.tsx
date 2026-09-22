@@ -84,7 +84,7 @@ export function DayView({ date, from }: Props) {
             </div>
             <div className="flex flex-col">
               <span className="text-lg font-bold text-ink-soft">Staying at</span>
-              <span className="text-3xl font-extrabold">{staying?.name ?? 'My house'}</span>
+              <span className="text-3xl font-extrabold">{staying?.name ?? 'Rochester Road'}</span>
             </div>
           </button>
 
@@ -125,10 +125,12 @@ export function DayView({ date, from }: Props) {
           kind="place"
           title="Staying at"
           symbol="🛏️"
-          allowNone
+          subset={store.stayPlaces()}
+          newItemExtra={{ stayable: true, placeType: 'accommodation' }}
           onBack={() => setPickStay(false)}
           onDone={ids => {
-            void store.setStayingAt(date, ids[0] ?? null)
+            const id = ids[0] ?? null
+            void store.setStayingAt(date, id === store.state.settings.homePlaceId ? null : id)
             setPickStay(false)
           }}
         />
