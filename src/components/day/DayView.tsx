@@ -4,15 +4,13 @@ import { addDays, longDate, today } from '../../lib/dates'
 import { useStore } from '../../lib/store'
 import type { ISODate, Tab } from '../../types'
 import { BigButton } from '../ui/BigButton'
-import { Photo } from '../ui/Photo'
-import { Symbol } from '../ui/Symbol'
 import { TopBar } from '../ui/TopBar'
-import { useSwipe } from '../ui/useSwipe'
 import { ItemPicker } from '../pickers/ItemPicker'
+import { TimePicker } from '../pickers/TimePicker'
 import { AddEventFlow } from './AddEventFlow'
-import { EventRow } from './EventRow'
+import { DayCarousel } from './DayCarousel'
+import { DayPanel } from './DayPanel'
 import { EventSheet } from './EventSheet'
-import { PhotoStrip } from './PhotoStrip'
 
 interface Props {
   date: ISODate
@@ -22,12 +20,10 @@ interface Props {
 export function DayView({ date, from }: Props) {
   const store = useStore()
   const [openId, setOpenId] = useState<string | null>(null)
+  const [timeId, setTimeId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [pickStay, setPickStay] = useState(false)
-
-  const events = store.eventsFor(date)
-  const staying = store.stayingAt(date)
-  const birthdays = store.birthdaysOn(date)
+  const [slide, setSlide] = useState<{ dir: -1 | 1; n: number } | null>(null)
   const isToday = date === today()
 
   const goDay = (d: ISODate) => store.go({ kind: 'day', date: d, from })
@@ -37,7 +33,10 @@ export function DayView({ date, from }: Props) {
     const map = await store.materializeDay(date)
     setOpenId(map[id] ?? id)
   }
-  const swipe = useSwipe(() => goDay(addDays(date, 1)), () => goDay(addDays(date, -1)))
+  const openTime = async (id: string) => {
+    const map = await store.materializeDay(date)
+    setTimeId(map[id] ?? id)
+  }
 
   const back = () => {
     if (from === 'today') store.go({ kind: 'today' })
@@ -46,68 +45,33 @@ export function DayView({ date, from }: Props) {
     else store.go({ kind: 'photos' })
   }
 
+  const timeEvent = timeId ? store.state.events[timeId] : null
+
   return (
-    <div className="flex h-full flex-col" {...swipe}>
+    <div className="flex h-full flex-col">
       <TopBar
         onBack={back}
-        title={
-          <span className={isToday ? 'text-orange-dark' : ''}>
-            {longDate(date)}
-          </span>
-        }
+        title={<span className={isToday ? 'text-orange-dark' : ''}>{longDate(date)}</span>}
         right={
           <div className="flex gap-2">
-            <BigButton onClick={() => goDay(addDays(date, -1))} aria-label="Day before">
+            <BigButton onClick={() => setSlide(s => ({ dir: -1, n: (s?.n ?? 0) + 1 }))} aria-label="Day before">
               <ChevronLeft size={40} strokeWidth={3} />
             </BigButton>
-            <BigButton onClick={() => goDay(addDays(date, 1))} aria-label="Day after">
+            <BigButton onClick={() => setSlide(s => ({ dir: 1, n: (s?.n ?? 0) + 1 }))} aria-label="Day after">
               <ChevronRight size={40} strokeWidth={3} />
             </BigButton>
           </div>
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-        <div className="mx-auto flex max-w-4xl flex-col gap-4">
-          {/* Where she is staying */}
-          <button
-            type="button"
-            onClick={() => setPickStay(true)}
-            className="flex min-h-20 items-center gap-4 rounded-3xl border-4 border-line bg-sky px-4 py-1 text-left active:scale-[0.98]"
-          >
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-paper">
-              {staying?.photoId && staying.showPhoto ? (
-                <Photo id={staying.photoId} alt={staying.name} className="h-full w-full" />
-              ) : (
-                <Symbol symbol={staying?.symbol ?? '🏠'} size="text-5xl" />
-              )}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-bold text-ink-soft">Staying at</span>
-              <span className="text-3xl font-extrabold">{staying?.name ?? 'Rochester Road'}</span>
-            </div>
-          </button>
-
-          {birthdays.map(p => (
-            <div key={p.id} className="flex min-h-20 items-center gap-4 rounded-3xl border-4 border-orange bg-orange-light px-4 py-2">
-              <Symbol symbol="🎂" size="text-6xl" />
-              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-paper">
-                {p.photoId ? <Photo id={p.photoId} alt={p.name} className="h-full w-full" /> : <Symbol symbol={p.symbol} size="text-5xl" />}
-              </div>
-              <span className="text-3xl font-extrabold">{p.name}</span>
-              <span className="text-2xl font-bold text-ink-soft">Birthday</span>
-            </div>
-          ))}
-
-          {/* Events, in time order; ticked ones stay in place */}
-          <div className="flex flex-col gap-3">
-            {events.map(e => (
-              <EventRow key={e.id} event={e} onOpen={() => void open(e.id)} />
-            ))}
-          </div>
-
-          <PhotoStrip date={date} />
-        </div>
+      <div className="min-h-0 flex-1">
+        <DayCarousel
+          request={slide}
+          onSettle={dir => goDay(addDays(date, dir))}
+          render={o => (
+            <DayPanel date={addDays(date, o)} onOpen={id => void open(id)} onTime={id => void openTime(id)} onPickStay={() => setPickStay(true)} />
+          )}
+        />
       </div>
 
       {/* Primary action bottom-right for her right index finger */}
@@ -119,6 +83,18 @@ export function DayView({ date, from }: Props) {
       </div>
 
       {openId && <EventSheet eventId={openId} date={date} onClose={() => setOpenId(null)} />}
+      {timeEvent && (
+        <TimePicker
+          value={timeEvent.time ?? '10:00'}
+          allowNone={Boolean(timeEvent.time)}
+          fineMinutes={store.state.familyMode}
+          onBack={() => setTimeId(null)}
+          onDone={t => {
+            void store.setEventTime(date, timeEvent.id, t)
+            setTimeId(null)
+          }}
+        />
+      )}
       {adding && <AddEventFlow date={date} onClose={() => setAdding(false)} />}
       {pickStay && (
         <ItemPicker

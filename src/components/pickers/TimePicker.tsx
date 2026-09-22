@@ -12,14 +12,16 @@ interface Props {
   value: HHMM
   /** Family/carer mode may enter other minutes (PRD §4.4). */
   fineMinutes?: boolean
-  onDone: (t: HHMM) => void
+  /** Offer a "No time" button that hands back null. */
+  allowNone?: boolean
+  onDone: (t: HHMM | null) => void
   onBack: () => void
 }
 
 const HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
 /** When? — whole and half hours only, 12-hour, am/pm as sun/moon buttons, analogue echo. */
-export function TimePicker({ title = 'When?', value, fineMinutes = false, onDone, onBack }: Props) {
+export function TimePicker({ title = 'When?', value, fineMinutes = false, allowNone = false, onDone, onBack }: Props) {
   const init = to12(value)
   const [hour, setHour] = useState(init.hour)
   const [minute, setMinute] = useState(init.minute)
@@ -33,10 +35,17 @@ export function TimePicker({ title = 'When?', value, fineMinutes = false, onDone
       symbol="🕒"
       onBack={onBack}
       footer={
-        <BigButton variant="green" size="lg" onClick={() => onDone(result)}>
-          <Check size={44} strokeWidth={3.5} />
-          Done
-        </BigButton>
+        <>
+          {allowNone && (
+            <BigButton size="lg" onClick={() => onDone(null)}>
+              No time
+            </BigButton>
+          )}
+          <BigButton variant="green" size="lg" onClick={() => onDone(result)}>
+            <Check size={44} strokeWidth={3.5} />
+            Done
+          </BigButton>
+        </>
       }
     >
       <div className="mx-auto flex max-w-4xl flex-col gap-5">

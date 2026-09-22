@@ -18,6 +18,8 @@ import * as db from './db'
 import { seedItems, HOME_PLACE_ID } from './seed'
 import { shrinkImage, primeUrl, forgetUrl } from './images'
 import { minutesOf } from './time'
+
+const timeKey = (e: DiaryEvent) => (e.time ? minutesOf(e.time) : 1e6)
 import { today } from './dates'
 
 // ------------------------------------------------------------
@@ -119,7 +121,11 @@ class Store {
   async migrate() {
     const s = this.state.settings
     const version = s.templateVersion ?? 1
-    if (version >= 3) return
+    if (version >= 4) return
+    if (version >= 3) {
+      await this.migrateV4()
+      return
+    }
     if (version < 2) {
       const todayIso = today()
       const stale = Object.values(this.state.events).filter(
@@ -147,6 +153,28 @@ class Store {
       template: s.template.filter(t => t.type !== 'wake'),
       templateVersion: 3,
     })
+    await this.migrateV4()
+  }
+
+  /** v4 (Sept 2026): events are an ordered list with optional times; Doctor/Dentist are medical places. */
+  private async migrateV4() {
+    const byDate: Record<string, DiaryEvent[]> = {}
+    for (const e of Object.values(this.state.events)) (byDate[e.date] ??= []).push(e)
+    const changed: DiaryEvent[] = []
+    for (const list of Object.values(byDate)) {
+      list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || timeKey(a) - timeKey(b) || a.createdAt.localeCompare(b.createdAt))
+      list.forEach((e, i) => {
+        if (e.order !== i * 10) changed.push({ ...e, order: i * 10, updatedAt: stamp() })
+      })
+    }
+    if (changed.length) {
+      await db.putEvents(changed)
+      this.set({ events: { ...this.state.events, ...byId(changed) } })
+    }
+    for (const id of ['seed-place-doctor', 'seed-place-dentist']) {
+      if (this.state.items[id] && this.state.items[id].placeType !== 'medical') await this.updateItem(id, { placeType: 'medical' })
+    }
+    await this.updateSettings({ templateVersion: 4 })
   }
 
   // ---------- navigation ----------
@@ -292,11 +320,12 @@ class Store {
   }
 
   private virtualTemplate(date: ISODate): DiaryEvent[] {
-    return this.state.settings.template.map(t => ({
+    return this.state.settings.template.map((t, i) => ({
       id: `tpl:${date}:${t.type}`,
       date,
       type: t.type,
       time: t.time,
+      order: i * 10,
       activityId: null,
       foodIds: [],
       placeId: null,
@@ -310,12 +339,12 @@ class Store {
     }))
   }
 
-  /** Stored events plus the routine template for days not yet materialised, in time order. */
+  /** Stored events plus the routine template for days not yet materialised, in list order. */
   eventsFor(date: ISODate): DiaryEvent[] {
     const stored = Object.values(this.state.events).filter(e => e.date === date && !e.deleted)
     const rec = this.dayRecord(date)
     const list = rec.templateApplied ? stored : [...stored, ...this.virtualTemplate(date)]
-    return list.sort((a, b) => minutesOf(a.time) - minutesOf(b.time) || a.createdAt.localeCompare(b.createdAt))
+    return list.sort((a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || timeKey(a) - timeKey(b) || a.createdAt.localeCompare(b.createdAt))
   }
 
   /** Write the routine template into a day so its events can be edited. Returns the id map. */
@@ -350,7 +379,7 @@ class Store {
   async addEvent(input: {
     date: ISODate
     type: EventType
-    time: HHMM
+    time?: HHMM | null
     activityId?: Id | null
     foodIds?: Id[]
     placeId?: Id | null
@@ -358,11 +387,13 @@ class Store {
   }): Promise<DiaryEvent> {
     await this.materializeDay(input.date)
     const now = stamp()
+    const existing = this.eventsFor(input.date)
     const ev: DiaryEvent = {
       id: db.newId(),
       date: input.date,
       type: input.type,
-      time: input.time,
+      time: input.time ?? null,
+      order: existing.length ? Math.max(...existing.map(e => e.order ?? 0)) + 10 : 0,
       activityId: input.activityId ?? null,
       foodIds: input.foodIds ?? [],
       placeId: input.placeId ?? null,
@@ -388,11 +419,74 @@ class Store {
     this.set({ events: { ...this.state.events, [realId]: next } })
   }
 
-  async toggleDone(date: ISODate, id: Id) {
+  /** Write positions for a day's list (index * 10), touching only rows that moved. */
+  private async writeOrder(ordered: DiaryEvent[], cleared: Set<Id> = new Set()) {
+    const now = stamp()
+    const changed: DiaryEvent[] = []
+    ordered.forEach((e, i) => {
+      const order = i * 10
+      const time = cleared.has(e.id) ? null : e.time
+      if (e.order !== order || time !== e.time) changed.push({ ...e, order, time, updatedAt: now })
+    })
+    if (!changed.length) return
+    await db.putEvents(changed)
+    this.set({ events: { ...this.state.events, ...byId(changed) } })
+  }
+
+  /**
+   * Drag an event to a new position. Order is what matters: if the move puts a
+   * timed event before/after others in a way its time contradicts, that event
+   * and the ones it clashes with lose their times.
+   */
+  async moveEvent(date: ISODate, id: Id, toIndex: number) {
+    await this.materializeDay(date)
     const realId = await this.resolveEventId(date, id)
-    const cur = this.state.events[realId]
+    const list = this.eventsFor(date)
+    const from = list.findIndex(e => e.id === realId)
+    if (from < 0) return
+    const [moved] = list.splice(from, 1)
+    const idx = Math.max(0, Math.min(toIndex, list.length))
+    list.splice(idx, 0, moved)
+    const cleared = new Set<Id>()
+    if (moved.time) {
+      const t = minutesOf(moved.time)
+      list.forEach((e, i) => {
+        if (!e.time || e.id === moved.id) return
+        const m = minutesOf(e.time)
+        if ((i < idx && m > t) || (i > idx && m < t)) cleared.add(e.id)
+      })
+      if (cleared.size) cleared.add(moved.id)
+    }
+    await this.writeOrder(list, cleared)
+  }
+
+  /** Give an event a time (or remove it); it slides to where that time belongs in the list. */
+  async setEventTime(date: ISODate, id: Id, time: HHMM | null) {
+    await this.materializeDay(date)
+    const realId = await this.resolveEventId(date, id)
+    const list = this.eventsFor(date)
+    const cur = list.find(e => e.id === realId)
     if (!cur) return
-    await this.updateEvent(date, realId, { done: !cur.done })
+    const updated = { ...cur, time }
+    const rest = list.filter(e => e.id !== realId)
+    let idx = rest.length
+    if (time) {
+      const t = minutesOf(time)
+      // after the last timed event that starts at or before this time
+      let last = -1
+      rest.forEach((e, i) => {
+        if (e.time && minutesOf(e.time) <= t) last = i
+      })
+      idx = last + 1
+      if (last < 0) {
+        // before the first timed event that starts later (untimed ones ahead stay ahead)
+        const firstLater = rest.findIndex(e => e.time && minutesOf(e.time) > t)
+        idx = firstLater < 0 ? rest.length : firstLater
+      }
+    }
+    rest.splice(idx, 0, updated)
+    await this.updateEvent(date, realId, { time })
+    await this.writeOrder(rest.map(e => (e.id === realId ? { ...e, time } : e)))
   }
 
   async rateEvent(date: ISODate, id: Id, rating: Rating | null) {

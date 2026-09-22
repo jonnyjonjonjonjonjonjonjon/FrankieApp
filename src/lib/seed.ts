@@ -38,8 +38,8 @@ const SEED: SeedSpec[] = [
   { id: 'seed-place-cafe', kind: 'place', name: 'Café', symbol: '☕', placeType: 'other' },
   { id: 'seed-place-hairdresser', kind: 'place', name: 'Hairdresser', symbol: '💇', placeType: 'other' },
   { id: 'seed-place-nails', kind: 'place', name: 'Nail salon', symbol: '💅', placeType: 'other' },
-  { id: 'seed-place-doctor', kind: 'place', name: 'Doctor', symbol: '🩺', placeType: 'other' },
-  { id: 'seed-place-dentist', kind: 'place', name: 'Dentist', symbol: '🦷', placeType: 'other' },
+  { id: 'seed-place-doctor', kind: 'place', name: 'Doctor', symbol: '🩺', placeType: 'medical' },
+  { id: 'seed-place-dentist', kind: 'place', name: 'Dentist', symbol: '🦷', placeType: 'medical' },
 
   // Foods
   { id: 'seed-food-toast', kind: 'food', name: 'Toast', symbol: '🍞', meals: ['breakfast'] },

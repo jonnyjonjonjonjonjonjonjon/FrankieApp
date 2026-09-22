@@ -1,6 +1,6 @@
-import { Check } from 'lucide-react'
+import type { PointerEvent } from 'react'
+import { Clock, GripVertical } from 'lucide-react'
 import { eventFace, isMeal } from '../../lib/eventFace'
-import { buzz } from '../../lib/haptics'
 import { useStore } from '../../lib/store'
 import { RATING_FACES } from '../../lib/symbols'
 import type { DiaryEvent } from '../../types'
@@ -11,10 +11,14 @@ import { TimeLabel } from '../ui/TimeLabel'
 interface Props {
   event: DiaryEvent
   onOpen: () => void
+  onTime: () => void
+  /** Pointer-down on the grip starts a drag (handled by the list). */
+  onGrip?: (e: PointerEvent<HTMLButtonElement>) => void
+  dragging?: boolean
 }
 
-/** One row of the day: symbol (tap for photo), word, time, place, who, big tick box. */
-export function EventRow({ event, onOpen }: Props) {
+/** One row of the day: symbol (tap for photo), word, time or a clock to add one, place, who, grip to reorder. */
+export function EventRow({ event, onOpen, onTime, onGrip, dragging }: Props) {
   const store = useStore()
   const { items } = store.state
   const face = eventFace(event, items)
@@ -23,15 +27,10 @@ export function EventRow({ event, onOpen }: Props) {
   const people = event.personIds.map(id => items[id]).filter(Boolean)
   const showPhoto = face.photoId && face.showPhoto
 
-  const tick = () => {
-    buzz(event.done ? 20 : [40, 40, 60])
-    void store.toggleDone(event.date, event.id)
-  }
-
   return (
     <div
-      className={`flex items-stretch gap-3 rounded-3xl border-4 bg-paper p-1.5 transition-opacity ${
-        event.done ? 'border-line opacity-60' : 'border-ink'
+      className={`flex items-stretch gap-3 rounded-3xl border-4 border-ink bg-paper p-1.5 ${
+        dragging ? 'scale-[1.02] shadow-2xl ring-4 ring-orange-light' : ''
       }`}
     >
       <button
@@ -48,15 +47,15 @@ export function EventRow({ event, onOpen }: Props) {
       </button>
 
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 flex-col justify-center gap-1 text-left">
-        <span className={`line-clamp-2 text-3xl font-extrabold leading-tight ${event.done ? 'line-through decoration-4' : ''}`}>
+        <span className="line-clamp-2 text-3xl font-extrabold leading-tight">
           {face.word}
           {event.rating && (
-            <span className="symbol ml-2 no-underline" aria-label={RATING_FACES[event.rating].word}>
+            <span className="symbol ml-2" aria-label={RATING_FACES[event.rating].word}>
               {RATING_FACES[event.rating].symbol}
             </span>
           )}
         </span>
-        <TimeLabel time={event.time} />
+        {event.time && <TimeLabel time={event.time} />}
         {(foods.length > 0 || place || people.length > 0) && (
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xl font-bold text-ink-soft">
             {isMeal(event) &&
@@ -79,18 +78,27 @@ export function EventRow({ event, onOpen }: Props) {
         )}
       </button>
 
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={event.done}
-        aria-label="Done"
-        onClick={tick}
-        className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border-4 active:scale-95 ${
-          event.done ? 'border-green bg-green text-white' : 'border-ink bg-paper'
-        }`}
-      >
-        {event.done && <Check size={72} strokeWidth={4} className="tick-pop" />}
-      </button>
+      <div className="flex shrink-0 flex-col items-center justify-between gap-1">
+        <button
+          type="button"
+          onClick={onTime}
+          aria-label={event.time ? 'Change time' : 'Add a time'}
+          className={`flex h-11 w-11 items-center justify-center rounded-xl border-2 active:scale-95 ${
+            event.time ? 'border-line text-ink-soft' : 'border-ink text-ink'
+          }`}
+        >
+          <Clock size={26} strokeWidth={2.5} />
+        </button>
+        <button
+          type="button"
+          aria-label="Move"
+          onPointerDown={onGrip}
+          data-noswipe
+          className="flex flex-1 cursor-grab touch-none items-center justify-center rounded-xl text-ink-soft active:cursor-grabbing"
+        >
+          <GripVertical size={34} strokeWidth={2.5} />
+        </button>
+      </div>
     </div>
   )
 }

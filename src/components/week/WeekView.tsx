@@ -72,6 +72,7 @@ export function WeekView({ date }: { date: ISODate }) {
             const others = events.filter(e => !MEALS.includes(e.type))
             const staying = store.stayingAt(d)
             const birthdays = store.birthdaysOn(d)
+            const photos = store.photosFor(d)
             return (
               <div key={d} className={`flex flex-col rounded-3xl border-4 ${isToday ? 'border-orange' : 'border-ink'} bg-paper`}>
                 <button
@@ -100,19 +101,19 @@ export function WeekView({ date }: { date: ISODate }) {
                       <Symbol symbol={staying?.symbol ?? '🏠'} size="text-4xl" />
                     )}
                   </div>
-                  <span className="text-lg font-bold leading-tight">{staying?.name ?? 'Rochester Road'}</span>
+                  <span className="min-w-0 text-sm font-bold leading-tight break-words">{staying?.name ?? 'Rochester Road'}</span>
                 </div>
 
                 {MEALS.map((m, i) => (
                   <MealCell key={m} type={m} ev={meals[i]} />
                 ))}
 
-                <div className="flex flex-col gap-1 border-t-4 border-line p-1">
+                <div className="flex flex-1 flex-col gap-1 border-t-4 border-line p-1">
                   {others.map(e => {
                     const face = eventFace(e, items)
-                    const t = to12(e.time)
+                    const t = e.time ? to12(e.time) : null
                     return (
-                      <div key={e.id} className={`flex flex-col gap-0.5 rounded-xl px-1 py-1 ${e.done ? 'opacity-50' : ''}`}>
+                      <div key={e.id} className="flex flex-col gap-0.5 rounded-xl px-1 py-1">
                         <div className="flex items-center gap-2">
                           <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-soft">
                             {face.photoId && face.showPhoto ? (
@@ -121,11 +122,13 @@ export function WeekView({ date }: { date: ISODate }) {
                               <Symbol symbol={face.symbol} size="text-4xl" />
                             )}
                           </div>
-                          <span className="text-sm font-bold whitespace-nowrap text-ink-soft">
-                            {t.clock} {t.ampm} {t.ampm === 'am' ? '☀️' : '🌙'}
-                          </span>
+                          {t && (
+                            <span className="text-sm font-bold whitespace-nowrap text-ink-soft">
+                              {t.clock} {t.ampm} {t.ampm === 'am' ? '☀️' : '🌙'}
+                            </span>
+                          )}
                         </div>
-                        <span className={`text-xl font-extrabold leading-tight break-words ${e.done ? 'line-through' : ''}`}>
+                        <span className="text-lg font-extrabold leading-tight break-words">
                           {face.word}
                           {e.rating && <span className="symbol ml-1">{RATING_FACES[e.rating].symbol}</span>}
                         </span>
@@ -133,6 +136,20 @@ export function WeekView({ date }: { date: ISODate }) {
                     )
                   })}
                 </div>
+
+                {/* Photos from the day */}
+                {photos.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => store.go({ kind: 'day', date: d, from: 'week' })}
+                    className="grid grid-cols-3 gap-1 border-t-2 border-line p-1"
+                    aria-label="Photos"
+                  >
+                    {photos.slice(0, 6).map(p => (
+                      <Photo key={p.id} id={p.id} className="aspect-square w-full rounded-lg" />
+                    ))}
+                  </button>
+                )}
               </div>
             )
           })}

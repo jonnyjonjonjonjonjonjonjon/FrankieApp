@@ -48,7 +48,7 @@ function BigTile({ event, dayWord, onClick }: { event: DiaryEvent | null; dayWor
             ))}
           </span>
         )}
-        <TimeLabel time={event.time} size="lg" />
+        {event.time && <TimeLabel time={event.time} size="lg" />}
       </div>
     </button>
   )
@@ -60,10 +60,14 @@ export function TodayView() {
   const now = useNow()
   const date = today()
   const nowMins = minutesOf(nowHHMM(now))
+  // The day is an ordered list; times mark where "now" falls in it.
   const events = store.eventsFor(date)
-  const started = events.filter(e => minutesOf(e.time) <= nowMins)
-  const current = started.length ? started[started.length - 1] : null
-  let next = events.find(e => minutesOf(e.time) > nowMins) ?? null
+  let currentIdx = -1
+  events.forEach((e, i) => {
+    if (e.time && minutesOf(e.time) <= nowMins) currentIdx = i
+  })
+  const current = currentIdx >= 0 ? events[currentIdx] : null
+  let next = events[currentIdx + 1] ?? null
   let nextDayWord: string | undefined
   if (!next) {
     const tomorrow = addDays(date, 1)

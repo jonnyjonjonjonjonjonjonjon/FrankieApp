@@ -63,11 +63,12 @@ export function EventSheet({ eventId, date, onClose }: Props) {
   if (sub === 'time') {
     return (
       <TimePicker
-        value={event.time}
+        value={event.time ?? '10:00'}
+        allowNone={Boolean(event.time)}
         fineMinutes={familyMode}
         onBack={() => setSub(null)}
         onDone={t => {
-          void store.updateEvent(date, event.id, { time: t })
+          void store.setEventTime(date, event.id, t)
           setSub(null)
         }}
       />
@@ -161,11 +162,11 @@ export function EventSheet({ eventId, date, onClose }: Props) {
           </div>
           <div className="flex flex-col gap-2">
             <span className="text-4xl font-extrabold">{face.word}</span>
-            <TimeLabel time={event.time} size="lg" />
+            {event.time && <TimeLabel time={event.time} size="lg" />}
           </div>
         </div>
 
-        <Row symbol="🕒" word="When?" value={<TimeLabel time={event.time} />} onClick={() => setSub('time')} />
+        <Row symbol="🕒" word="When?" value={event.time ? <TimeLabel time={event.time} /> : dash} onClick={() => setSub('time')} />
         {meal && (
           <Row symbol="🍽️" word="Food" value={event.foodIds.length ? names(event.foodIds) : dash} onClick={() => setSub('food')} />
         )}

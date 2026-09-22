@@ -13,7 +13,7 @@ export type HHMM = string
 export type LibraryKind = 'person' | 'place' | 'food' | 'activity'
 
 export type PersonRole = 'family' | 'carer' | 'friend'
-export type PlaceType = 'home' | 'shop' | 'pool' | 'friend' | 'accommodation' | 'other'
+export type PlaceType = 'home' | 'shop' | 'pool' | 'friend' | 'accommodation' | 'medical' | 'other'
 export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'treat' | 'drink'
 
 export interface LibraryItem {
@@ -64,13 +64,17 @@ export interface DiaryEvent {
   id: Id
   date: ISODate
   type: EventType
-  time: HHMM
+  /** Optional: the day is an ordered list first, times are extra. */
+  time: HHMM | null
+  /** Position in the day's list (lower first). */
+  order: number
   /** For type === 'activity'. */
   activityId: Id | null
   /** For meals. */
   foodIds: Id[]
   placeId: Id | null
   personIds: Id[]
+  /** Unused since v0.1.16 (tick-off removed); kept for old records. */
   done: boolean
   rating: Rating | null
   fromTemplate: boolean

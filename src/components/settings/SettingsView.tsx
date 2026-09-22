@@ -243,7 +243,7 @@ export function SettingsView() {
           fineMinutes
           onBack={() => setEditTime(null)}
           onDone={t => {
-            setTemplate(template.map((x, i) => (i === editTime ? { ...x, time: t } : x)))
+            if (t) setTemplate(template.map((x, i) => (i === editTime ? { ...x, time: t } : x)))
             setEditTime(null)
           }}
         />
