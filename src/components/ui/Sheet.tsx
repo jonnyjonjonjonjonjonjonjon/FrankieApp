@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { BigButton } from './BigButton'
+import { Symbol } from './Symbol'
 
 interface Props {
   title: string
@@ -22,7 +23,7 @@ export function Sheet({ title, symbol, onBack, backWord = 'Back', children, foot
           <span>{backWord}</span>
         </BigButton>
         <h2 className="flex flex-1 items-center gap-3 truncate text-3xl font-extrabold">
-          {symbol && <span className="symbol text-4xl">{symbol}</span>}
+          {symbol && <Symbol symbol={symbol} size="text-4xl" />}
           {title}
         </h2>
       </header>

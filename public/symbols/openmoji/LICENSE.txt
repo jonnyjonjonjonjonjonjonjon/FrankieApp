@@ -1,0 +1,3 @@
+OpenMoji – the open-source emoji and icon project. https://openmoji.org
+License: CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0/
+These files are unchanged copies of the OpenMoji colour SVGs, renamed by code point (FE0F dropped).

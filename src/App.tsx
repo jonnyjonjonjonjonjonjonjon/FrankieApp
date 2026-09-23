@@ -1,5 +1,6 @@
 import { useStore } from './lib/store'
 import { StoreProvider } from './lib/StoreProvider'
+import { Symbol } from './components/ui/Symbol'
 import { SignInGate } from './components/auth/SignInGate'
 import { DayView } from './components/day/DayView'
 import { GalleryView } from './components/photos/GalleryView'
@@ -17,7 +18,7 @@ function Screen() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="symbol text-8xl">📖</span>
+        <Symbol symbol="📖" size="text-8xl" />
       </div>
     )
   }

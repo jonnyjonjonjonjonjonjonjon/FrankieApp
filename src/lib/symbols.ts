@@ -1,17 +1,17 @@
 import type { EventType, LibraryKind } from '../types'
 
 /**
- * Fixed event types (PRD §4.11). Symbols are emoji placeholders for
- * Makaton symbols until licensing is confirmed (PRD §11.6).
+ * Fixed event types (PRD §4.11). Symbols are drawn from Mulberry, falling back
+ * to OpenMoji (see symbolImages.ts); emoji here are looked up, "mb:" names are direct.
  */
 export const EVENT_TYPES: Record<EventType, { word: string; symbol: string }> = {
   wake: { word: 'Wake up', symbol: '🌅' },
   shower: { word: 'Shower', symbol: '🚿' },
   teeth: { word: 'Brush teeth', symbol: '🪥' },
-  breakfast: { word: 'Breakfast', symbol: '🥣' },
-  lunch: { word: 'Lunch', symbol: '🥪' },
+  breakfast: { word: 'Breakfast', symbol: 'mb:breakfast_1' },
+  lunch: { word: 'Lunch', symbol: 'mb:lunch_1' },
   dinner: { word: 'Dinner', symbol: '🍽️' },
-  bed: { word: 'Bed', symbol: '🛏️' },
+  bed: { word: 'Bed', symbol: 'mb:double_bed' },
   activity: { word: 'Activity', symbol: '⭐' },
 }
 

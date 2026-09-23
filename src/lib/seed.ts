@@ -32,7 +32,7 @@ const SEED: SeedSpec[] = [
   { id: 'seed-place-liz', kind: 'place', name: "Liz's house", symbol: '🏠', placeType: 'friend' },
   { id: 'seed-place-ria', kind: 'place', name: "Ria's house", symbol: '🏠', placeType: 'friend' },
   { id: 'seed-place-supermarket', kind: 'place', name: 'Supermarket', symbol: '🛒', placeType: 'shop' },
-  { id: 'seed-place-clothes-shop', kind: 'place', name: 'Clothes shop', symbol: '👗', placeType: 'shop' },
+  { id: 'seed-place-clothes-shop', kind: 'place', name: 'Clothes shop', symbol: 'mb:shop_2', placeType: 'shop' },
   { id: 'seed-place-pool', kind: 'place', name: 'Swimming pool', symbol: '🏊', placeType: 'pool' },
   { id: 'seed-place-park', kind: 'place', name: 'Park', symbol: '🌳', placeType: 'other' },
   { id: 'seed-place-cafe', kind: 'place', name: 'Café', symbol: '☕', placeType: 'other' },
@@ -44,8 +44,8 @@ const SEED: SeedSpec[] = [
   // Foods
   { id: 'seed-food-toast', kind: 'food', name: 'Toast', symbol: '🍞', meals: ['breakfast'] },
   { id: 'seed-food-cereal', kind: 'food', name: 'Cereal', symbol: '🥣', meals: ['breakfast'] },
-  { id: 'seed-food-porridge', kind: 'food', name: 'Porridge', symbol: '🥣', meals: ['breakfast'] },
-  { id: 'seed-food-eggs', kind: 'food', name: 'Eggs', symbol: '🍳', meals: ['breakfast'] },
+  { id: 'seed-food-porridge', kind: 'food', name: 'Porridge', symbol: 'mb:porridge', meals: ['breakfast'] },
+  { id: 'seed-food-eggs', kind: 'food', name: 'Eggs', symbol: 'mb:eggs', meals: ['breakfast'] },
   { id: 'seed-food-sandwich', kind: 'food', name: 'Sandwich', symbol: '🥪', meals: ['lunch'] },
   { id: 'seed-food-soup', kind: 'food', name: 'Soup', symbol: '🍲', meals: ['lunch'] },
   { id: 'seed-food-jacket', kind: 'food', name: 'Jacket potato', symbol: '🥔', meals: ['lunch'] },
@@ -71,7 +71,7 @@ const SEED: SeedSpec[] = [
   { id: 'seed-activity-swimming', kind: 'activity', name: 'Swimming', symbol: '🏊' },
   { id: 'seed-activity-computer', kind: 'activity', name: 'Computer', symbol: '💻' },
   { id: 'seed-activity-sleeping', kind: 'activity', name: 'Sleeping', symbol: '😴' },
-  { id: 'seed-activity-friends', kind: 'activity', name: 'Seeing friends', symbol: '👫' },
+  { id: 'seed-activity-friends', kind: 'activity', name: 'Seeing friends', symbol: 'mb:meet-to' },
 ]
 
 export function seedItems(now = new Date().toISOString()): LibraryItem[] {
@@ -93,4 +93,12 @@ export function seedItems(now = new Date().toISOString()): LibraryItem[] {
     createdAt: now,
     updatedAt: now,
   }))
+}
+
+/** Seed symbols changed in v0.1.35 (Mulberry): id → the emoji it used to have. */
+export const PREVIOUS_SEED_SYMBOLS: Record<string, string> = {
+  'seed-food-porridge': '🥣',
+  'seed-food-eggs': '🍳',
+  'seed-activity-friends': '👫',
+  'seed-place-clothes-shop': '👗',
 }

@@ -5,6 +5,7 @@ import { longDate } from '../../lib/dates'
 import type { ISODate, PhotoRecord } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Photo } from '../ui/Photo'
+import { Symbol } from '../ui/Symbol'
 import { Sheet } from '../ui/Sheet'
 import { PhotoInput } from '../pickers/PhotoInput'
 
@@ -18,7 +19,7 @@ export function PhotoStrip({ date }: { date: ISODate }) {
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-2xl font-extrabold">
-          <span className="symbol text-4xl">📷</span> Photos
+          <Symbol symbol="📷" size="text-4xl" /> Photos
         </h3>
         <PhotoInput size="sm" onPick={f => void store.addPhoto(date, f)} />
       </div>

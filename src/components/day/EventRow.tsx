@@ -53,8 +53,8 @@ export function EventRow({ event, onOpen, onTime, onGrip, dragging, current }: P
         <span className="line-clamp-2 text-3xl font-extrabold leading-tight">
           {face.word}
           {event.rating && (
-            <span className="symbol ml-2" aria-label={RATING_FACES[event.rating].word}>
-              {RATING_FACES[event.rating].symbol}
+            <span className="ml-2 inline-flex align-middle" aria-label={RATING_FACES[event.rating].word}>
+              <Symbol symbol={RATING_FACES[event.rating].symbol} size="text-3xl" />
             </span>
           )}
         </span>

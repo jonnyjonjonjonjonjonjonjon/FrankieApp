@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Check, X } from 'lucide-react'
 import { useStore } from '../../lib/store'
 import { searchSymbols, KIND_WORD } from '../../lib/symbols'
+import { mulberryIndex, preferMulberry, type MulberryEntry } from '../../lib/symbolImages'
 import type { LibraryItem, LibraryKind, MealSlot } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Sheet } from '../ui/Sheet'
@@ -35,7 +36,16 @@ export function NewItemForm({ kind, mealSlot, extra, onCreated, onBack }: Props)
     return () => URL.revokeObjectURL(preview)
   }, [preview])
 
-  const symbols = searchSymbols(query || name)
+  const [mulberry, setMulberry] = useState<MulberryEntry[]>([])
+  useEffect(() => {
+    let live = true
+    void mulberryIndex().then(list => live && setMulberry(list))
+    return () => {
+      live = false
+    }
+  }, [])
+
+  const symbols = useMemo(() => pictureChoices(query || name, mulberry), [query, name, mulberry])
   const canSave = name.trim().length > 0 && (symbol || photo) && !saving
 
   const save = async () => {
@@ -110,7 +120,7 @@ export function NewItemForm({ kind, mealSlot, extra, onCreated, onBack }: Props)
                 key={`${c.symbol}-${i}`}
                 type="button"
                 onClick={() => setSymbol(s => (s === c.symbol ? '' : c.symbol))}
-                aria-label={c.words[0]}
+                aria-label={c.word}
                 className={`flex aspect-square items-center justify-center rounded-2xl border-4 ${
                   symbol === c.symbol ? 'border-orange bg-orange-light' : 'border-line bg-paper'
                 } active:scale-95`}
@@ -123,4 +133,39 @@ export function NewItemForm({ kind, mealSlot, extra, onCreated, onBack }: Props)
       </div>
     </Sheet>
   )
+}
+
+const MAX_MULBERRY = 24
+
+/** Mulberry pictures whose name matches first, then the emoji grid (drawn in Mulberry or OpenMoji). */
+function pictureChoices(q: string, mulberry: MulberryEntry[]): { symbol: string; word: string }[] {
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const out: { symbol: string; word: string }[] = []
+  const seen = new Set<string>()
+  const add = (symbol: string, word: string) => {
+    if (seen.has(symbol)) return
+    seen.add(symbol)
+    out.push({ symbol, word })
+  }
+  if (words.length) {
+    const scored: [number, MulberryEntry][] = []
+    for (const m of mulberry) {
+      const label = m.label.toLowerCase()
+      const parts = label.split(/[\s-]+/)
+      let score = 0
+      for (const w of words) {
+        if (parts.includes(w) || parts.includes(`${w}s`) || parts.includes(w.replace(/s$/, ''))) score += 3
+        else if (parts.some(p => p.startsWith(w))) score += 1
+        else {
+          score = 0
+          break
+        }
+      }
+      if (score) scored.push([score * 100 - label.length, m])
+    }
+    scored.sort((a, b) => b[0] - a[0])
+    for (const [, m] of scored.slice(0, MAX_MULBERRY)) add(`mb:${m.id}`, m.label)
+  }
+  for (const c of searchSymbols(q)) add(preferMulberry(c.symbol), c.words[0])
+  return out
 }

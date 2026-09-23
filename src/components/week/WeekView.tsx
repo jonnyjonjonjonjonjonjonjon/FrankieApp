@@ -124,13 +124,13 @@ export function WeekView({ date }: { date: ISODate }) {
                           </div>
                           {t && (
                             <span className="text-sm font-bold whitespace-nowrap text-ink-soft">
-                              {t.clock} {t.ampm} {e.time && isDaytime(e.time) ? '☀️' : '🌙'}
+                              {t.clock} {t.ampm} <Symbol symbol={e.time && isDaytime(e.time) ? '☀️' : '🌙'} size="text-base" className="align-middle" />
                             </span>
                           )}
                         </div>
                         <span className="text-lg font-extrabold leading-tight break-words">
                           {face.word}
-                          {e.rating && <span className="symbol ml-1">{RATING_FACES[e.rating].symbol}</span>}
+                          {e.rating && <Symbol symbol={RATING_FACES[e.rating].symbol} size="text-xl" className="ml-1 align-middle" />}
                         </span>
                       </div>
                     )

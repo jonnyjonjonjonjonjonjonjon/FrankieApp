@@ -39,7 +39,7 @@ function WordRow({ item }: { item: LibraryItem }) {
         {item.photoId ? <Photo id={item.photoId} alt={item.name} className="h-full w-full" /> : <Symbol symbol={item.symbol} size="text-5xl" />}
       </div>
       <span className="min-w-0 flex-1 truncate text-2xl font-extrabold">
-        {item.symbol} {item.name}
+        {item.name}
       </span>
       {item.kind === 'person' && (
         <label className="flex items-center gap-2 text-lg font-bold">
@@ -237,6 +237,24 @@ export function SettingsView() {
               </BigButton>
             </div>
             <p className="text-lg text-ink-soft">Export downloads a copy of everything on this device. Start again wipes this device only.</p>
+          </Section>
+
+          <Section title="Symbols" symbol="⭐">
+            <p className="text-lg text-ink-soft">
+              Symbols by{' '}
+              <a className="underline" href="https://mulberrysymbols.org" target="_blank" rel="noreferrer">
+                Mulberry Symbols
+              </a>{' '}
+              © Steve Lee, and{' '}
+              <a className="underline" href="https://openmoji.org" target="_blank" rel="noreferrer">
+                OpenMoji
+              </a>
+              . Both are shared under the{' '}
+              <a className="underline" href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">
+                CC BY-SA 4.0
+              </a>{' '}
+              licence.
+            </p>
           </Section>
         </div>
       </div>

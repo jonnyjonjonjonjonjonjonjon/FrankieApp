@@ -15,7 +15,7 @@ import type {
   View,
 } from '../types'
 import * as db from './db'
-import { seedItems, HOME_PLACE_ID } from './seed'
+import { seedItems, HOME_PLACE_ID, PREVIOUS_SEED_SYMBOLS } from './seed'
 import { shrinkImage, primeUrl, forgetUrl } from './images'
 import { minutesOf } from './time'
 
@@ -117,13 +117,19 @@ class Store {
    *  v2 (Sept 2026): "Wake up" left the default routine.
    *  v3 (Sept 2026): stay places — Rochester Road / Eastbourne / Jon's house /
    *     Hotel are marked as places Frankie can stay; seeded items get an order.
+   *  v4, v5: see migrateV4 / migrateV5 below.
    */
   async migrate() {
     const s = this.state.settings
     const version = s.templateVersion ?? 1
-    if (version >= 4) return
-    if (version >= 3) {
+    if (version >= 5) return
+    if (version === 4) {
+      await this.migrateV5()
+      return
+    }
+    if (version === 3) {
       await this.migrateV4()
+      await this.migrateV5()
       return
     }
     if (version < 2) {
@@ -154,6 +160,18 @@ class Store {
       templateVersion: 3,
     })
     await this.migrateV4()
+    await this.migrateV5()
+  }
+
+  /** v5 (Sept 2026): Mulberry symbols. Seeded words that shared an emoji get their own symbol, unless the family changed it. */
+  private async migrateV5() {
+    const seeds = seedItems()
+    for (const [id, old] of Object.entries(PREVIOUS_SEED_SYMBOLS)) {
+      const cur = this.state.items[id]
+      const seed = seeds.find(x => x.id === id)
+      if (cur && seed && cur.symbol === old) await this.updateItem(id, { symbol: seed.symbol })
+    }
+    await this.updateSettings({ templateVersion: 5 })
   }
 
   /** v4 (Sept 2026): events are an ordered list with optional times; Doctor/Dentist are medical places. */

@@ -51,9 +51,20 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
-        // The symbol comparison page is a separate static page, not part of the app.
+        // Symbol pictures are cached as they are used (below), not all up front.
         globIgnores: ['symbols/**'],
         navigateFallbackDenylist: [/\/symbols\//],
+        // Symbol pictures (about 3,000) are fetched when first shown, then kept for offline use.
+        runtimeCaching: [
+          {
+            urlPattern: /\/symbols\/(mulberry|openmoji)\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'symbols',
+              expiration: { maxEntries: 1500 },
+            },
+          },
+        ],
       },
     }),
   ],
