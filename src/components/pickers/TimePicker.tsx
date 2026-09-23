@@ -74,10 +74,24 @@ export function TimePicker({ title = 'When?', value, allowNone = false, onDone, 
       }
     >
       <div className="mx-auto flex max-w-xl flex-col items-center gap-4">
-        {/* The time being chosen, above the wheels */}
-        <div className="flex items-center gap-5">
-          <AnalogueFace hour={t12.hour} minute={t12.minute} size={180} className="h-36 w-36 sm:h-[9.5rem] sm:w-[9.5rem]" />
-          <TimeLabel time={result} size="xl" />
+        {/* The time being chosen, above the wheels. Portrait screens stack
+            the clock over the time and let it grow into the spare height. */}
+        <div className="flex items-center gap-5 portrait:flex-col portrait:gap-2">
+          <AnalogueFace
+            hour={t12.hour}
+            minute={t12.minute}
+            size={180}
+            className="h-36 w-36 sm:h-[9.5rem] sm:w-[9.5rem] portrait:h-[min(72vw,34vh)] portrait:w-[min(72vw,34vh)]"
+          />
+          {/* Sized to the widest time ("12:55 pm") so nothing shifts as digits change */}
+          <div className="grid">
+            <span className="invisible col-start-1 row-start-1" aria-hidden>
+              <TimeLabel time="12:55" size="xl" />
+            </span>
+            <span className="col-start-1 row-start-1 flex justify-center">
+              <TimeLabel time={result} size="xl" />
+            </span>
+          </div>
         </div>
 
         {/* The wheels */}
