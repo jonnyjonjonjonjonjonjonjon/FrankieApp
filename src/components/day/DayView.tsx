@@ -78,6 +78,7 @@ export function DayView({ date, from }: Props) {
 
       <div className="min-h-0 flex-1">
         <DayCarousel
+          centre={date}
           request={slide}
           onSettle={dir => goDay(addDays(date, dir))}
           render={o => (

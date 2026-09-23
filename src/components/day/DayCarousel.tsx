@@ -1,6 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent, type TransitionEvent } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type TouchEvent, type TransitionEvent } from 'react'
 
 interface Props {
+  /** Identifies the centre day; when it changes the track is rebuilt at rest. */
+  centre: string
   /** Render the panel for an offset of -1, 0 or +1 days from the current one. */
   render: (offset: -1 | 0 | 1) => ReactNode
   /** Called once the slide has finished; the parent then changes the date. */
@@ -12,14 +14,15 @@ interface Props {
 const THRESHOLD = 70
 
 /**
- * Three panels (yesterday, today, tomorrow) on a track. Dragging moves the
- * track with the finger; releasing past the threshold slides to the neighbour,
- * then the parent swaps the date and the track snaps back silently.
+ * Three panels (yesterday, today, tomorrow) on a track that sits one panel to
+ * the left (margin, not transform). Dragging moves the track with the finger;
+ * releasing past the threshold slides to the neighbour. When it lands the
+ * parent changes the date and the track is REMOUNTED at rest: no transform
+ * left on it, so low-end GPUs cannot keep a stale copy of the old day.
  */
-export function DayCarousel({ render, onSettle, request }: Props) {
+export function DayCarousel({ centre, render, onSettle, request }: Props) {
   const [dx, setDx] = useState(0)
   const [animTo, setAnimTo] = useState<-1 | 1 | 0 | null>(null) // null = free, 0 = snapping back
-  const [noTransition, setNoTransition] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [width, setWidth] = useState(0)
   const start = useRef<{ x: number; y: number; horizontal: boolean | null } | null>(null)
@@ -68,36 +71,32 @@ export function DayCarousel({ render, onSettle, request }: Props) {
     // Only the track's own slide counts, not transitions on rows inside it.
     if (e.target !== e.currentTarget || animTo === null) return
     const dir = animTo
-    // Snap back and change the date in the SAME render, so the panel that is
-    // now in the middle already shows the new day: no flash of the old one.
-    setNoTransition(true)
     setDx(0)
     setAnimTo(null)
+    // Changing the date changes `centre`, which remounts the track at rest.
     if (dir !== 0) onSettle(dir)
   }
 
-  // After a silent reset, make the browser register the resting position
-  // (transition off) BEFORE transitions come back on, or it animates the reset.
-  useLayoutEffect(() => {
-    if (!noTransition) return
-    void track.current?.offsetWidth // forces a style flush
-    const id = requestAnimationFrame(() => setNoTransition(false))
-    return () => cancelAnimationFrame(id)
-  }, [noTransition])
-
   const shift = animTo === null ? dx : animTo === 0 ? 0 : -animTo * width
-  const transition = noTransition || (animTo === null && dragging) ? 'none' : 'transform 260ms ease-out'
+  const moving = shift !== 0 || animTo !== null
+  const transition = animTo === null && dragging ? 'none' : 'transform 260ms ease-out'
 
   return (
     <div className="h-full overflow-hidden" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
       <div
+        key={centre}
         ref={track}
         className="flex h-full w-full"
-        style={{ transform: `translateX(calc(-100% + ${shift}px))`, transition, touchAction: 'pan-y' }}
+        style={{
+          marginLeft: '-100%',
+          transform: moving ? `translate3d(${shift}px, 0, 0)` : undefined,
+          transition: moving ? transition : undefined,
+          touchAction: 'pan-y',
+        }}
         onTransitionEnd={onTransitionEnd}
       >
         {([-1, 0, 1] as const).map(o => (
-          <div key={o} className="h-full w-full shrink-0">
+          <div key={o} className="h-full w-full shrink-0 overflow-hidden">
             {render(o)}
           </div>
         ))}
