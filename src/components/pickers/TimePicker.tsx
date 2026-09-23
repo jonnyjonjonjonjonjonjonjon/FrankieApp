@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Check, Moon, Sun } from 'lucide-react'
-import { from12, to12 } from '../../lib/time'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { Check } from 'lucide-react'
+import { minutesOf, to12, toHHMM } from '../../lib/time'
 import type { HHMM } from '../../types'
 import { AnalogueFace } from '../ui/AnalogueFace'
 import { BigButton } from '../ui/BigButton'
@@ -18,16 +18,24 @@ interface Props {
   onBack: () => void
 }
 
-const HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+/** Every hour and half hour of the day, 12:00 am → 11:30 pm. */
+const SLOTS: HHMM[] = Array.from({ length: 48 }, (_, i) => toHHMM(Math.floor(i / 2), (i % 2) * 30))
 
-/** When? — whole and half hours only, 12-hour, am/pm as sun/moon buttons, analogue echo. */
+/**
+ * When? — one scrolling list of times, on the hour and half hour. Each row is
+ * the time with am/pm and its sun/moon, plus a small clock face. Opens scrolled
+ * to the current choice; one tap picks. Family mode can also type any minute.
+ */
 export function TimePicker({ title = 'When?', value, fineMinutes = false, allowNone = false, onDone, onBack }: Props) {
-  const init = to12(value)
-  const [hour, setHour] = useState(init.hour)
-  const [minute, setMinute] = useState(init.minute)
-  const [ampm, setAmpm] = useState<'am' | 'pm'>(init.ampm)
-  const result = from12(hour, minute, ampm)
-  const minutes = fineMinutes ? [0, 15, 30, 45] : [0, 30]
+  const list = useRef<HTMLDivElement>(null)
+  const [other, setOther] = useState(value)
+  const onSlot = SLOTS.includes(value)
+
+  // Centre the chosen (or nearest) time before the sheet is painted.
+  useLayoutEffect(() => {
+    const target = onSlot ? value : SLOTS.reduce((a, b) => (Math.abs(minutesOf(b) - minutesOf(value)) < Math.abs(minutesOf(a) - minutesOf(value)) ? b : a))
+    list.current?.querySelector<HTMLElement>(`[data-time="${target}"]`)?.scrollIntoView({ block: 'center' })
+  }, [value, onSlot])
 
   return (
     <Sheet
@@ -35,64 +43,54 @@ export function TimePicker({ title = 'When?', value, fineMinutes = false, allowN
       symbol="🕒"
       onBack={onBack}
       footer={
-        <>
-          {allowNone && (
-            <BigButton size="lg" onClick={() => onDone(null)}>
-              No time
-            </BigButton>
-          )}
-          <BigButton variant="green" size="lg" onClick={() => onDone(result)}>
-            <Check size={44} strokeWidth={3.5} />
-            Done
+        allowNone ? (
+          <BigButton size="lg" onClick={() => onDone(null)}>
+            No time
           </BigButton>
-        </>
+        ) : undefined
       }
     >
-      <div className="mx-auto flex max-w-4xl flex-col gap-5">
-        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-3xl border-4 border-line bg-soft px-4 py-3">
-          <TimeLabel time={result} size="xl" />
-          <AnalogueFace hour={hour} minute={minute} size={110} className="h-20 w-20 sm:h-28 sm:w-28" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <BigButton size="lg" variant={ampm === 'am' ? 'primary' : 'secondary'} onClick={() => setAmpm('am')}>
-            <Sun size={48} strokeWidth={2.5} />
-            am
-          </BigButton>
-          <BigButton size="lg" variant={ampm === 'pm' ? 'primary' : 'secondary'} onClick={() => setAmpm('pm')}>
-            <Moon size={48} strokeWidth={2.5} />
-            pm
-          </BigButton>
-        </div>
-
-        <div className="grid grid-cols-4 gap-3 sm:grid-cols-6">
-          {HOURS.map(h => (
-            <BigButton key={h} size="lg" variant={hour === h ? 'primary' : 'secondary'} onClick={() => setHour(h)}>
-              {h}
-            </BigButton>
-          ))}
-        </div>
-
-        <div className={`grid gap-3 ${fineMinutes ? 'grid-cols-4' : 'grid-cols-2'}`}>
-          {minutes.map(m => (
-            <BigButton key={m} size="lg" variant={minute === m ? 'primary' : 'secondary'} onClick={() => setMinute(m)}>
-              :{String(m).padStart(2, '0')}
-            </BigButton>
-          ))}
-        </div>
+      <div ref={list} className="mx-auto flex max-w-2xl flex-col gap-2" role="listbox" aria-label={title}>
+        {SLOTS.map(t => {
+          const t12 = to12(t)
+          const selected = t === value
+          return (
+            <button
+              key={t}
+              type="button"
+              role="option"
+              aria-selected={selected}
+              data-time={t}
+              onClick={() => onDone(t)}
+              className={`flex min-h-20 items-center justify-between gap-4 rounded-2xl border-4 px-5 py-2 text-left active:scale-[0.98] ${
+                selected ? 'border-orange-dark bg-orange-light' : 'border-ink bg-paper'
+              }`}
+            >
+              <TimeLabel time={t} size="lg" />
+              <span className="flex items-center gap-3">
+                {selected && <Check size={36} strokeWidth={3.5} className="text-orange-dark" />}
+                <AnalogueFace hour={t12.hour} minute={t12.minute} size={56} />
+              </span>
+            </button>
+          )
+        })}
 
         {fineMinutes && (
-          <label className="flex items-center gap-3 text-xl font-bold">
-            Other minutes
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border-4 border-line p-3">
+            <label className="text-xl font-bold" htmlFor="other-time">
+              Other time
+            </label>
             <input
-              type="number"
-              min={0}
-              max={59}
-              value={minute}
-              onChange={e => setMinute(Math.max(0, Math.min(59, Number(e.target.value) || 0)))}
-              className="min-h-16 w-28 rounded-2xl border-4 border-line px-3 text-2xl font-bold"
+              id="other-time"
+              type="time"
+              value={other}
+              onChange={e => setOther(e.target.value)}
+              className="min-h-14 rounded-xl border-4 border-line px-3 text-2xl font-bold"
             />
-          </label>
+            <BigButton size="sm" variant="green" onClick={() => other && onDone(other)}>
+              <Check size={28} strokeWidth={3} /> Use
+            </BigButton>
+          </div>
         )}
       </div>
     </Sheet>
