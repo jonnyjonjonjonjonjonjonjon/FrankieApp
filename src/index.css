@@ -33,6 +33,17 @@ html {
   }
 }
 
+/* Time wheels: row height, and no scrollbar. */
+:root {
+  --wheel-row: 3.6rem;
+}
+.wheel {
+  scrollbar-width: none;
+}
+.wheel::-webkit-scrollbar {
+  display: none;
+}
+
 /* Month grid fills the screen height on tablets; natural rows on phones. */
 @media (min-width: 640px) {
   .month-grid {
