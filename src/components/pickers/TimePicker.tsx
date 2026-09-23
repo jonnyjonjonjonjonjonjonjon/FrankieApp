@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Check, Moon, Sun } from 'lucide-react'
 import { parseHHMM, to12, toHHMM } from '../../lib/time'
 import type { HHMM } from '../../types'
@@ -42,6 +42,17 @@ export function TimePicker({ title = 'When?', value, allowNone = false, onDone, 
   const [minuteIdx, setMinuteIdx] = useState(Math.min(11, Math.round(init.m / 5)))
   const result = toHHMM(hour, MINUTES[minuteIdx])
   const t12 = to12(result)
+  // Stable item lists so the wheels don't re-render their rows mid-scroll.
+  const hourItems = useMemo(() => HOURS.map(h => <HourItem key={h} h={h} />), [])
+  const minuteItems = useMemo(
+    () =>
+      MINUTES.map(m => (
+        <span key={m} className="text-4xl font-extrabold tabular-nums">
+          :{String(m).padStart(2, '0')}
+        </span>
+      )),
+    [],
+  )
 
   return (
     <Sheet
@@ -62,26 +73,17 @@ export function TimePicker({ title = 'When?', value, allowNone = false, onDone, 
         </>
       }
     >
-      <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-center sm:gap-10">
-        {/* The time being chosen */}
-        <div className="flex items-center gap-4 sm:flex-col">
-          <AnalogueFace hour={t12.hour} minute={t12.minute} size={200} className="h-24 w-24 sm:h-52 sm:w-52" />
+      <div className="mx-auto flex max-w-xl flex-col items-center gap-4">
+        {/* The time being chosen, above the wheels */}
+        <div className="flex items-center gap-5">
+          <AnalogueFace hour={t12.hour} minute={t12.minute} size={180} className="h-24 w-24 sm:h-36 sm:w-36" />
           <TimeLabel time={result} size="xl" />
         </div>
 
         {/* The wheels */}
-        <div className="grid w-full max-w-md grid-cols-[3fr_2fr] gap-4">
-          <Wheel label="Hour" items={HOURS.map(h => <HourItem key={h} h={h} />)} index={hour} onChange={setHour} />
-          <Wheel
-            label="Minutes"
-            items={MINUTES.map(m => (
-              <span key={m} className="text-4xl font-extrabold tabular-nums">
-                :{String(m).padStart(2, '0')}
-              </span>
-            ))}
-            index={minuteIdx}
-            onChange={setMinuteIdx}
-          />
+        <div className="grid w-full grid-cols-[3fr_2fr] gap-4">
+          <Wheel label="Hour" items={hourItems} index={hour} onChange={setHour} />
+          <Wheel label="Minutes" items={minuteItems} index={minuteIdx} onChange={setMinuteIdx} />
         </div>
       </div>
     </Sheet>

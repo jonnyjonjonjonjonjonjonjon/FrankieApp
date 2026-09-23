@@ -35,7 +35,7 @@ html {
 
 /* Time wheels: row height, and no scrollbar. */
 :root {
-  --wheel-row: 3.6rem;
+  --wheel-row: 3.2rem;
 }
 .wheel {
   scrollbar-width: none;
