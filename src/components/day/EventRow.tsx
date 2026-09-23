@@ -97,7 +97,8 @@ export function EventRow({ event, onOpen, onTime, onGrip, dragging, current }: P
           aria-label="Move"
           onPointerDown={onGrip}
           data-noswipe
-          className="flex flex-1 cursor-grab touch-none items-center justify-center rounded-xl text-ink-soft active:cursor-grabbing"
+          style={{ touchAction: 'none' }}
+          className="flex flex-1 cursor-grab items-center justify-center rounded-xl text-ink-soft active:cursor-grabbing"
         >
           <GripVertical size={34} strokeWidth={2.5} />
         </button>

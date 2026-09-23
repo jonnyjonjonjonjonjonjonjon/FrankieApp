@@ -42,7 +42,11 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime }: Pr
     const move = (ev: globalThis.PointerEvent) => {
       setDrag(d => (d ? { ...d, dy: ev.clientY - d.startY, to: targetIndex(ev.clientY, id) } : d))
     }
+    // While dragging, the page must not scroll under the finger.
+    const block = (ev: Event) => ev.preventDefault()
+    window.addEventListener('touchmove', block, { passive: false })
     const end = (ev: globalThis.PointerEvent) => {
+      window.removeEventListener('touchmove', block)
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', end)
       window.removeEventListener('pointercancel', end)
