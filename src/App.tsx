@@ -7,6 +7,7 @@ import { MonthView } from './components/month/MonthView'
 import { SettingsView } from './components/settings/SettingsView'
 import { TabBar } from './components/ui/TabBar'
 import { Toast } from './components/ui/Toast'
+import { ChargePrompt } from './components/ui/ChargePrompt'
 import { today } from './lib/dates'
 import { WeekView } from './components/week/WeekView'
 
@@ -47,6 +48,7 @@ export default function App() {
           <TabBar />
         </div>
         <Toast />
+        <ChargePrompt />
       </SignInGate>
     </StoreProvider>
   )

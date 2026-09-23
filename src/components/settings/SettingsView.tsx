@@ -16,6 +16,7 @@ import { NewItemForm } from '../pickers/NewItemForm'
 import { PhotoInput } from '../pickers/PhotoInput'
 import { TimePicker } from '../pickers/TimePicker'
 import { FamilyAccounts } from './FamilyAccounts'
+import { ThisDevice } from './ThisDevice'
 
 const KINDS: LibraryKind[] = ['person', 'place', 'food', 'activity']
 
@@ -205,6 +206,10 @@ export function SettingsView() {
                 Change PIN
               </BigButton>
             )}
+          </Section>
+
+          <Section title="This device" symbol="🔋">
+            <ThisDevice />
           </Section>
 
           <Section title="Family accounts" symbol="👨‍👩‍👧">
