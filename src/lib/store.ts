@@ -439,7 +439,7 @@ class Store {
    * and the ones it clashes with lose their times.
    */
   async moveEvent(date: ISODate, id: Id, toIndex: number) {
-    await this.materializeDay(date)
+    // resolveEventId materialises the day if needed and maps a placeholder id to the real one.
     const realId = await this.resolveEventId(date, id)
     const list = this.eventsFor(date)
     const from = list.findIndex(e => e.id === realId)
@@ -462,7 +462,6 @@ class Store {
 
   /** Give an event a time (or remove it); it slides to where that time belongs in the list. */
   async setEventTime(date: ISODate, id: Id, time: HHMM | null) {
-    await this.materializeDay(date)
     const realId = await this.resolveEventId(date, id)
     const list = this.eventsFor(date)
     const cur = list.find(e => e.id === realId)
