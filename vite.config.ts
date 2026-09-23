@@ -51,6 +51,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+        // The symbol comparison page is a separate static page, not part of the app.
+        globIgnores: ['symbols/**'],
+        navigateFallbackDenylist: [/\/symbols\//],
       },
     }),
   ],

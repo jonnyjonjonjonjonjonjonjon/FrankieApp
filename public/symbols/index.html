@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Symbol comparison</title>
+<style>
+  :root {
+    --orange: #f26f21; --orange-dark: #c4560f; --orange-light: #ffe9db;
+    --ink: #1a1a1a; --ink-soft: #4a4a4a; --line: #cfcfcf; --soft: #f3f3f3; --paper: #fff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 18px/1.4 "Segoe UI", Roboto, system-ui, Arial, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--paper); border-bottom: 4px solid var(--line); padding: 12px 16px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  header p { margin: 0 0 10px; color: var(--ink-soft); }
+  nav { display: flex; flex-wrap: wrap; gap: 8px; }
+  nav button { font: inherit; font-weight: 800; min-height: 52px; padding: 0 18px; border-radius: 14px; border: 3px solid var(--ink); background: var(--paper); cursor: pointer; }
+  nav button[aria-pressed="true"] { background: var(--orange); border-color: var(--orange-dark); color: #fff; }
+  main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+
+  /* Side by side: one row per word */
+  .rows { display: grid; gap: 12px; }
+  .row { display: grid; grid-template-columns: minmax(7rem, 1fr) repeat(3, minmax(0, 1.4fr)); gap: 10px; align-items: stretch; }
+  .row.head { position: sticky; top: var(--head-h, 150px); z-index: 1; background: var(--paper); padding: 4px 0; }
+  .row.head div { font-weight: 800; text-align: center; color: var(--ink-soft); }
+  .word { display: flex; align-items: center; font-size: 1.6rem; font-weight: 800; }
+  .cell { border: 4px solid var(--ink); border-radius: 18px; background: var(--paper); aspect-ratio: 1; display: flex; align-items: center; justify-content: center; padding: 8%; }
+  .cell img { width: 100%; height: 100%; object-fit: contain; }
+  .cell.none { border-color: var(--line); background: var(--soft); color: var(--ink-soft); font-size: .9rem; text-align: center; }
+
+  /* One set at a time: tiles like the app */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 14px; }
+  .tile { border: 4px solid var(--ink); border-radius: 22px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .tile .word { font-size: 1.5rem; justify-content: center; text-align: center; min-height: 2.2em; }
+  .tile .pic { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: var(--soft); border-radius: 14px; padding: 8%; }
+  .tile .pic img { width: 100%; height: 100%; object-fit: contain; }
+  .tile.none .pic { color: var(--ink-soft); font-size: .9rem; text-align: center; }
+
+  footer { max-width: 1200px; margin: 24px auto; padding: 16px; border-top: 4px solid var(--line); color: var(--ink-soft); font-size: .9rem; }
+  footer p { margin: 6px 0; }
+  a { color: #0b61c5; }
+  @media (max-width: 640px) {
+    body { font-size: 15px; }
+    .row { grid-template-columns: 5.5rem repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .word { font-size: 1.1rem; }
+    .cell { border-width: 2px; border-radius: 12px; }
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<header id="top">
+  <h1>Which symbols can Frankie read best?</h1>
+  <p>The same words in three free symbol sets. Look at them together, or one set at a time as they'd appear in the diary.</p>
+  <nav aria-label="View">
+    <button type="button" data-view="all" aria-pressed="true">Side by side</button>
+    <button type="button" data-view="arasaac" aria-pressed="false">ARASAAC</button>
+    <button type="button" data-view="mulberry" aria-pressed="false">Mulberry</button>
+    <button type="button" data-view="openmoji" aria-pressed="false">OpenMoji</button>
+  </nav>
+</header>
+<main id="main"></main>
+<footer>
+  <p><strong>ARASAAC</strong>: pictograms by Sergio Palao, origin <a href="https://arasaac.org">ARASAAC</a>, owned by the Government of Aragón, licence CC BY-NC-SA. Loaded live from arasaac.org.</p>
+  <p><strong>Mulberry</strong>: <a href="https://mulberrysymbols.org">Mulberry Symbols</a> by Steve Lee, licence CC BY-SA 2.0 UK.</p>
+  <p><strong>OpenMoji</strong>: all emojis designed by <a href="https://openmoji.org">OpenMoji</a>, the open-source emoji and icon project, licence CC BY-SA 4.0.</p>
+</footer>
+<script>
+// word, ARASAAC search term, Mulberry file, OpenMoji code
+const WORDS = [
+  ['Toast', 'toast', 'toast', '1F35E'],
+  ['Cereal', 'cereal', 'cereal_bowl', '1F963'],
+  ['Sandwich', 'sandwich', 'sandwich', '1F96A'],
+  ['Fish and chips', 'fish and chips', 'fish_and_chips', '1F41F'],
+  ['Jacket potato', 'baked potato', 'jacket_potato_1', '1F954'],
+  ['Tea', 'tea', 'tea', '1F375'],
+  ['Breakfast', 'breakfast', 'breakfast_1', '1F963'],
+  ['Lunch', 'lunch', 'lunch_1', '1F96A'],
+  ['Dinner', 'dinner', 'dinner', '1F37D'],
+  ['Shower', 'shower', 'shower', '1F6BF'],
+  ['Brush teeth', 'brush teeth', 'brush_teeth_to', '1FAA5'],
+  ['Bath', 'bath', 'bath', '1F6C1'],
+  ['Bed', 'go to bed', 'bed_time', '1F6CF'],
+  ['Walk', 'walk', 'walk_to', '1F6B6'],
+  ['Swimming', 'swim', 'swim_to', '1F3CA'],
+  ['Computer', 'computer', 'computer_1', '1F4BB'],
+  ['Food shopping', 'supermarket', 'shop', '1F6D2'],
+  ['Clothes', 'clothes', 'clothes_generic', '1F457'],
+  ['Hairdresser', 'hairdresser', null, '1F487'],
+  ['Doctor', 'doctor', 'doctor_1a', '1FA7A'],
+  ['Dentist', 'dentist', 'dentist_1a', '1F9B7'],
+  ['House', 'house', 'house', '1F3E0'],
+  ['Hotel', 'hotel', null, '1F3E8'],
+  ['Car', 'car', 'car', '1F697'],
+  ['Birthday', 'birthday cake', 'birthday_cake', '1F382'],
+  ['Happy', 'happy', 'happy_lady', '1F60A'],
+  ['Sad', 'sad', 'sad_lady', '1F622'],
+  ['Friends', 'friends', null, '1F46B'],
+]
+
+const SETS = { arasaac: 'ARASAAC', mulberry: 'Mulberry', openmoji: 'OpenMoji' }
+const arasaacCache = new Map()
+
+function arasaacUrl(term) {
+  if (!arasaacCache.has(term)) {
+    arasaacCache.set(
+      term,
+      fetch('https://api.arasaac.org/v1/pictograms/en/bestsearch/' + encodeURIComponent(term))
+        .then(r => (r.ok ? r.json() : []))
+        .then(list => (list && list[0] ? 'https://static.arasaac.org/pictograms/' + list[0]._id + '/' + list[0]._id + '_500.png' : null))
+        .catch(() => null),
+    )
+  }
+  return arasaacCache.get(term)
+}
+
+function src(set, w) {
+  if (set === 'mulberry') return Promise.resolve(w[2] ? 'mulberry/' + w[2] + '.svg' : null)
+  if (set === 'openmoji') return Promise.resolve('openmoji/' + w[3] + '.svg')
+  return arasaacUrl(w[1])
+}
+
+function pic(set, w, holder, noneClassEl) {
+  holder.textContent = '…'
+  src(set, w).then(url => {
+    holder.textContent = ''
+    if (!url) {
+      holder.textContent = set === 'arasaac' ? 'Could not load' : 'No symbol in this set'
+      noneClassEl.classList.add('none')
+      return
+    }
+    const img = new Image()
+    img.alt = w[0] + ' (' + SETS[set] + ')'
+    img.src = url
+    img.onerror = () => { holder.textContent = 'Could not load'; noneClassEl.classList.add('none') }
+    holder.appendChild(img)
+  })
+}
+
+function renderAll(main) {
+  const rows = document.createElement('div')
+  rows.className = 'rows'
+  const head = document.createElement('div')
+  head.className = 'row head'
+  head.innerHTML = '<div></div><div>ARASAAC</div><div>Mulberry</div><div>OpenMoji</div>'
+  rows.appendChild(head)
+  for (const w of WORDS) {
+    const row = document.createElement('div')
+    row.className = 'row'
+    const word = document.createElement('div')
+    word.className = 'word'
+    word.textContent = w[0]
+    row.appendChild(word)
+    for (const set of Object.keys(SETS)) {
+      const cell = document.createElement('div')
+      cell.className = 'cell'
+      row.appendChild(cell)
+      pic(set, w, cell, cell)
+    }
+    rows.appendChild(row)
+  }
+  main.appendChild(rows)
+}
+
+function renderOne(main, set) {
+  const tiles = document.createElement('div')
+  tiles.className = 'tiles'
+  for (const w of WORDS) {
+    const tile = document.createElement('div')
+    tile.className = 'tile'
+    const word = document.createElement('div')
+    word.className = 'word'
+    word.textContent = w[0]
+    const p = document.createElement('div')
+    p.className = 'pic'
+    tile.append(word, p)
+    tiles.appendChild(tile)
+    pic(set, w, p, tile)
+  }
+  main.appendChild(tiles)
+}
+
+function show(view) {
+  const main = document.getElementById('main')
+  main.textContent = ''
+  document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === view)))
+  if (view === 'all') renderAll(main)
+  else renderOne(main, view)
+  document.documentElement.style.setProperty('--head-h', document.getElementById('top').offsetHeight + 'px')
+  window.scrollTo(0, 0)
+}
+
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => show(b.dataset.view)))
+window.addEventListener('resize', () => document.documentElement.style.setProperty('--head-h', document.getElementById('top').offsetHeight + 'px'))
+show('all')
+</script>
+</body>
+</html>
