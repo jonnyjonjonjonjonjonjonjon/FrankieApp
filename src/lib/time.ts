@@ -48,3 +48,9 @@ export function snapHalfHour(t: HHMM): HHMM {
   const clamped = Math.min(mins, 23 * 60 + 30)
   return toHHMM(Math.floor(clamped / 60), clamped % 60)
 }
+
+/** Sun from 6 am until 6 pm, moon otherwise (daylight, not am/pm). */
+export function isDaytime(t: HHMM): boolean {
+  const { h } = parseHHMM(t)
+  return h >= 6 && h < 18
+}

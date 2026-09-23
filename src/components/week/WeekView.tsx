@@ -3,7 +3,7 @@ import { addDays, DAY_SHORT, dayNumber, monthName, today, weekDates, weekdayInde
 import { eventFace } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
 import { EVENT_TYPES, RATING_FACES } from '../../lib/symbols'
-import { to12 } from '../../lib/time'
+import { isDaytime, to12 } from '../../lib/time'
 import type { DiaryEvent, EventType, ISODate } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Photo } from '../ui/Photo'
@@ -124,7 +124,7 @@ export function WeekView({ date }: { date: ISODate }) {
                           </div>
                           {t && (
                             <span className="text-sm font-bold whitespace-nowrap text-ink-soft">
-                              {t.clock} {t.ampm} {t.ampm === 'am' ? '☀️' : '🌙'}
+                              {t.clock} {t.ampm} {e.time && isDaytime(e.time) ? '☀️' : '🌙'}
                             </span>
                           )}
                         </div>

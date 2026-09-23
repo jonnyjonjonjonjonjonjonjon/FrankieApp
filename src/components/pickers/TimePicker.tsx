@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Check, Moon, Sun } from 'lucide-react'
-import { parseHHMM, to12, toHHMM } from '../../lib/time'
+import { isDaytime, parseHHMM, to12, toHHMM } from '../../lib/time'
 import type { HHMM } from '../../types'
 import { AnalogueFace } from '../ui/AnalogueFace'
 import { BigButton } from '../ui/BigButton'
@@ -22,12 +22,13 @@ const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5)
 
 function HourItem({ h }: { h: number }) {
   const t = to12(toHHMM(h, 0))
-  const Icon = t.ampm === 'am' ? Sun : Moon
+  const day = isDaytime(toHHMM(h, 0))
+  const Icon = day ? Sun : Moon
   return (
     <span className="inline-flex items-center gap-2 font-extrabold tabular-nums">
       <span className="w-[2ch] text-right text-4xl">{t.hour}</span>
       <span className="text-2xl font-bold">{t.ampm}</span>
-      <Icon size={30} strokeWidth={2.5} className={t.ampm === 'am' ? 'text-orange' : 'text-ink-soft'} />
+      <Icon size={30} strokeWidth={2.5} className={day ? 'text-orange' : 'text-ink-soft'} />
     </span>
   )
 }
