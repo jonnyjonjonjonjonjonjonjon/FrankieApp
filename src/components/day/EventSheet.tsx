@@ -39,7 +39,7 @@ function Row({ symbol, word, value, onClick }: { symbol: string; word: string; v
 /** Tap an event to change it: when, food/activity, where, who, rating, remove. */
 export function EventSheet({ eventId, date, onClose }: Props) {
   const store = useStore()
-  const { items, familyMode } = store.state
+  const { items } = store.state
   const [sub, setSub] = useState<Sub>(null)
 
   // DayView materialises the day before opening, so this is always a stored event.
@@ -65,7 +65,6 @@ export function EventSheet({ eventId, date, onClose }: Props) {
       <TimePicker
         value={event.time ?? '10:00'}
         allowNone={Boolean(event.time)}
-        fineMinutes={familyMode}
         onBack={() => setSub(null)}
         onDone={t => {
           void store.setEventTime(date, event.id, t)

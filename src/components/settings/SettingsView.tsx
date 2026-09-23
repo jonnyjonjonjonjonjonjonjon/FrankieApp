@@ -245,7 +245,6 @@ export function SettingsView() {
         <TimePicker
           title={EVENT_TYPES[template[editTime].type].word}
           value={template[editTime].time}
-          fineMinutes
           onBack={() => setEditTime(null)}
           onDone={t => {
             if (t) setTemplate(template.map((x, i) => (i === editTime ? { ...x, time: t } : x)))

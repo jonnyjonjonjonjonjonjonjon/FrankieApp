@@ -100,7 +100,6 @@ export function DayView({ date, from }: Props) {
         <TimePicker
           value={timeEvent.time ?? '10:00'}
           allowNone={Boolean(timeEvent.time)}
-          fineMinutes={store.state.familyMode}
           onBack={() => setTimeId(null)}
           onDone={t => {
             void store.setEventTime(date, timeEvent.id, t)
