@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import { useStore } from '../../lib/store'
 import { today } from '../../lib/dates'
 import { minutesOf, nowHHMM } from '../../lib/time'
@@ -22,6 +23,11 @@ export function DayPanel({ date, onOpen, onTime, onPickStay }: Props) {
   const staying = store.stayingAt(date)
   const birthdays = store.birthdaysOn(date)
   const now = useNow()
+  // A day that has just arrived always starts at the top (before paint, so no jump).
+  const scroller = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    scroller.current?.scrollTo(0, 0)
+  }, [date])
   // Today: the last timed row whose time has passed is where the day has got to.
   let currentId: string | null = null
   if (date === today()) {
@@ -30,7 +36,7 @@ export function DayPanel({ date, onOpen, onTime, onPickStay }: Props) {
   }
 
   return (
-    <div className="h-full overflow-y-auto px-3 py-3">
+    <div ref={scroller} className="h-full overflow-y-auto px-3 py-3">
       <div className="mx-auto flex max-w-4xl flex-col gap-4">
         <button
           type="button"
