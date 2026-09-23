@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type TouchEvent, type TransitionEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent, type TransitionEvent } from 'react'
 
 interface Props {
   /** Render the panel for an offset of -1, 0 or +1 days from the current one. */
@@ -74,8 +74,16 @@ export function DayCarousel({ render, onSettle, request }: Props) {
     setDx(0)
     setAnimTo(null)
     if (dir !== 0) onSettle(dir)
-    requestAnimationFrame(() => setNoTransition(false))
   }
+
+  // After a silent reset, make the browser register the resting position
+  // (transition off) BEFORE transitions come back on, or it animates the reset.
+  useLayoutEffect(() => {
+    if (!noTransition) return
+    void track.current?.offsetWidth // forces a style flush
+    const id = requestAnimationFrame(() => setNoTransition(false))
+    return () => cancelAnimationFrame(id)
+  }, [noTransition])
 
   const shift = animTo === null ? dx : animTo === 0 ? 0 : -animTo * width
   const transition = noTransition || (animTo === null && dragging) ? 'none' : 'transform 260ms ease-out'
