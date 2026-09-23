@@ -92,16 +92,18 @@ export function WeekView({ date }: { date: ISODate }) {
                   </div>
                 )}
 
-                {/* Staying at */}
-                <div className="flex min-h-14 items-center gap-2 bg-sky px-1 py-1">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-paper">
-                    {staying?.photoId && staying.showPhoto ? (
-                      <Photo id={staying.photoId} className="h-full w-full" />
-                    ) : (
-                      <Symbol symbol={staying?.symbol ?? '🏠'} size="text-4xl" />
-                    )}
+                {/* Staying at — in a narrow column the picture sits above the name, so words are not split */}
+                <div className="@container bg-sky">
+                  <div className="flex min-h-14 items-center gap-2 px-1 py-1 @max-[10rem]:flex-col @max-[10rem]:gap-1 @max-[10rem]:text-center">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-paper">
+                      {staying?.photoId && staying.showPhoto ? (
+                        <Photo id={staying.photoId} className="h-full w-full" />
+                      ) : (
+                        <Symbol symbol={staying?.symbol ?? '🏠'} size="text-4xl" />
+                      )}
+                    </div>
+                    <span className="min-w-0 text-sm font-bold leading-tight break-words">{staying?.name ?? 'Rochester Road'}</span>
                   </div>
-                  <span className="min-w-0 text-sm font-bold leading-tight break-words">{staying?.name ?? 'Rochester Road'}</span>
                 </div>
 
                 {MEALS.map((m, i) => (
