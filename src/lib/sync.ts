@@ -4,7 +4,6 @@ import {
   getAuth,
   onAuthStateChanged,
   signInWithPopup,
-  signInWithRedirect,
   signOut as fbSignOut,
   type Auth,
   type User,
@@ -125,9 +124,13 @@ class Sync {
     provider.setCustomParameters({ prompt: 'select_account' })
     try {
       await signInWithPopup(this.auth, provider)
-    } catch {
-      // Popups are blocked in some installed-app contexts; fall back to a redirect.
-      await signInWithRedirect(this.auth, provider)
+    } catch (e) {
+      // Never fall back to signInWithRedirect: on GitHub Pages the auth handler
+      // lives on a different origin and modern Chrome's storage partitioning
+      // loses the redirect state ("missing initial state").
+      const code = (e as { code?: string }).code ?? ''
+      if (code.includes('popup-closed') || code.includes('cancelled')) return
+      this.setStatus(this.status, code.includes('popup-blocked') ? 'The sign-in window was blocked. Allow pop-ups for this site and try again.' : String(e))
     }
   }
 
