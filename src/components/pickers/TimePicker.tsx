@@ -76,7 +76,7 @@ export function TimePicker({ title = 'When?', value, allowNone = false, onDone, 
       <div className="mx-auto flex max-w-xl flex-col items-center gap-4">
         {/* The time being chosen, above the wheels */}
         <div className="flex items-center gap-5">
-          <AnalogueFace hour={t12.hour} minute={t12.minute} size={180} className="h-24 w-24 sm:h-36 sm:w-36" />
+          <AnalogueFace hour={t12.hour} minute={t12.minute} size={180} className="h-36 w-36 sm:h-[9.5rem] sm:w-[9.5rem]" />
           <TimeLabel time={result} size="xl" />
         </div>
 
