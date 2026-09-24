@@ -13,6 +13,7 @@ export const EVENT_TYPES: Record<EventType, { word: string; symbol: string }> = 
   dinner: { word: 'Dinner', symbol: '🍽️' },
   bed: { word: 'Bed', symbol: 'mb:double_bed' },
   activity: { word: 'Activity', symbol: '⭐' },
+  travel: { word: 'Travel', symbol: 'mb:travel' },
 }
 
 /**
@@ -24,9 +25,9 @@ export function eventTypeInfo(type: string): { word: string; symbol: string } {
   return EVENT_TYPES[type as EventType] ?? EVENT_TYPES.activity
 }
 
-/** Order the "What?" picker shows event types in. */
+/** Order the "What?" picker shows event types in. Travel sits beside Activity at the top level. */
 export const EVENT_TYPE_ORDER: EventType[] = [
-  'activity', 'breakfast', 'lunch', 'dinner', 'shower', 'teeth', 'wake', 'bed',
+  'activity', 'travel', 'breakfast', 'lunch', 'dinner', 'shower', 'teeth', 'wake', 'bed',
 ]
 
 export const KIND_WORD: Record<LibraryKind, string> = {
@@ -34,6 +35,7 @@ export const KIND_WORD: Record<LibraryKind, string> = {
   place: 'Places',
   food: 'Food',
   activity: 'Activities',
+  travel: 'Travel',
 }
 
 export const KIND_SYMBOL: Record<LibraryKind, string> = {
@@ -41,7 +43,11 @@ export const KIND_SYMBOL: Record<LibraryKind, string> = {
   place: '📍',
   food: '🍽️',
   activity: '⭐',
+  travel: 'mb:travel',
 }
+
+/** Where to? (a travel event's destination). */
+export const WHERE_TO_SYMBOL = 'mb:where'
 
 export const RATING_FACES = {
   happy: { symbol: '😊', word: 'Happy' },

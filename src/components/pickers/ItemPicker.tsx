@@ -1,22 +1,24 @@
-import { useMemo, useState } from 'react'
-import { useStore } from '../../lib/store'
+import { useState, type ReactNode } from 'react'
 import { KIND_SYMBOL } from '../../lib/symbols'
 import type { Id, LibraryItem, LibraryKind, MealSlot } from '../../types'
-import { AddTile } from '../ui/AddTile'
 import { Sheet } from '../ui/Sheet'
-import { Tile } from '../ui/Tile'
 import { ClearButton, NoButton, YesButton } from '../ui/YesNo'
+import { ChoiceGrid } from './ChoiceGrid'
 import { NewItemForm } from './NewItemForm'
 
 interface Props {
   kind: LibraryKind
   title: string
   symbol?: string
+  /** In the header before the title: what was chosen on the step before. */
+  before?: ReactNode
   multi?: boolean
   initial?: Id[]
-  /** Food picker for a meal: preferred items first, others below. */
+  /** Food picker for a meal: that meal's shelf first. */
   mealSlot?: MealSlot
   allowNone?: boolean
+  /** A single-choice question that can also be answered "yes, without one" (Travel → Where to?). */
+  onSkip?: () => void
   /** Show only these items (in this order) instead of the whole list. */
   subset?: LibraryItem[]
   /** Fields set on items added from this picker. */
@@ -25,25 +27,13 @@ interface Props {
   onBack: () => void
 }
 
-/** Scrollable grid of tiles answering one question (Where? Who? Food? Activity?). */
-export function ItemPicker({ kind, title, symbol, multi = false, initial = [], mealSlot, allowNone, subset, newItemExtra, onDone, onBack }: Props) {
-  const store = useStore()
+/** Scrollable grid of tiles answering one question (Where? Who? Food? Activity? Travel?). */
+export function ItemPicker({ kind, title, symbol, before, multi = false, initial = [], mealSlot, allowNone, onSkip, subset, newItemExtra, onDone, onBack }: Props) {
   const [selected, setSelected] = useState<Id[]>(initial)
-  const [query, setQuery] = useState('')
-  const [adding, setAdding] = useState(false)
+  // The shelf a new word starts on; undefined = not making one.
+  const [adding, setAdding] = useState<string | null | undefined>(undefined)
 
-  const all = subset ?? store.itemsOfKind(kind)
-  const items = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    let list = q ? all.filter(i => i.name.toLowerCase().includes(q)) : all
-    if (kind === 'food' && mealSlot) {
-      const fits = (i: LibraryItem) => (i.meals ?? []).includes(mealSlot)
-      list = [...list.filter(fits), ...list.filter(i => !fits(i))]
-    }
-    return list
-  }, [all, query, kind, mealSlot])
-
-  const toggle = (id: Id) => {
+  const pick = (id: Id) => {
     if (!multi) {
       onDone([id])
       return
@@ -51,15 +41,16 @@ export function ItemPicker({ kind, title, symbol, multi = false, initial = [], m
     setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]))
   }
 
-  if (adding) {
+  if (adding !== undefined) {
     return (
       <NewItemForm
         kind={kind}
         mealSlot={mealSlot}
+        category={adding}
         extra={newItemExtra}
-        onBack={() => setAdding(false)}
+        onBack={() => setAdding(undefined)}
         onCreated={item => {
-          setAdding(false)
+          setAdding(undefined)
           if (multi) setSelected(s => [...s, item.id])
           else onDone([item.id])
         }}
@@ -71,6 +62,7 @@ export function ItemPicker({ kind, title, symbol, multi = false, initial = [], m
     <Sheet
       title={title}
       symbol={symbol ?? KIND_SYMBOL[kind]}
+      before={before}
       onBack={onBack}
       hideBack
       footer={
@@ -78,33 +70,11 @@ export function ItemPicker({ kind, title, symbol, multi = false, initial = [], m
           {allowNone && <ClearButton onClick={() => onDone([])} />}
           <NoButton onClick={onBack} />
           {multi && <YesButton onClick={() => onDone(selected)} />}
+          {!multi && onSkip && <YesButton onClick={onSkip} />}
         </>
       }
     >
-      {all.length > 12 && (
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Find"
-          autoComplete="off"
-          className="mb-4 min-h-16 w-full rounded-2xl border-4 border-line px-4 text-2xl font-bold outline-none focus:border-orange"
-        />
-      )}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {items.map(item => (
-          <Tile
-            key={item.id}
-            word={item.name}
-            symbol={item.symbol}
-            photoId={item.photoId}
-            showPhoto={item.showPhoto}
-            onFlip={() => store.toggleItemPhoto(item.id)}
-            onSelect={() => toggle(item.id)}
-            selected={selected.includes(item.id)}
-          />
-        ))}
-        <AddTile word="New" onClick={() => setAdding(true)} />
-      </div>
+      <ChoiceGrid kind={kind} items={subset} selected={selected} onPick={pick} mealSlot={mealSlot} onNew={setAdding} />
     </Sheet>
   )
 }

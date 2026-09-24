@@ -1,6 +1,6 @@
 import type { PointerEvent } from 'react'
-import { Clock, GripVertical } from 'lucide-react'
-import { eventFace, isMeal } from '../../lib/eventFace'
+import { ArrowRight, Clock, GripVertical } from 'lucide-react'
+import { eventFace, isMeal, travelDestination } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
 import { RATING_FACES } from '../../lib/symbols'
 import type { DiaryEvent } from '../../types'
@@ -25,7 +25,9 @@ export function EventRow({ event, onOpen, onTime, onGrip, dragging, current }: P
   const { items } = store.state
   const face = eventFace(event, items)
   const foods = event.foodIds.map(id => items[id]).filter(Boolean)
-  const place = event.placeId ? items[event.placeId] : null
+  // Travel shows its destination on the title line ("Bus ➜ Swimming pool"), not in the line below.
+  const destination = travelDestination(event, items)
+  const place = event.type !== 'travel' && event.placeId ? items[event.placeId] : null
   const people = event.personIds.map(id => items[id]).filter(Boolean)
   const showPhoto = face.photoId && face.showPhoto
 
@@ -50,14 +52,31 @@ export function EventRow({ event, onOpen, onTime, onGrip, dragging, current }: P
       </button>
 
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 flex-col justify-center gap-1 text-left">
-        <span className="line-clamp-2 text-3xl font-extrabold leading-tight">
-          {face.word}
-          {event.rating && (
-            <span className="ml-2 inline-flex align-middle" aria-label={RATING_FACES[event.rating].word}>
-              <Symbol symbol={RATING_FACES[event.rating].symbol} size="text-3xl" />
+        {destination ? (
+          // One line where it fits; on a narrow phone the whole "➜ place" drops under the word, never split mid-name.
+          <span className="flex flex-wrap items-center gap-x-2 text-3xl leading-tight" data-travel-line>
+            <span className="font-extrabold">{face.word}</span>
+            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+              <ArrowRight size={36} strokeWidth={3} aria-label="to" />
+              <Symbol symbol={destination.symbol} size="text-3xl" />
+              <span className="font-bold">{destination.name}</span>
             </span>
-          )}
-        </span>
+            {event.rating && (
+              <span className="inline-flex" aria-label={RATING_FACES[event.rating].word}>
+                <Symbol symbol={RATING_FACES[event.rating].symbol} size="text-3xl" />
+              </span>
+            )}
+          </span>
+        ) : (
+          <span className="line-clamp-2 text-3xl font-extrabold leading-tight">
+            {face.word}
+            {event.rating && (
+              <span className="ml-2 inline-flex align-middle" aria-label={RATING_FACES[event.rating].word}>
+                <Symbol symbol={RATING_FACES[event.rating].symbol} size="text-3xl" />
+              </span>
+            )}
+          </span>
+        )}
         {event.time && <TimeLabel time={event.time} />}
         {(foods.length > 0 || place || people.length > 0) && (
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xl font-bold text-ink-soft">

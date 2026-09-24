@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { ArrowRight } from 'lucide-react'
 import { useStore } from '../../lib/store'
-import { eventTypeInfo, EVENT_TYPE_ORDER } from '../../lib/symbols'
+import { eventTypeInfo, EVENT_TYPE_ORDER, WHERE_TO_SYMBOL } from '../../lib/symbols'
 import type { EventType, Id, ISODate, MealSlot } from '../../types'
 import { MEAL_TYPES } from '../../types'
 import { Sheet } from '../ui/Sheet'
+import { Symbol } from '../ui/Symbol'
 import { Tile } from '../ui/Tile'
 import { NoButton } from '../ui/YesNo'
 import { ItemPicker } from '../pickers/ItemPicker'
@@ -13,10 +15,11 @@ interface Props {
   onClose: () => void
 }
 
-type Step = { at: 'type' } | { at: 'pick'; type: EventType }
+type Step = { at: 'type' } | { at: 'pick'; type: EventType } | { at: 'where'; travelId: Id }
 
 /**
  * Adding to the day: pick a type → pick from the list → done (PRD §4.6).
+ * Travel is two picks: how she is going, then where to (or Yes for just "Bus").
  * No time is asked for; the row's clock button adds one later if wanted.
  */
 export function AddEventFlow({ date, onClose }: Props) {
@@ -36,6 +39,12 @@ export function AddEventFlow({ date, onClose }: Props) {
     onClose()
   }
 
+  const finishTravel = async (travelId: Id, placeId: Id | null) => {
+    await store.addEvent({ date, type: 'travel', travelId, placeId })
+    store.toast(`${store.state.items[travelId]?.name ?? eventTypeInfo('travel').word} added`)
+    onClose()
+  }
+
   if (step.at === 'type') {
     return (
       <Sheet title="Add" symbol="➕" onBack={onClose} hideBack footer={<NoButton onClick={onClose} />}>
@@ -46,13 +55,50 @@ export function AddEventFlow({ date, onClose }: Props) {
               word={eventTypeInfo(type).word}
               symbol={eventTypeInfo(type).symbol}
               onSelect={() => {
-                if (type === 'activity' || MEAL_TYPES.includes(type)) setStep({ at: 'pick', type })
+                if (type === 'activity' || type === 'travel' || MEAL_TYPES.includes(type)) setStep({ at: 'pick', type })
                 else void finish(type, [])
               }}
             />
           ))}
         </div>
       </Sheet>
+    )
+  }
+
+  if (step.at === 'where') {
+    const mode = store.state.items[step.travelId]
+    return (
+      <ItemPicker
+        key="where"
+        kind="place"
+        title="Where to?"
+        symbol={WHERE_TO_SYMBOL}
+        before={
+          mode && (
+            <span className="inline-flex shrink-0 items-center gap-2">
+              <Symbol symbol={mode.symbol} size="text-4xl" />
+              <span>{mode.name}</span>
+              <ArrowRight size={32} strokeWidth={3} aria-hidden />
+            </span>
+          )
+        }
+        onSkip={() => void finishTravel(step.travelId, null)}
+        onBack={() => setStep({ at: 'pick', type: 'travel' })}
+        onDone={ids => void finishTravel(step.travelId, ids[0] ?? null)}
+      />
+    )
+  }
+
+  if (step.type === 'travel') {
+    return (
+      <ItemPicker
+        key="travel"
+        kind="travel"
+        title="Travel"
+        symbol={eventTypeInfo('travel').symbol}
+        onBack={() => setStep({ at: 'type' })}
+        onDone={ids => ids[0] && setStep({ at: 'where', travelId: ids[0] })}
+      />
     )
   }
 

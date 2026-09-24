@@ -11,18 +11,20 @@ interface SeedSpec {
   placeType?: PlaceType
   stayable?: boolean
   meals?: MealSlot[]
+  /** Shelf (lib/categories.ts). Set for every person, food and activity. */
+  category?: string
 }
 
 export const HOME_PLACE_ID = 'seed-place-my-house'
 
 const SEED: SeedSpec[] = [
   // People
-  { id: 'seed-person-mum', kind: 'person', name: 'Mum', symbol: '👩', role: 'family' },
-  { id: 'seed-person-dad', kind: 'person', name: 'Dad', symbol: '👨', role: 'family' },
-  { id: 'seed-person-liz', kind: 'person', name: 'Liz', symbol: '👩', role: 'family' },
-  { id: 'seed-person-ria', kind: 'person', name: 'Ria', symbol: '👩', role: 'family' },
-  { id: 'seed-person-jon', kind: 'person', name: 'Jon', symbol: '👨', role: 'family' },
-  { id: 'seed-person-tara', kind: 'person', name: 'Tara', symbol: '🧑‍⚕️', role: 'carer' },
+  { id: 'seed-person-mum', kind: 'person', name: 'Mum', symbol: '👩', role: 'family', category: 'family' },
+  { id: 'seed-person-dad', kind: 'person', name: 'Dad', symbol: '👨', role: 'family', category: 'family' },
+  { id: 'seed-person-liz', kind: 'person', name: 'Liz', symbol: '👩', role: 'family', category: 'family' },
+  { id: 'seed-person-ria', kind: 'person', name: 'Ria', symbol: '👩', role: 'family', category: 'family' },
+  { id: 'seed-person-jon', kind: 'person', name: 'Jon', symbol: '👨', role: 'family', category: 'family' },
+  { id: 'seed-person-tara', kind: 'person', name: 'Tara', symbol: '🧑‍⚕️', role: 'carer', category: 'staff' },
 
   // Places
   { id: HOME_PLACE_ID, kind: 'place', name: 'Rochester Road', symbol: '🏠', placeType: 'home', stayable: true },
@@ -42,37 +44,54 @@ const SEED: SeedSpec[] = [
   { id: 'seed-place-dentist', kind: 'place', name: 'Dentist', symbol: '🦷', placeType: 'medical' },
 
   // Foods
-  { id: 'seed-food-toast', kind: 'food', name: 'Toast', symbol: '🍞', meals: ['breakfast'] },
-  { id: 'seed-food-cereal', kind: 'food', name: 'Cereal', symbol: '🥣', meals: ['breakfast'] },
-  { id: 'seed-food-porridge', kind: 'food', name: 'Porridge', symbol: 'mb:porridge', meals: ['breakfast'] },
-  { id: 'seed-food-eggs', kind: 'food', name: 'Eggs', symbol: 'mb:eggs', meals: ['breakfast'] },
-  { id: 'seed-food-sandwich', kind: 'food', name: 'Sandwich', symbol: '🥪', meals: ['lunch'] },
-  { id: 'seed-food-soup', kind: 'food', name: 'Soup', symbol: '🍲', meals: ['lunch'] },
-  { id: 'seed-food-jacket', kind: 'food', name: 'Jacket potato', symbol: '🥔', meals: ['lunch'] },
-  { id: 'seed-food-beans', kind: 'food', name: 'Beans on toast', symbol: '🫘', meals: ['lunch'] },
-  { id: 'seed-food-pasta', kind: 'food', name: 'Pasta', symbol: '🍝', meals: ['dinner'] },
-  { id: 'seed-food-pizza', kind: 'food', name: 'Pizza', symbol: '🍕', meals: ['dinner'] },
-  { id: 'seed-food-fish-chips', kind: 'food', name: 'Fish and chips', symbol: '🐟', meals: ['dinner'] },
-  { id: 'seed-food-roast', kind: 'food', name: 'Roast dinner', symbol: '🍗', meals: ['dinner'] },
-  { id: 'seed-food-curry', kind: 'food', name: 'Curry', symbol: '🍛', meals: ['dinner'] },
-  { id: 'seed-food-sausages', kind: 'food', name: 'Sausages and mash', symbol: '🌭', meals: ['dinner'] },
-  { id: 'seed-food-cake', kind: 'food', name: 'Cake', symbol: '🍰', meals: ['treat'] },
-  { id: 'seed-food-ice-cream', kind: 'food', name: 'Ice cream', symbol: '🍦', meals: ['treat'] },
-  { id: 'seed-food-biscuits', kind: 'food', name: 'Biscuits', symbol: '🍪', meals: ['treat'] },
-  { id: 'seed-food-chocolate', kind: 'food', name: 'Chocolate', symbol: '🍫', meals: ['treat'] },
-  { id: 'seed-food-tea', kind: 'food', name: 'Tea', symbol: '🍵', meals: ['drink'] },
-  { id: 'seed-food-juice', kind: 'food', name: 'Juice', symbol: '🧃', meals: ['drink'] },
-  { id: 'seed-food-water', kind: 'food', name: 'Water', symbol: '💧', meals: ['drink'] },
+  { id: 'seed-food-toast', kind: 'food', name: 'Toast', symbol: '🍞', meals: ['breakfast'], category: 'breakfast' },
+  { id: 'seed-food-cereal', kind: 'food', name: 'Cereal', symbol: '🥣', meals: ['breakfast'], category: 'breakfast' },
+  { id: 'seed-food-porridge', kind: 'food', name: 'Porridge', symbol: 'mb:porridge', meals: ['breakfast'], category: 'breakfast' },
+  { id: 'seed-food-eggs', kind: 'food', name: 'Eggs', symbol: 'mb:eggs', meals: ['breakfast'], category: 'breakfast' },
+  { id: 'seed-food-sandwich', kind: 'food', name: 'Sandwich', symbol: '🥪', meals: ['lunch'], category: 'lunch' },
+  { id: 'seed-food-soup', kind: 'food', name: 'Soup', symbol: '🍲', meals: ['lunch'], category: 'lunch' },
+  { id: 'seed-food-jacket', kind: 'food', name: 'Jacket potato', symbol: '🥔', meals: ['lunch'], category: 'lunch' },
+  { id: 'seed-food-beans', kind: 'food', name: 'Beans on toast', symbol: '🫘', meals: ['lunch'], category: 'lunch' },
+  { id: 'seed-food-pasta', kind: 'food', name: 'Pasta', symbol: '🍝', meals: ['dinner'], category: 'dinner' },
+  { id: 'seed-food-pizza', kind: 'food', name: 'Pizza', symbol: '🍕', meals: ['dinner'], category: 'dinner' },
+  { id: 'seed-food-fish-chips', kind: 'food', name: 'Fish and chips', symbol: '🐟', meals: ['dinner'], category: 'dinner' },
+  { id: 'seed-food-roast', kind: 'food', name: 'Roast dinner', symbol: '🍗', meals: ['dinner'], category: 'dinner' },
+  { id: 'seed-food-curry', kind: 'food', name: 'Curry', symbol: '🍛', meals: ['dinner'], category: 'dinner' },
+  { id: 'seed-food-sausages', kind: 'food', name: 'Sausages and mash', symbol: '🌭', meals: ['dinner'], category: 'dinner' },
+  { id: 'seed-food-cake', kind: 'food', name: 'Cake', symbol: '🍰', meals: ['treat'], category: 'treats' },
+  { id: 'seed-food-ice-cream', kind: 'food', name: 'Ice cream', symbol: '🍦', meals: ['treat'], category: 'treats' },
+  { id: 'seed-food-biscuits', kind: 'food', name: 'Biscuits', symbol: '🍪', meals: ['treat'], category: 'treats' },
+  { id: 'seed-food-chocolate', kind: 'food', name: 'Chocolate', symbol: '🍫', meals: ['treat'], category: 'treats' },
+  { id: 'seed-food-tea', kind: 'food', name: 'Tea', symbol: '🍵', meals: ['drink'], category: 'drinks' },
+  { id: 'seed-food-juice', kind: 'food', name: 'Juice', symbol: '🧃', meals: ['drink'], category: 'drinks' },
+  { id: 'seed-food-water', kind: 'food', name: 'Water', symbol: '💧', meals: ['drink'], category: 'drinks' },
 
   // Activities
-  { id: 'seed-activity-food-shopping', kind: 'activity', name: 'Food shopping', symbol: '🛒' },
-  { id: 'seed-activity-clothes-shopping', kind: 'activity', name: 'Clothes shopping', symbol: '👗' },
-  { id: 'seed-activity-walk', kind: 'activity', name: 'Walk', symbol: '🚶' },
-  { id: 'seed-activity-swimming', kind: 'activity', name: 'Swimming', symbol: '🏊' },
-  { id: 'seed-activity-computer', kind: 'activity', name: 'Computer', symbol: '💻' },
-  { id: 'seed-activity-sleeping', kind: 'activity', name: 'Sleeping', symbol: '😴' },
-  { id: 'seed-activity-friends', kind: 'activity', name: 'Seeing friends', symbol: 'mb:meet-to' },
+  { id: 'seed-activity-food-shopping', kind: 'activity', name: 'Food shopping', symbol: '🛒', category: 'out' },
+  { id: 'seed-activity-clothes-shopping', kind: 'activity', name: 'Clothes shopping', symbol: '👗', category: 'out' },
+  { id: 'seed-activity-walk', kind: 'activity', name: 'Walk', symbol: '🚶', category: 'active' },
+  { id: 'seed-activity-swimming', kind: 'activity', name: 'Swimming', symbol: '🏊', category: 'active' },
+  { id: 'seed-activity-computer', kind: 'activity', name: 'Computer', symbol: '💻', category: 'home' },
+  { id: 'seed-activity-sleeping', kind: 'activity', name: 'Sleeping', symbol: '😴', category: 'home' },
+  { id: 'seed-activity-friends', kind: 'activity', name: 'Seeing friends', symbol: 'mb:meet-to', category: 'friends' },
+
+  // Travel (Sept 2026). Always appended: a seed's order is its index here, so
+  // adding to the end never reorders the lists above.
+  { id: 'seed-travel-bus', kind: 'travel', name: 'Bus', symbol: 'mb:bus' },
+  { id: 'seed-travel-train', kind: 'travel', name: 'Train', symbol: 'mb:train' },
+  { id: 'seed-travel-taxi', kind: 'travel', name: 'Taxi', symbol: 'mb:taxi' },
+  { id: 'seed-travel-car', kind: 'travel', name: 'Car', symbol: 'mb:car' },
+  { id: 'seed-travel-plane', kind: 'travel', name: 'Plane', symbol: 'mb:aeroplane' },
+  { id: 'seed-travel-boat', kind: 'travel', name: 'Boat', symbol: 'mb:ferry' },
 ]
+
+/**
+ * Each seed's shelf. Seeds saved by older versions have no `category` field,
+ * so categoryOf() looks them up here (nothing is rewritten on load).
+ */
+export const SEED_CATEGORY: Record<string, string> = Object.fromEntries(
+  SEED.filter(s => s.category).map(s => [s.id, s.category as string]),
+)
 
 export function seedItems(now = new Date().toISOString()): LibraryItem[] {
   return SEED.map((s, i) => ({
@@ -88,6 +107,7 @@ export function seedItems(now = new Date().toISOString()): LibraryItem[] {
     placeType: s.placeType,
     stayable: s.stayable,
     meals: s.meals,
+    category: s.category,
     seeded: true,
     deleted: false,
     createdAt: now,

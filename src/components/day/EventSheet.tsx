@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronRight, Trash2 } from 'lucide-react'
+import { ArrowRight, ChevronRight, Trash2 } from 'lucide-react'
 import { eventFace, isMeal } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
-import { eventTypeInfo } from '../../lib/symbols'
+import { eventTypeInfo, WHERE_TO_SYMBOL } from '../../lib/symbols'
 import type { DiaryEvent, Id, MealSlot } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Photo } from '../ui/Photo'
@@ -19,7 +19,7 @@ interface Props {
   onClose: () => void
 }
 
-type Sub = null | 'time' | 'food' | 'activity' | 'place' | 'people'
+type Sub = null | 'time' | 'food' | 'activity' | 'travel' | 'place' | 'people'
 
 function Row({ symbol, word, value, onClick }: { symbol: string; word: string; value: ReactNode; onClick: () => void }) {
   return (
@@ -59,6 +59,7 @@ export function EventSheet({ eventId, date, onClose }: Props) {
   const dash = <span className="text-line">—</span>
   const place = event.placeId ? items[event.placeId] : null
   const meal = isMeal(event)
+  const travel = event.type === 'travel'
 
   if (sub === 'time') {
     return (
@@ -103,11 +104,26 @@ export function EventSheet({ eventId, date, onClose }: Props) {
       />
     )
   }
+  if (sub === 'travel') {
+    return (
+      <ItemPicker
+        kind="travel"
+        title="Travel"
+        symbol={eventTypeInfo('travel').symbol}
+        onBack={() => setSub(null)}
+        onDone={ids => {
+          void store.updateEvent(date, event.id, { travelId: ids[0] ?? null })
+          setSub(null)
+        }}
+      />
+    )
+  }
   if (sub === 'place') {
     return (
       <ItemPicker
         kind="place"
-        title="Where?"
+        title={travel ? 'Where to?' : 'Where?'}
+        symbol={travel ? WHERE_TO_SYMBOL : undefined}
         allowNone
         onBack={() => setSub(null)}
         onDone={ids => {
@@ -161,6 +177,12 @@ export function EventSheet({ eventId, date, onClose }: Props) {
           </div>
           <div className="flex flex-col gap-2">
             <span className="text-4xl font-extrabold">{face.word}</span>
+            {travel && place && (
+              <span className="flex items-center gap-2 text-3xl font-bold">
+                <ArrowRight size={36} strokeWidth={3} aria-label="to" />
+                <Symbol symbol={place.symbol} size="text-4xl" /> {place.name}
+              </span>
+            )}
             {event.time && <TimeLabel time={event.time} size="lg" />}
           </div>
         </div>
@@ -177,7 +199,20 @@ export function EventSheet({ eventId, date, onClose }: Props) {
             onClick={() => setSub('activity')}
           />
         )}
-        <Row symbol="📍" word="Where?" value={place ? names([place.id]) : dash} onClick={() => setSub('place')} />
+        {travel && (
+          <Row
+            symbol={eventTypeInfo('travel').symbol}
+            word="Travel"
+            value={event.travelId && items[event.travelId] ? names([event.travelId]) : dash}
+            onClick={() => setSub('travel')}
+          />
+        )}
+        <Row
+          symbol={travel ? WHERE_TO_SYMBOL : '📍'}
+          word={travel ? 'Where to?' : 'Where?'}
+          value={place ? names([place.id]) : dash}
+          onClick={() => setSub('place')}
+        />
         <Row symbol="🧑" word="Who?" value={event.personIds.length ? names(event.personIds) : dash} onClick={() => setSub('people')} />
 
         <div className="flex flex-col gap-2 rounded-3xl border-4 border-line p-4">

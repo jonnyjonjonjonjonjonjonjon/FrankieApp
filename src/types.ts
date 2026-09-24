@@ -8,9 +8,9 @@ export type ISODate = string
 /** 24-hour "HH:MM" */
 export type HHMM = string
 
-// ---------- Library items (people / places / foods / activities) ----------
+// ---------- Library items (people / places / foods / activities / travel) ----------
 
-export type LibraryKind = 'person' | 'place' | 'food' | 'activity'
+export type LibraryKind = 'person' | 'place' | 'food' | 'activity' | 'travel'
 
 export type PersonRole = 'family' | 'carer' | 'friend'
 export type PlaceType = 'home' | 'shop' | 'pool' | 'friend' | 'accommodation' | 'medical' | 'other'
@@ -26,17 +26,26 @@ export interface LibraryItem {
   photoId: Id | null
   /** Tile flip state — remembered per tile (PRD §4.5, `showPhotoByDefault`). */
   showPhoto: boolean
-  /** Display order for seeded items (lower first); user-added items follow, by name. */
+  /** Display order (lower first); items without one follow, by name. Seeds use their list index. */
   order?: number
+  /**
+   * Shelf within its kind (see lib/categories.ts). Missing on records from
+   * older versions and on unedited seeds: read it with categoryOf().
+   */
+  category?: string
   // person
+  /** @deprecated since categories (backlog item 3): use category. Still read for old records. */
   role?: PersonRole
   /** MM-DD, recurs yearly (PRD §4.9). */
   birthday?: string | null
+  /** Year of birth, optional: shows the age on the birthday band. */
+  birthYear?: number | null
   // place
   placeType?: PlaceType
   /** Place Frankie can be "staying at" (shown in the Staying at picker). */
   stayable?: boolean
   // food
+  /** @deprecated for grouping (use category); still written by meal pickers so older copies keep their order. */
   meals?: MealSlot[]
   seeded: boolean
   deleted: boolean
@@ -55,6 +64,7 @@ export type EventType =
   | 'dinner'
   | 'bed'
   | 'activity'
+  | 'travel'
 
 export const MEAL_TYPES: EventType[] = ['breakfast', 'lunch', 'dinner']
 
@@ -70,6 +80,11 @@ export interface DiaryEvent {
   order: number
   /** For type === 'activity'. */
   activityId: Id | null
+  /**
+   * For type === 'travel': how she is going (a 'travel' library item). Where
+   * to is placeId. Missing on records from older versions: treat as null.
+   */
+  travelId?: Id | null
   /** For meals. */
   foodIds: Id[]
   placeId: Id | null

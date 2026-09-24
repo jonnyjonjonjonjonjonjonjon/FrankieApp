@@ -17,10 +17,11 @@ import type {
 import * as db from './db'
 import { seedItems, HOME_PLACE_ID, PREVIOUS_SEED_SYMBOLS } from './seed'
 import { shrinkImage, primeUrl, forgetUrl } from './images'
+import { categoryOf, defaultCategory } from './categories'
 import { minutesOf } from './time'
 
 const timeKey = (e: DiaryEvent) => (e.time ? minutesOf(e.time) : 1e6)
-import { today } from './dates'
+import { fromISO, toISO, today } from './dates'
 
 // ------------------------------------------------------------
 // State
@@ -109,6 +110,8 @@ class Store {
     if (fresh) {
       items = seedItems(new Date(0).toISOString())
       await db.putItems(items, true)
+    } else {
+      items = await this.ensureSeeds(items)
     }
     // A fresh install's seeds already have the current shape: no migration to run.
     const freshSettings = fresh && settings.templateVersion === undefined
@@ -130,6 +133,20 @@ class Store {
       settings,
     })
     if (migrate) await this.migrate()
+  }
+
+  /**
+   * Seeds added in later versions (the travel modes) for diaries that began
+   * before them. Written like the boot seeds — silently, stamped at epoch — so
+   * a version the family already edited or removed elsewhere always wins.
+   * Only ids missing locally are added, so it is safe on every load.
+   */
+  private async ensureSeeds(items: LibraryItem[]): Promise<LibraryItem[]> {
+    const have = new Set(items.map(i => i.id))
+    const missing = seedItems(new Date(0).toISOString()).filter(s => s.kind === 'travel' && !have.has(s.id))
+    if (!missing.length) return items
+    await db.putItems(missing, true)
+    return [...items, ...missing]
   }
 
   /** Sync has caught up with the cloud once (every collection's first server snapshot is applied). */
@@ -275,9 +292,10 @@ class Store {
       deleted: false,
       createdAt: now,
       updatedAt: now,
-      ...(kind === 'person' ? { role: 'friend' as const, birthday: null } : {}),
+      ...(kind === 'person' ? { birthday: null } : {}),
       ...(kind === 'place' ? { placeType: 'other' as const } : {}),
       ...(kind === 'food' ? { meals: [] } : {}),
+      ...(defaultCategory(kind) ? { category: defaultCategory(kind) as string } : {}),
       ...extra,
     }
     await db.putItem(item)
@@ -320,17 +338,42 @@ class Store {
     const cur = this.state.items[id]
     if (!cur) return
     await this.updateItem(id, { deleted: true })
-    this.toast(`${cur.name} removed`, () => void this.updateItem(id, { deleted: false }))
+    this.toast(`${cur.name} removed`, () => void this.restoreItem(id))
   }
 
-  itemsOfKind(kind: LibraryKind): LibraryItem[] {
+  async restoreItem(id: Id) {
+    await this.updateItem(id, { deleted: false })
+  }
+
+  /**
+   * A kind's words in display order: by `order`, then name. Seeds carry their
+   * list index, so words the family added (no order yet) follow them by name
+   * until someone reorders a shelf. `category` narrows to one shelf.
+   */
+  itemsOfKind(kind: LibraryKind, category?: string): LibraryItem[] {
     return Object.values(this.state.items)
-      .filter(i => i.kind === kind && !i.deleted)
-      .sort((a, b) => {
-        if (a.seeded !== b.seeded) return a.seeded ? -1 : 1
-        if (a.seeded) return (a.order ?? 999) - (b.order ?? 999) || a.name.localeCompare(b.name)
-        return a.name.localeCompare(b.name)
-      })
+      .filter(i => i.kind === kind && !i.deleted && (category === undefined || categoryOf(i) === category))
+      .sort(byOrder)
+  }
+
+  /** Removed words of a kind, most recently removed first (Family → Words → Removed). */
+  deletedOfKind(kind: LibraryKind): LibraryItem[] {
+    return Object.values(this.state.items)
+      .filter(i => i.kind === kind && i.deleted)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }
+
+  /** Save a new order for these words (one shelf, in the order given). Only words that moved are written. */
+  async reorderItems(ids: Id[]) {
+    const now = stamp()
+    const changed: LibraryItem[] = []
+    ids.forEach((id, i) => {
+      const cur = this.state.items[id]
+      if (cur && cur.order !== i * 10) changed.push({ ...cur, order: i * 10, updatedAt: now })
+    })
+    if (!changed.length) return
+    await db.putItems(changed)
+    this.set({ items: { ...this.state.items, ...byId(changed) } })
   }
 
   /** Places Frankie can be staying at, home first. */
@@ -373,6 +416,7 @@ class Store {
       time: t.time,
       order: i * 10,
       activityId: null,
+      travelId: null,
       foodIds: [],
       placeId: null,
       personIds: [],
@@ -448,6 +492,7 @@ class Store {
     type: EventType
     time?: HHMM | null
     activityId?: Id | null
+    travelId?: Id | null
     foodIds?: Id[]
     placeId?: Id | null
     personIds?: Id[]
@@ -462,6 +507,7 @@ class Store {
       time: input.time ?? null,
       order: existing.length ? Math.max(...existing.map(e => e.order ?? 0)) + 10 : 0,
       activityId: input.activityId ?? null,
+      travelId: input.travelId ?? null,
       foodIds: input.foodIds ?? [],
       placeId: input.placeId ?? null,
       personIds: input.personIds ?? [],
@@ -677,11 +723,48 @@ class Store {
 
   // ---------- derived ----------
 
+  /** People whose birthday is on this date (a 29 February birthday shows on the 28th in other years). */
   birthdaysOn(date: ISODate): LibraryItem[] {
     const md = date.slice(5)
-    return this.itemsOfKind('person').filter(p => p.birthday === md)
+    const leapDayToo = md === '02-28' && !isLeap(Number(date.slice(0, 4)))
+    return this.itemsOfKind('person').filter(p => p.birthday === md || (leapDayToo && p.birthday === '02-29'))
+  }
+
+  /** Everyone with a birthday, soonest first from `from` (today counts as 0 days away). */
+  upcomingBirthdays(from: ISODate): UpcomingBirthday[] {
+    const start = fromISO(from)
+    const out: UpcomingBirthday[] = []
+    for (const person of this.itemsOfKind('person')) {
+      if (!person.birthday || !/^\d\d-\d\d$/.test(person.birthday)) continue
+      let y = start.getFullYear()
+      let date = birthdayIn(person.birthday, y)
+      if (date < from) date = birthdayIn(person.birthday, ++y)
+      const daysAway = Math.round((fromISO(date).getTime() - start.getTime()) / 86_400_000)
+      out.push({ person, date, daysAway, age: person.birthYear ? y - person.birthYear : null })
+    }
+    return out.sort((a, b) => a.daysAway - b.daysAway || a.person.name.localeCompare(b.person.name))
   }
 }
+
+export interface UpcomingBirthday {
+  person: LibraryItem
+  /** The next date it falls on. */
+  date: ISODate
+  daysAway: number
+  /** The age they turn, if the year of birth is known. */
+  age: number | null
+}
+
+const isLeap = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0
+
+/** A MM-DD birthday in a given year (29 February → the 28th when there is none). */
+function birthdayIn(md: string, y: number): ISODate {
+  const [m, d] = md.split('-').map(Number)
+  const day = m === 2 && d === 29 && !isLeap(y) ? 28 : d
+  return toISO(new Date(y, m - 1, day))
+}
+
+const byOrder = (a: LibraryItem, b: LibraryItem) => (a.order ?? 1e6) - (b.order ?? 1e6) || a.name.localeCompare(b.name)
 
 export const store = new Store()
 

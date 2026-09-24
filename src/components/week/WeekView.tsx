@@ -1,6 +1,6 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { addDays, DAY_SHORT, dayNumber, monthName, today, weekDates, weekdayIndex, year } from '../../lib/dates'
-import { eventFace } from '../../lib/eventFace'
+import { eventFace, travelDestination } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
 import { eventTypeInfo, RATING_FACES } from '../../lib/symbols'
 import { isDaytime, to12 } from '../../lib/time'
@@ -126,6 +126,7 @@ export function WeekView({ date }: { date: ISODate }) {
                   <div className="flex flex-1 flex-col gap-1 border-t-4 border-line p-1">
                     {others.map(e => {
                       const face = eventFace(e, items)
+                      const to = travelDestination(e, items)
                       const t = e.time ? to12(e.time) : null
                       return (
                         <div key={e.id} className="flex flex-col gap-0.5 rounded-xl px-1 py-1">
@@ -147,6 +148,15 @@ export function WeekView({ date }: { date: ISODate }) {
                             {face.word}
                             {e.rating && <Symbol symbol={RATING_FACES[e.rating].symbol} size="text-xl" className="ml-1 align-middle" />}
                           </span>
+                          {/* Too narrow for one line: where to goes underneath */}
+                          {to && (
+                            <span className="flex flex-wrap items-center gap-x-1 text-base font-bold leading-tight">
+                              <ArrowRight size={18} strokeWidth={3} className="shrink-0" aria-label="to" />
+                              <Symbol symbol={to.symbol} size="text-2xl" />
+                              {/* Its own line when it doesn't fit beside the symbol, so words aren't split */}
+                              <span className="max-w-full break-words">{to.name}</span>
+                            </span>
+                          )}
                         </div>
                       )
                     })}
