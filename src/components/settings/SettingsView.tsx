@@ -90,13 +90,8 @@ export function SettingsView() {
         onBack={back}
         title="Family settings"
         right={
-          <BigButton
-            onClick={() => {
-              // Back first, while still in Family mode: the family handing back isn't counted as Frankie's use.
-              back()
-              store.setFamilyMode(false)
-            }}
-          >
+          // Same as Back: leaving Settings ends Family mode (store.go), without counting the handback.
+          <BigButton onClick={back}>
             <LogOut size={32} strokeWidth={2.5} />
             Leave
           </BigButton>

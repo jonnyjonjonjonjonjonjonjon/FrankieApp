@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
+import { useFrankiesTablet } from '../../lib/device'
 import { creditOf, fetchImageBlob, searchImages, type WebImage } from '../../lib/imageSearch'
 import { useStore } from '../../lib/store'
 import type { PhotoCredit } from '../../types'
@@ -8,9 +9,10 @@ import { Symbol } from '../ui/Symbol'
 import { NoButton } from '../ui/YesNo'
 
 /**
- * The web box shows only while Family mode is on: Openverse's adult filter
- * works on flags and is weaker than Google SafeSearch (backlog plan Q1).
- * Set false to let Frankie see it when she makes a word on her own.
+ * On Frankie's own tablet the web box shows only while Family mode is on:
+ * Openverse's adult filter works on flags and is weaker than Google
+ * SafeSearch (backlog plan Q1). Family phones always have it. Set false to
+ * let Frankie see it too when she makes a word on her own.
  */
 const WEB_PICTURES_FAMILY_ONLY = true
 /** Wait this long after the last letter before searching (Openverse's anonymous limits are low). */
@@ -55,7 +57,8 @@ function subscribeOnline(fn: () => void) {
 export function WebPictures({ word, onPick, className = '' }: Props) {
   const store = useStore()
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine)
-  const allowed = !WEB_PICTURES_FAMILY_ONLY || store.state.familyMode
+  const tablet = useFrankiesTablet()
+  const allowed = !WEB_PICTURES_FAMILY_ONLY || store.state.familyMode || !tablet
   const wanted = word.trim()
   const [term, setTerm] = useState('')
   const [found, setFound] = useState<Found | null>(null)

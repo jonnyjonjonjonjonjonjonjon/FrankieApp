@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { addDays, DAY_SHORT, dayNumber, monthName, today, weekdayIndex } from '../../lib/dates'
-import { deviceId, isFrankiesTablet } from '../../lib/device'
+import { deviceId, useFrankiesTablet } from '../../lib/device'
 import { USAGE_LABELS, useUsage } from '../../lib/usage'
 import { useSync } from '../../lib/useSync'
 import type { ISODate, UsageDay } from '../../types'
@@ -21,13 +21,24 @@ const taps = (d: UsageDay) => sum(Object.values(d.counts))
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 /** Two or more toggle buttons, one on (orange). */
-function Choice<T extends string | number>({ value, options, onChange }: { value: T; options: [T, string][]; onChange: (v: T) => void }) {
+function Choice<T extends string | number>({
+  value,
+  options,
+  onChange,
+  disabled = [],
+}: {
+  value: T
+  options: [T, string][]
+  onChange: (v: T) => void
+  /** Options that can't be picked yet (greyed out). */
+  disabled?: T[]
+}) {
   return (
     <div className="flex flex-wrap gap-2">
       {options.map(([v, word]) => {
         const on = v === value
         return (
-          <BigButton key={String(v)} size="sm" variant={on ? 'primary' : 'secondary'} aria-pressed={on} onClick={() => onChange(v)}>
+          <BigButton key={String(v)} size="sm" variant={on ? 'primary' : 'secondary'} aria-pressed={on} disabled={disabled.includes(v)} onClick={() => onChange(v)}>
             <span className={`text-xl font-extrabold ${on ? 'text-white' : ''}`}>{word}</span>
           </BigButton>
         )
@@ -56,6 +67,7 @@ function Stat({ value, word }: { value: string | number; word: string }) {
 export function UsageStats() {
   const local = useUsage()
   const sync = useSync()
+  const tablet = useFrankiesTablet()
   const [range, setRange] = useState<Range>(7)
   const [scope, setScope] = useState<'frankie' | 'all'>('frankie')
   const [remote, setRemote] = useState<Remote | null>(null)
@@ -80,7 +92,7 @@ export function UsageStats() {
   for (const d of fetched ?? []) if (d.deviceId !== deviceId()) merged.set(d.id, d)
   for (const d of local) merged.set(d.id, d)
   const inRange = [...merged.values()].filter(d => d.date >= from && d.date <= today())
-  const flagged = isFrankiesTablet() || inRange.some(d => d.frankie)
+  const flagged = tablet || inRange.some(d => d.frankie)
   const frankieOnly = scope === 'frankie' && flagged
   const docs = frankieOnly ? inRange.filter(d => d.frankie) : inRange
   const cloudFailed = ready && remote?.from === readFrom && remote.docs === null
@@ -95,9 +107,9 @@ export function UsageStats() {
   const byPart = [...parts.entries()].filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])
   const label = (k: string) => USAGE_LABELS[k as keyof typeof USAGE_LABELS] ?? k.replace(/_/g, ' ')
   const devices = new Map<string, { label: string; taps: number; minutes: number }>()
-  for (const d of docs) {
+  // Oldest first, so the most recent day's name wins (the family may have renamed it).
+  for (const d of [...docs].sort((a, b) => a.date.localeCompare(b.date))) {
     const cur = devices.get(d.deviceId) ?? { label: d.deviceLabel, taps: 0, minutes: 0 }
-    // The most recent day's name wins (the family may have renamed it).
     devices.set(d.deviceId, { label: d.deviceLabel || cur.label, taps: cur.taps + taps(d), minutes: cur.minutes + d.minutes })
   }
   const daysUsed = perDay.filter(d => d.taps || d.minutes).length
@@ -116,6 +128,7 @@ export function UsageStats() {
             ['all', 'All devices'],
           ]}
           onChange={setScope}
+          disabled={flagged ? [] : ['frankie']}
         />
         {ready && (
           <BigButton size="sm" variant="quiet" onClick={() => setRefresh(n => n + 1)} aria-label="Refresh">

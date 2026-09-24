@@ -82,17 +82,34 @@ export const PROVIDERS: ImageProvider[] = [openverse]
 /** Results kept for the session, so reopening a word (or typing it again) doesn't ask the network twice. */
 const cache = new Map<string, Promise<SearchPage>>()
 
-/** One page of pictures for a word, from the first provider. Rejects on any failure (the box then hides). */
+/**
+ * One page of pictures for a word, from the first provider. Rejects on any
+ * failure (the box then hides), or when this caller's signal aborts. The
+ * search itself is shared and never cancelled by one caller: a second caller
+ * for the same word (a re-run effect) gets the same answer, not an abort.
+ */
 export function searchImages(q: string, page: number, signal: AbortSignal): Promise<SearchPage> {
   const provider = PROVIDERS[0]
   const key = `${provider.name}|${q.trim().toLowerCase()}|${page}`
-  const hit = cache.get(key)
-  if (hit) return hit
-  const p = provider.search(q.trim(), page, signal)
-  cache.set(key, p)
-  // A failed or cancelled search is not remembered: the next try asks again.
-  p.catch(() => cache.delete(key))
-  return p
+  let p = cache.get(key)
+  if (!p) {
+    p = provider.search(q.trim(), page, new AbortController().signal)
+    cache.set(key, p)
+    // A failed search is not remembered: the next try asks again.
+    p.catch(() => cache.delete(key))
+  }
+  return untilAborted(p, signal)
+}
+
+/** The shared answer, or a rejection as soon as this caller gives up. */
+function untilAborted<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
+  const aborted = () => new DOMException('Aborted', 'AbortError')
+  if (signal.aborted) return Promise.reject(aborted())
+  return new Promise<T>((resolve, reject) => {
+    const stop = () => reject(aborted())
+    signal.addEventListener('abort', stop, { once: true })
+    p.then(resolve, reject).finally(() => signal.removeEventListener('abort', stop))
+  })
 }
 
 /** The chosen picture's bytes (the thumbnail, else the full picture), to be shrunk and stored like any photo. */

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { categoriesFor, categoryInfo } from '../../lib/categories'
 import { findIdeas, freshIdeas, TRY_SYMBOL, type Idea, type IdeaKind } from '../../lib/ideas'
 import { useStore } from '../../lib/store'
@@ -56,15 +56,14 @@ interface Props {
 export function TryNewPanel({ kind, shelf = null, query: initialQuery = '', chosen, onChoose }: Props) {
   const store = useStore()
   const [query, setQuery] = useState(initialQuery)
-  const [tab, setTab] = useState<string>(shelf ?? 'all')
-  // Counted once per open (the state holds the first answer; development's StrictMode counts twice).
-  const [autoplay] = useState(() => {
-    const n = demoOpens()
-    countDemoOpen(n + 1)
-    return n < DEMO_AUTOPLAYS
-  })
-  const [demoRun, setDemoRun] = useState(autoplay ? 1 : 0)
-  useEffect(() => track('try_open'), [])
+  /** The shelf tab tapped (null: none yet). */
+  const [tab, setTab] = useState<string | null>(shelf ?? null)
+  // Decided from the opens before this one; this open is counted once mounted (twice in development's StrictMode).
+  const [demoRun, setDemoRun] = useState(() => (demoOpens() < DEMO_AUTOPLAYS ? 1 : 0))
+  useEffect(() => {
+    countDemoOpen(demoOpens() + 1)
+    track('try_open')
+  }, [])
 
   const [mulberry, setMulberry] = useState<MulberryEntry[]>([])
   useEffect(() => {
@@ -76,12 +75,16 @@ export function TryNewPanel({ kind, shelf = null, query: initialQuery = '', chos
   }, [])
 
   // Removed words count as had: what the family took out isn't offered again.
-  const items = Object.values(store.state.items)
-  const fresh = freshIdeas(kind, items)
-  const shelves = categoriesFor(kind).filter(c => fresh.some(i => i.category === c.id))
-  const current = shelves.some(c => c.id === tab) ? tab : 'all'
+  const all = store.state.items
+  const items = useMemo(() => Object.values(all), [all])
+  const fresh = useMemo(() => freshIdeas(kind, items), [kind, items])
+  const shelves = useMemo(() => categoriesFor(kind).filter(c => fresh.some(i => i.category === c.id)), [kind, fresh])
+  // Opens on a shelf rather than All: All's first heading would push the landscape tablet's row of ideas below the fold.
+  const wanted = tab ?? shelves[0]?.id ?? 'all'
+  const current = wanted === 'all' || shelves.some(c => c.id === wanted) ? wanted : (shelves[0]?.id ?? 'all')
   const newShelf = current !== 'all' ? current : (shelf ?? shelves[0]?.id ?? categoriesFor(kind)[0]?.id ?? '')
-  const found = findIdeas(kind, items, query, mulberry, newShelf)
+  // Scores the whole Mulberry index: only when the letters (or her words) change.
+  const found = useMemo(() => findIdeas(kind, items, query, mulberry, newShelf), [kind, items, query, mulberry, newShelf])
   const q = query.trim()
 
   if (chosen) {
@@ -144,7 +147,7 @@ export function TryNewPanel({ kind, shelf = null, query: initialQuery = '', chos
               <div className={GRID}>{found.more.map(tile)}</div>
             </section>
           )}
-          {!found.ideas.length && !found.more.length && <p className="px-3 text-2xl font-bold text-ink-soft">Nothing found</p>}
+          {!found.ideas.length && !found.more.length && <Empty symbol={FIND_SYMBOL} word="None" />}
         </>
       ) : (
         <>
@@ -169,10 +172,20 @@ export function TryNewPanel({ kind, shelf = null, query: initialQuery = '', chos
           ) : (
             <div className={GRID}>{fresh.filter(i => i.category === current).map(tile)}</div>
           )}
-          {!fresh.length && <p className="px-3 text-2xl font-bold text-ink-soft">All added! Find another.</p>}
+          {!fresh.length && <Empty symbol="mb:good" word="All added" />}
         </>
       )}
     </div>
+  )
+}
+
+/** Nothing to show: a picture and a word, like everywhere else. */
+function Empty({ symbol, word }: { symbol: string; word: string }) {
+  return (
+    <p className="flex items-center gap-3 px-3 py-2" aria-live="polite">
+      <Symbol symbol={symbol} size="text-6xl" />
+      <span className="text-3xl font-extrabold text-ink-soft">{word}</span>
+    </p>
   )
 }
 
@@ -188,7 +201,7 @@ function SearchDemo() {
       <DemoPanel n={1}>
         <span className="flex h-12 w-full items-center gap-1 rounded-xl border-4 border-ink bg-paper px-1.5">
           <Symbol symbol={FIND_SYMBOL} size="text-2xl" />
-          <span className="text-2xl font-extrabold leading-none sm:text-3xl">
+          <span className="text-2xl font-extrabold leading-none">
             {['c', 'a', 'k', 'e'].map((ch, i) => (
               <span key={i} className={`demo-l${i + 1}`}>
                 {ch}
@@ -222,8 +235,8 @@ function SearchDemo() {
 
 function DemoPanel({ n, children }: { n: number; children: React.ReactNode }) {
   return (
-    <div className="relative flex items-center justify-center overflow-hidden rounded-2xl border-4 border-line bg-soft px-2 pt-3">
-      <span className="absolute top-1 left-2 text-lg font-extrabold text-ink-soft">{n}</span>
+    <div className="relative flex items-center justify-center overflow-hidden rounded-2xl border-4 border-line bg-soft px-2 pt-5 pb-0.5">
+      <span className="absolute top-0 left-1.5 text-base leading-5 font-extrabold text-ink-soft">{n}</span>
       {children}
     </div>
   )

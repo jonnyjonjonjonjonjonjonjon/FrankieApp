@@ -87,6 +87,8 @@ class Store {
 
   private set(patch: Partial<DiaryState>) {
     this.state = { ...this.state, ...patch }
+    // Counting follows Family mode here, the one place state changes (Leave, Back, Start again).
+    setUsagePaused(this.state.familyMode)
     this.listeners.forEach(fn => fn())
   }
 
@@ -251,10 +253,13 @@ class Store {
     window.scrollTo(0, 0)
     const now = screenKey(view)
     if (now && now !== was) track(now)
+    // Leaving Settings any way (Back, Leave, a tab) ends Family mode, after the
+    // track above was dropped: the family handing back isn't counted as
+    // Frankie's use, and nothing Family-only is left on for her.
+    if (this.state.familyMode && view.kind !== 'settings') this.setFamilyMode(false)
   }
 
   setFamilyMode(on: boolean) {
-    setUsagePaused(on)
     this.set({ familyMode: on })
   }
 

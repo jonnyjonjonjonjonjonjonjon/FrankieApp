@@ -24,6 +24,30 @@ export const TRY_SYMBOL = '✨'
 
 /** Most ideas a Find shows from the whole Mulberry set ("More pictures"). */
 export const MAX_MORE = 24
+/**
+ * "More pictures" searches the whole Mulberry set only from this many letters:
+ * one or two letters match hundreds of words (letters, tools, body words) that
+ * aren't foods or activities. The curated ideas still match from one letter.
+ */
+export const MORE_MIN_LETTERS = 3
+/**
+ * Mulberry words never offered as a new food or activity: anatomy and
+ * personal care, illness, harm and death, and a few that aren't hers to add.
+ * Matched against whole words of the label ("dead plant" is left out too).
+ */
+const BLOCKED = new Set([
+  'penis', 'vagina', 'breast', 'bottom', 'bra', 'knickers', 'pants', 'nappy', 'tampon', 'sanitary', 'toilet', 'toilets',
+  'vomit', 'sick', 'blood', 'scar', 'skull', 'skeleton', 'ghost', 'scary',
+  'kill', 'killer', 'dead', 'die', 'fight', 'hit', 'punch', 'kick', 'shoot', 'steal', 'arrest', 'angry', 'sad',
+  'drunk', 'cigarette', 'smoke', 'smoking',
+])
+/** Letters, numbers and shapes: school words, not things to eat or do. */
+const NOT_IDEAS = new Set([
+  'lower', 'upper', 'case', 'letter', 'alphabet',
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+  'twenty', 'thirty', 'forty', 'fifty', 'hundred', 'thousand', 'half', 'third', 'thirds', 'quarter', 'quarters', 'percent', 'dot', 'dots',
+  'circle', 'square', 'triangle', 'oval', 'pentagon', 'hexagon', 'hexagonal', 'octagon', 'rectangle', 'diamond', 'prism', 'pyramid', 'shape', 'shapes',
+])
 
 const shelf = (kind: IdeaKind, category: string, list: [string, string][]): Idea[] =>
   list.map(([name, mb]) => ({ kind, category, name, symbol: `mb:${mb}` }))
@@ -62,6 +86,10 @@ export const IDEAS: Idea[] = [
     ['Fish fingers', 'frozen_fish_fingers'],
     ['Pie', 'pie_meat'],
     ['Chicken', 'chicken'],
+    ['Carrots', 'carrot'],
+    ['Broccoli', 'broccoli'],
+    ['Peas', 'peas'],
+    ['Sweetcorn', 'sweetcorn'],
   ]),
   ...shelf('food', 'fruit', [
     ['Apple', 'apple'],
@@ -74,10 +102,6 @@ export const IDEAS: Idea[] = [
     ['Pear', 'pear'],
     ['Peach', 'peach'],
     ['Mango', 'mango'],
-    ['Carrots', 'carrot'],
-    ['Broccoli', 'broccoli'],
-    ['Peas', 'peas'],
-    ['Sweetcorn', 'sweetcorn'],
   ]),
   ...shelf('food', 'treats', [
     ['Crisps', 'crisps'],
@@ -156,6 +180,14 @@ export const IDEAS: Idea[] = [
 ]
 
 const nameKey = (s: string) => s.toLowerCase().replace(/\s+/g, '')
+const labelWords = (label: string) => label.toLowerCase().split(/[\s_-]+/).filter(Boolean)
+
+/** A Mulberry picture fit to offer as a new idea: a real word (3+ letters), not a letter, number, shape or blocked word. */
+export function suitable(label: string): boolean {
+  const words = labelWords(label)
+  if (cleanLabel(label).length < 3 || /\d/.test(cleanLabel(label))) return false
+  return !words.some(w => BLOCKED.has(w) || NOT_IDEAS.has(w))
+}
 
 /**
  * What she already has of a kind, INCLUDING removed words (what the family
@@ -202,18 +234,19 @@ export function findIdeas(
   if (!words.length) return { ideas: [], more: [] }
   const has = haves(kind, items)
   const matches = (label: string) => {
-    const parts = label.toLowerCase().split(/[\s_-]+/)
+    const parts = labelWords(label)
     return words.every(w => parts.some(p => p.startsWith(w)))
   }
   const ideas = IDEAS.filter(i => i.kind === kind && matches(i.name) && !has(i.name, i.symbol))
+  if (words.join('').length < MORE_MIN_LETTERS) return { ideas, more: [] }
   // A picture that is one of the ideas shows as that idea (its own word and shelf).
   const bySymbol = new Map(IDEAS.filter(i => i.kind === kind).map(i => [i.symbol, i]))
   const seenWords = new Set(ideas.map(i => nameKey(i.name)))
   const more: Idea[] = []
   const scored = mulberry
-    .filter(m => matches(m.label))
+    .filter(m => matches(m.label) && suitable(m.label))
     // Whole-word matches first, then the shortest names (the plainest pictures).
-    .map(m => ({ m, score: (words.every(w => m.label.toLowerCase().split(/[\s_-]+/).includes(w)) ? 0 : 1000) + m.label.length }))
+    .map(m => ({ m, score: (words.every(w => labelWords(m.label).includes(w)) ? 0 : 1000) + m.label.length }))
     .sort((a, b) => a.score - b.score)
   for (const { m } of scored) {
     if (more.length >= MAX_MORE) break

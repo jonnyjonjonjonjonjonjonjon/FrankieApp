@@ -1300,11 +1300,13 @@ export async function fetchImageBlob(img: WebImage): Promise<Blob>   // CORS fet
 - Keep results in memory per query for the session, so re-opening doesn't hit
   the network. Openverse's anonymous limits are low, so debounce and cache.
 
-**Who sees it**: the web box shows only while **Family mode** is on (new words
-made from Family → Words, and New in the day's add card while a relative has
-Family mode on). Frankie making a new word on her own gets Camera, Photos and
-the symbol search as today. One constant, `WEB_PICTURES_FAMILY_ONLY = true`, at
-the top of `WebPictures.tsx` (Q1).
+**Who sees it**: family phones always get the web box. On the device marked as
+**Frankie's tablet** it shows only while **Family mode** is on (Family → Words,
+or New in the day's add card while a relative has Family mode on), so Frankie
+making a new word on her own gets Camera, Photos and the symbol search as
+today. Leaving Settings by any route (Back, Leave, a tab) ends Family mode, so
+it can't be left on for her. One constant, `WEB_PICTURES_FAMILY_ONLY = true`,
+at the top of `WebPictures.tsx` (Q1).
 
 **UX**: new file `src/components/pickers/WebPictures.tsx`, placed inside
 batch 2's `PictureChooser`, so the new-word form and the word editor both get it:
@@ -1518,9 +1520,13 @@ day's add card too:
   - then **other Mulberry pictures** from `mulberryIndex()` whose label matches
     and that she doesn't have. They are labelled with a cleaned-up word:
     underscores become spaces, `-to` and `_1a`-style suffixes are dropped, and
-    the first letter is capitalised.
+    the first letter is capitalised. Only from **3 letters** (`MORE_MIN_LETTERS`;
+    one or two letters match hundreds of words), and never letters, numbers,
+    shapes or blocked words (anatomy, illness, harm, death: `suitable()` in
+    `ideas.ts`), whole-word matches first.
 - **The grid**: ideas for the current shelf (the shelf tabs are reused), shown
-  as Tiles.
+  as Tiles. It opens on a shelf, not All, so the landscape tablet shows a row
+  of ideas.
 - **Tapping an idea**: an inline confirm appears under it, with the big picture
   and the word, and "Add?" with **No / Yes**. Yes does
   `addItem(kind, name, symbol, null, { category, meals })`. In a picker or the
