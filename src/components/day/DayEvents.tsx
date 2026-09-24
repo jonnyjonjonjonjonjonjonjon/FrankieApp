@@ -6,10 +6,10 @@ import type { DiaryEvent, Id, ISODate } from '../../types'
 import { lockGestures, unlockGestures } from '../ui/gestureLock'
 import { EventRow } from './EventRow'
 
-/** Height of the space for a + between rows (the list's gap-3 sits either side of it). */
-const SLOT_REM = 2.25
-/** The + circle: spills 0.5rem into the gaps above and below, still 0.25rem clear of the rows. */
-const PLUS_REM = 3.25
+/** Height of the + slot between rows (the flex gaps on either side add 1.5rem more). */
+const SLOT_REM = 0.5
+/** The solid orange + circle; its tap area is the whole gap, and wider. */
+const PLUS_REM = 2
 /** Press and hold a row this long to lift it. */
 const HOLD_MS = 450
 /** Moving further than this (px) before the hold completes means it was a scroll or a swipe. */
@@ -347,7 +347,7 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
   )
 }
 
-/** The small round + between rows: opens the add card at that spot. */
+/** The small orange + on a faint line between rows: opens the add card at that spot. */
 function AddSlot({ hidden, inert, onClick }: { hidden: boolean; inert: boolean; onClick: () => void }) {
   return (
     // Hidden by opacity only (while dragging or adding), so it keeps its space and nothing moves.
@@ -357,16 +357,20 @@ function AddSlot({ hidden, inert, onClick }: { hidden: boolean; inert: boolean; 
       inert={inert}
       aria-hidden={inert || undefined}
     >
+      <div className="absolute top-1/2 right-[20%] left-[20%] h-0.5 -translate-y-1/2 rounded bg-orange/40" />
+      {/* The tap area fills the gap between the rows (and is wider than the circle), so it is easy to hit. */}
       <button
         type="button"
         aria-label="Add here"
         onClick={onClick}
-        className="absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-orange-dark bg-paper active:scale-90"
-        style={{ width: `${PLUS_REM}rem`, height: `${PLUS_REM}rem` }}
+        className="group absolute top-1/2 left-1/2 flex h-[2rem] w-[4.5rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center"
       >
         {/* Colour and size on the span: the global button rule beats them on the button (.lucide is 1.35em on phones). */}
-        <span className="flex text-2xl text-orange-dark">
-          <Plus size={34} strokeWidth={3.5} />
+        <span
+          className="flex items-center justify-center rounded-full bg-orange text-white group-active:scale-90"
+          style={{ width: `${PLUS_REM}rem`, height: `${PLUS_REM}rem` }}
+        >
+          <Plus size={22} strokeWidth={4} />
         </span>
       </button>
     </div>
