@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { BedDouble, Camera, Download, LogOut, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useStore } from '../../lib/store'
-import { EVENT_TYPES, EVENT_TYPE_ORDER, KIND_WORD } from '../../lib/symbols'
+import { eventTypeInfo, EVENT_TYPE_ORDER, KIND_WORD } from '../../lib/symbols'
 import type { EventType, LibraryItem, LibraryKind, TemplateItem } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Photo } from '../ui/Photo'
@@ -156,8 +156,8 @@ export function SettingsView() {
           <Section title="Daily routine" symbol="🕒">
             {template.map((t, i) => (
               <div key={`${t.type}-${i}`} className="flex items-center gap-3 rounded-2xl border-4 border-line p-2">
-                <Symbol symbol={EVENT_TYPES[t.type].symbol} size="text-5xl" />
-                <span className="flex-1 text-2xl font-extrabold">{EVENT_TYPES[t.type].word}</span>
+                <Symbol symbol={eventTypeInfo(t.type).symbol} size="text-5xl" />
+                <span className="flex-1 text-2xl font-extrabold">{eventTypeInfo(t.type).word}</span>
                 <BigButton onClick={() => setEditTime(i)}>
                   <TimeLabel time={t.time} />
                 </BigButton>
@@ -261,7 +261,7 @@ export function SettingsView() {
 
       {editTime !== null && (
         <TimePicker
-          title={EVENT_TYPES[template[editTime].type].word}
+          title={eventTypeInfo(template[editTime].type).word}
           value={template[editTime].time}
           onBack={() => setEditTime(null)}
           onDone={t => {
@@ -276,8 +276,8 @@ export function SettingsView() {
             {EVENT_TYPE_ORDER.filter(t => t !== 'activity').map((type: EventType) => (
               <Tile
                 key={type}
-                word={EVENT_TYPES[type].word}
-                symbol={EVENT_TYPES[type].symbol}
+                word={eventTypeInfo(type).word}
+                symbol={eventTypeInfo(type).symbol}
                 onSelect={() => {
                   setTemplate([...template, { type, time: '12:00' }])
                   setAddType(false)

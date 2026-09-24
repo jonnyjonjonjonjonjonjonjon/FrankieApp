@@ -181,15 +181,28 @@ class Sync {
 
   private listen() {
     if (!this.fs) return
+    // Once every collection's first snapshot from the server (not the offline
+    // cache) has been applied, local data has caught up with the cloud and
+    // the store may run its migrations (backlog plan §2.1).
+    const caughtUp: Promise<unknown>[] = []
     for (const coll of COLLECTIONS) {
+      let pending: Promise<void>[] | null = []
       const unsub = onSnapshot(
         collection(this.fs, coll),
+        // Metadata changes too, or a cache snapshot that the server confirms unchanged never says so.
+        { includeMetadataChanges: true },
         snap => {
           for (const change of snap.docChanges()) {
             if (change.type === 'removed') continue
             // Our own pending writes come back through here too; skip them.
             if (change.doc.metadata.hasPendingWrites) continue
-            void this.applyRemote(coll, change.doc.data() as db.Record_)
+            const applied = this.applyRemote(coll, change.doc.data() as db.Record_)
+            pending?.push(applied)
+          }
+          if (pending && !snap.metadata.fromCache) {
+            caughtUp.push(Promise.allSettled(pending))
+            pending = null
+            if (caughtUp.length === COLLECTIONS.length) void Promise.all(caughtUp).then(() => store.syncedOnce())
           }
         },
         err => {

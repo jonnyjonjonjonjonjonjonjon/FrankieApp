@@ -15,6 +15,15 @@ export const EVENT_TYPES: Record<EventType, { word: string; symbol: string }> = 
   activity: { word: 'Activity', symbol: '⭐' },
 }
 
+/**
+ * Word and symbol for an event type, tolerating types this version doesn't
+ * know yet (written by a newer copy of the app on another device): those show
+ * as an Activity rather than crashing the screen.
+ */
+export function eventTypeInfo(type: string): { word: string; symbol: string } {
+  return EVENT_TYPES[type as EventType] ?? EVENT_TYPES.activity
+}
+
 /** Order the "What?" picker shows event types in. */
 export const EVENT_TYPE_ORDER: EventType[] = [
   'activity', 'breakfast', 'lunch', 'dinner', 'shower', 'teeth', 'wake', 'bed',

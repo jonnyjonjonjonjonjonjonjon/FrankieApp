@@ -56,6 +56,15 @@ export function getDB() {
           db.createObjectStore('outbox', { keyPath: 'id' })
         }
       },
+      // Ready for a future version bump: an open tab running the old version
+      // steps aside so a newer one can upgrade, then reloads into it.
+      blocking() {
+        void dbPromise?.then(db => db.close())
+        location.reload()
+      },
+      terminated() {
+        location.reload()
+      },
     })
   }
   return dbPromise

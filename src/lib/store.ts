@@ -60,6 +60,9 @@ const byId = <T extends { id: string }>(list: T[]) =>
 
 const stamp = () => new Date().toISOString()
 
+/** Shape of the stored diary; a fresh install starts here, older diaries migrate up to it. */
+const CURRENT_TEMPLATE_VERSION = 5
+
 /** Virtual template events get ids of this shape until the day is materialised. */
 export const isVirtualId = (id: Id) => id.startsWith('tpl:')
 
@@ -86,18 +89,36 @@ class Store {
 
   // ---------- boot ----------
 
-  async load() {
+  /** Set once migrations may run: straight away with sync off, else after the first cloud snapshot. */
+  private canMigrate = false
+  private migrating: Promise<void> | null = null
+
+  /**
+   * Read the local copy. `migrate: false` (sync configured) holds migrations
+   * back until `syncedOnce()`, so they never stamp stale local records as
+   * newer than edits already in the cloud (backlog plan §2.1).
+   */
+  async load({ migrate = true }: { migrate?: boolean } = {}) {
+    this.canMigrate = migrate
     const data = await db.loadAll()
     let items = data.items
     let settings = data.settings
     // Boot-time defaults are written silently with an old timestamp so any
     // version already in the cloud wins when sync connects.
-    if (items.length === 0) {
+    const fresh = items.length === 0
+    if (fresh) {
       items = seedItems(new Date(0).toISOString())
       await db.putItems(items, true)
     }
-    if (!settings.homePlaceId) {
-      settings = { ...settings, homePlaceId: HOME_PLACE_ID, updatedAt: new Date(1).toISOString() }
+    // A fresh install's seeds already have the current shape: no migration to run.
+    const freshSettings = fresh && settings.templateVersion === undefined
+    if (!settings.homePlaceId || freshSettings) {
+      settings = {
+        ...settings,
+        homePlaceId: settings.homePlaceId ?? HOME_PLACE_ID,
+        ...(freshSettings ? { templateVersion: CURRENT_TEMPLATE_VERSION } : {}),
+        updatedAt: new Date(1).toISOString(),
+      }
       await db.putSettings(settings, true)
     }
     this.set({
@@ -108,59 +129,66 @@ class Store {
       photos: byId(data.photos),
       settings,
     })
+    if (migrate) await this.migrate()
+  }
+
+  /** Sync has caught up with the cloud once (every collection's first server snapshot is applied). */
+  async syncedOnce() {
+    this.canMigrate = true
     await this.migrate()
+  }
+
+  /** Run any pending migrations; a second caller joins the one already running. */
+  migrate(): Promise<void> {
+    return (this.migrating ??= this.runMigrations().finally(() => {
+      this.migrating = null
+    }))
   }
 
   /**
    * One-off tidy-ups for diaries saved by earlier versions (synced, so every
-   * device ends up the same):
+   * device ends up the same). Each step only fills in what is missing, so it
+   * is safe to run again:
    *  v2 (Sept 2026): "Wake up" left the default routine.
    *  v3 (Sept 2026): stay places — Rochester Road / Eastbourne / Jon's house /
    *     Hotel are marked as places Frankie can stay; seeded items get an order.
    *  v4, v5: see migrateV4 / migrateV5 below.
    */
-  async migrate() {
+  private async runMigrations() {
     const s = this.state.settings
     const version = s.templateVersion ?? 1
-    if (version >= 5) return
-    if (version === 4) {
-      await this.migrateV5()
-      return
-    }
-    if (version === 3) {
-      await this.migrateV4()
-      await this.migrateV5()
-      return
-    }
-    if (version < 2) {
-      const todayIso = today()
-      const stale = Object.values(this.state.events).filter(
-        e => e.type === 'wake' && e.fromTemplate && !e.done && !e.deleted && e.date >= todayIso,
-      )
-      for (const e of stale) await this.updateEvent(e.date, e.id, { deleted: true })
-    }
-    const seeds = seedItems()
-    for (const seed of seeds) {
-      const cur = this.state.items[seed.id]
-      if (!cur) {
-        if (seed.kind === 'place' && seed.stayable) {
-          await db.putItem(seed)
-          this.set({ items: { ...this.state.items, [seed.id]: seed } })
-        }
-        continue
+    if (version >= CURRENT_TEMPLATE_VERSION) return
+    if (version < 3) {
+      if (version < 2) {
+        const todayIso = today()
+        const stale = Object.values(this.state.events).filter(
+          e => e.type === 'wake' && e.fromTemplate && !e.done && !e.deleted && e.date >= todayIso,
+        )
+        for (const e of stale) await this.updateEvent(e.date, e.id, { deleted: true })
       }
-      const patch: Partial<LibraryItem> = { order: seed.order }
-      if (seed.stayable) patch.stayable = true
-      // Rename only if the old seed name is still in place (not edited by the family).
-      if (cur.name === 'My house' || cur.name === "Mum and Dad's house") patch.name = seed.name
-      await this.updateItem(seed.id, patch)
+      const seeds = seedItems()
+      for (const seed of seeds) {
+        const cur = this.state.items[seed.id]
+        if (!cur) {
+          if (seed.kind === 'place' && seed.stayable) {
+            await db.putItem(seed)
+            this.set({ items: { ...this.state.items, [seed.id]: seed } })
+          }
+          continue
+        }
+        const patch: Partial<LibraryItem> = { order: seed.order }
+        if (seed.stayable) patch.stayable = true
+        // Rename only if the old seed name is still in place (not edited by the family).
+        if (cur.name === 'My house' || cur.name === "Mum and Dad's house") patch.name = seed.name
+        await this.updateItem(seed.id, patch)
+      }
+      await this.updateSettings({
+        template: s.template.filter(t => t.type !== 'wake'),
+        templateVersion: 3,
+      })
     }
-    await this.updateSettings({
-      template: s.template.filter(t => t.type !== 'wake'),
-      templateVersion: 3,
-    })
-    await this.migrateV4()
-    await this.migrateV5()
+    if (version < 4) await this.migrateV4()
+    if (version < 5) await this.migrateV5()
   }
 
   /** v5 (Sept 2026): Mulberry symbols. Seeded words that shared an emoji get their own symbol, unless the family changed it. */
@@ -569,7 +597,7 @@ class Store {
   async resetEverything() {
     await db.clearAll()
     this.set({ ...initialState, loading: true, view: { kind: 'today' } })
-    await this.load()
+    await this.load({ migrate: this.canMigrate })
   }
 
   exportJSON(): string {
@@ -619,7 +647,9 @@ class Store {
       }
       case 'settings':
         this.set({ settings: record as Settings })
-        void this.migrate()
+        // Old settings from another device may need migrating, but only once
+        // we have caught up with the cloud (else see load()).
+        if (this.canMigrate) void this.migrate()
         break
     }
   }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../../lib/store'
-import { EVENT_TYPES, EVENT_TYPE_ORDER } from '../../lib/symbols'
+import { eventTypeInfo, EVENT_TYPE_ORDER } from '../../lib/symbols'
 import type { EventType, Id, ISODate, MealSlot } from '../../types'
 import { MEAL_TYPES } from '../../types'
 import { Sheet } from '../ui/Sheet'
@@ -30,7 +30,7 @@ export function AddEventFlow({ date, onClose }: Props) {
       activityId: type === 'activity' ? ids[0] ?? null : null,
       foodIds: isMeal ? ids : [],
     })
-    const word = type === 'activity' && ids[0] ? store.state.items[ids[0]]?.name : EVENT_TYPES[type].word
+    const word = type === 'activity' && ids[0] ? store.state.items[ids[0]]?.name : eventTypeInfo(type).word
     store.toast(`${word} added`)
     onClose()
   }
@@ -42,8 +42,8 @@ export function AddEventFlow({ date, onClose }: Props) {
           {EVENT_TYPE_ORDER.map(type => (
             <Tile
               key={type}
-              word={EVENT_TYPES[type].word}
-              symbol={EVENT_TYPES[type].symbol}
+              word={eventTypeInfo(type).word}
+              symbol={eventTypeInfo(type).symbol}
               onSelect={() => {
                 if (type === 'activity' || MEAL_TYPES.includes(type)) setStep({ at: 'pick', type })
                 else void finish(type, [])
@@ -59,8 +59,8 @@ export function AddEventFlow({ date, onClose }: Props) {
   return (
     <ItemPicker
       kind={meal ? 'food' : 'activity'}
-      title={meal ? EVENT_TYPES[step.type].word : 'Activity'}
-      symbol={EVENT_TYPES[step.type].symbol}
+      title={meal ? eventTypeInfo(step.type).word : 'Activity'}
+      symbol={eventTypeInfo(step.type).symbol}
       multi={meal}
       mealSlot={meal ? (step.type as MealSlot) : undefined}
       onBack={() => setStep({ at: 'type' })}

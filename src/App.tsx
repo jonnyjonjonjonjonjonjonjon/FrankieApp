@@ -9,6 +9,7 @@ import { SettingsView } from './components/settings/SettingsView'
 import { TabBar } from './components/ui/TabBar'
 import { Toast } from './components/ui/Toast'
 import { ChargePrompt } from './components/ui/ChargePrompt'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { today } from './lib/dates'
 import { WeekView } from './components/week/WeekView'
 
@@ -41,16 +42,18 @@ function Screen() {
 export default function App() {
   return (
     <StoreProvider>
-      <SignInGate>
-        <div className="flex h-dvh flex-col bg-paper">
-          <main className="min-h-0 flex-1">
-            <Screen />
-          </main>
-          <TabBar />
-        </div>
-        <Toast />
-        <ChargePrompt />
-      </SignInGate>
+      <ErrorBoundary>
+        <SignInGate>
+          <div className="flex h-dvh flex-col bg-paper">
+            <main className="min-h-0 flex-1">
+              <Screen />
+            </main>
+            <TabBar />
+          </div>
+          <Toast />
+          <ChargePrompt />
+        </SignInGate>
+      </ErrorBoundary>
     </StoreProvider>
   )
 }

@@ -1,5 +1,5 @@
 import type { DiaryEvent, Id, LibraryItem } from '../types'
-import { EVENT_TYPES } from './symbols'
+import { eventTypeInfo } from './symbols'
 
 export interface EventFace {
   word: string
@@ -12,7 +12,7 @@ export interface EventFace {
 
 /** What to show for an event: the activity, the first food, or the fixed type. */
 export function eventFace(ev: DiaryEvent, items: Record<Id, LibraryItem>): EventFace {
-  const type = EVENT_TYPES[ev.type]
+  const type = eventTypeInfo(ev.type)
   if (ev.type === 'activity' && ev.activityId && items[ev.activityId]) {
     const a = items[ev.activityId]
     return { word: a.name, symbol: a.symbol, photoId: a.photoId, showPhoto: a.showPhoto, itemId: a.id }

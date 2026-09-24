@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { ChevronRight, Trash2 } from 'lucide-react'
 import { eventFace, isMeal } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
-import { EVENT_TYPES } from '../../lib/symbols'
+import { eventTypeInfo } from '../../lib/symbols'
 import type { DiaryEvent, Id, MealSlot } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Photo } from '../ui/Photo'
@@ -77,8 +77,8 @@ export function EventSheet({ eventId, date, onClose }: Props) {
     return (
       <ItemPicker
         kind="food"
-        title={EVENT_TYPES[event.type].word}
-        symbol={EVENT_TYPES[event.type].symbol}
+        title={eventTypeInfo(event.type).word}
+        symbol={eventTypeInfo(event.type).symbol}
         multi
         initial={event.foodIds}
         mealSlot={event.type as MealSlot}

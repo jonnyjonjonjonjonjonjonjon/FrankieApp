@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { addDays, DAY_SHORT, dayNumber, monthName, today, weekDates, weekdayIndex, year } from '../../lib/dates'
 import { eventFace } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
-import { EVENT_TYPES, RATING_FACES } from '../../lib/symbols'
+import { eventTypeInfo, RATING_FACES } from '../../lib/symbols'
 import { isDaytime, to12 } from '../../lib/time'
 import type { DiaryEvent, EventType, ISODate } from '../../types'
 import { BigButton } from '../ui/BigButton'
@@ -18,8 +18,8 @@ function MealCell({ type, ev }: { type: EventType; ev: DiaryEvent | undefined })
   const items = store.state.items
   const foods = ev ? ev.foodIds.map(id => items[id]).filter(Boolean) : []
   return (
-    <div className="flex min-h-14 items-start gap-2 border-t-2 border-line px-1 py-1" aria-label={EVENT_TYPES[type].word}>
-      <Symbol symbol={EVENT_TYPES[type].symbol} size="text-3xl" className="shrink-0" />
+    <div className="flex min-h-14 items-start gap-2 border-t-2 border-line px-1 py-1" aria-label={eventTypeInfo(type).word}>
+      <Symbol symbol={eventTypeInfo(type).symbol} size="text-3xl" className="shrink-0" />
       <span className="flex min-w-0 flex-col gap-0.5 text-lg font-bold leading-tight">
         {foods.length === 0 ? (
           <span className="text-line">—</span>

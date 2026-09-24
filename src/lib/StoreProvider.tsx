@@ -4,7 +4,8 @@ import { sync } from './sync'
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
-    void store.load().then(() => sync.start())
+    // With sync on, migrations wait for the first cloud snapshot (sync calls store.syncedOnce()).
+    void store.load({ migrate: !sync.enabled }).then(() => sync.start())
   }, [])
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>
 }
