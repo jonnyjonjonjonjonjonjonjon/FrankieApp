@@ -1,15 +1,13 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowRight, ChevronRight, Plus } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { ArrowRight, Plus } from 'lucide-react'
 import { useStore } from '../../lib/store'
 import { defaultCategory } from '../../lib/categories'
 import { eventTypeInfo, EVENT_TYPE_ORDER, WHERE_TO_SYMBOL } from '../../lib/symbols'
 import type { EventType, Id, ISODate, LibraryItem, LibraryKind, MealSlot } from '../../types'
 import { MEAL_TYPES } from '../../types'
-import { BigButton } from '../ui/BigButton'
 import { Symbol } from '../ui/Symbol'
 import { Tile } from '../ui/Tile'
 import { NoButton, YesButton } from '../ui/YesNo'
-import { useMediaQuery } from '../ui/useMediaQuery'
 import { useLeaveGhost } from '../ui/useLeaveGhost'
 import { ChoiceGrid } from '../pickers/ChoiceGrid'
 import { NewItemFields } from '../pickers/NewItemFields'
@@ -21,14 +19,9 @@ import { track, type UsageKey } from '../../lib/usage'
 /** Space left above the card when it is scrolled to the top of the day (px). */
 const TOP_MARGIN = 8
 /**
- * The tablet held landscape (wide but short): No / Yes move up into the
- * breadcrumb bar and the footer goes, so a whole row of tiles shows under it.
- */
-const FLAT_SCREEN = '(min-width: 900px) and (max-height: 850px)'
-/**
- * Less room than this (rem) between the bars and they stop sticking, so they
- * scroll away with the card: the soft keyboard is up (it shrinks the page), or
- * the screen is tiny. Otherwise the box she is typing in hides behind them.
+ * Less room than this (rem) under the title bar and it stops sticking, so it
+ * scrolls away with the card: the soft keyboard is up (it shrinks the page), or
+ * the screen is tiny. Otherwise the box she is typing in hides behind it.
  */
 const MIN_ROOM_REM = 14
 /** Space kept around a text box scrolled into view while typing (px). */
@@ -55,8 +48,7 @@ type Step =
   /** Try something new: ideas for an activity or a meal she doesn't have yet. */
   | { at: 'try'; kind: IdeaKind; shelf: string | null; query: string; from: Step & { at: 'pick' } }
 
-interface Crumb {
-  step: Step
+interface Heading {
   word: string
   /** A symbol name, or a drawn mark (the + she tapped). */
   symbol: string | ReactNode
@@ -68,10 +60,10 @@ interface Crumb {
  * Adding to the day without leaving it (backlog item 7): a card in the list,
  * at the + she tapped. Pick a type → pick from the list → added there.
  * Travel is two picks: how she is going, then where to (or Yes for just "Bus").
- * The breadcrumb (her way back) sticks to the top of the day and No / Yes to
- * the bottom while the tiles scroll between them (on the landscape tablet
- * No / Yes sit at the end of the breadcrumb bar instead). No time is asked
- * for; the row's clock button adds one later if wanted.
+ * Kept simple (owner, Sept 2026): one title bar says what she is choosing, with
+ * No (and Yes, when there is one) beside it, sticking to the top of the day while
+ * the tiles scroll under it. No goes back a step from Try and New, and closes the
+ * card otherwise. No time is asked for; the row's clock button adds one later.
  */
 export function InlineAdd({ date, index, onClose }: Props) {
   const store = useStore()
@@ -85,11 +77,9 @@ export function InlineAdd({ date, index, onClose }: Props) {
   // Closing rolls it up into the + it came from (kept inside the day, clear of the bars).
   useLeaveGhost(card, 'roll-up', { clipTo: '[data-day-scroller]', zIndex: 20 })
   const header = useRef<HTMLElement>(null)
-  const footer = useRef<HTMLElement>(null)
-  const flat = useMediaQuery(FLAT_SCREEN)
-  /** Bars not sticky: too little room between them (see MIN_ROOM_REM). */
+  /** Title bar not sticky: too little room under it (see MIN_ROOM_REM). */
   const [loose, setLoose] = useState(false)
-  /** Bumped when the day's scroller or the bars change size (the keyboard coming up). */
+  /** Bumped when the day's scroller or the title bar change size (the keyboard coming up). */
   const [resized, setResized] = useState(0)
 
   /** Bring the card's top to the top of the day's scroller. */
@@ -111,7 +101,7 @@ export function InlineAdd({ date, index, onClose }: Props) {
     scroller.scrollTo({ top: Math.max(0, top - TOP_MARGIN), behavior })
   }
   // Opening: glide the day so the row above the card is at the top.
-  // A plain toast from the last add would sit on the breadcrumb: it has done its job (an Undo stays).
+  // A plain toast from the last add would sit on the title bar: it has done its job (an Undo stays).
   useEffect(() => {
     toTop('smooth')
     track('add_open')
@@ -131,35 +121,35 @@ export function InlineAdd({ date, index, onClose }: Props) {
   const [shownStep, setShownStep] = useState({ key: stepKey, depth, slide: '' })
   if (shownStep.key !== stepKey) setShownStep({ key: stepKey, depth, slide: depth >= shownStep.depth ? 'from-right' : 'from-left' })
 
-  // How much room the bars leave between them, whenever the day or the bars change size.
+  // How much room the title bar leaves, whenever the day or the bar change size.
   useEffect(() => {
     const scroller = card.current?.closest<HTMLElement>('[data-day-scroller]')
     if (!scroller) return
     const measure = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-      const room = scroller.clientHeight - (header.current?.offsetHeight ?? 0) - (footer.current?.offsetHeight ?? 0)
+      const room = scroller.clientHeight - (header.current?.offsetHeight ?? 0)
       setLoose(room < MIN_ROOM_REM * rem)
       setResized(n => n + 1)
     }
     const watch = new ResizeObserver(measure)
-    for (const el of [scroller, header.current, footer.current]) if (el) watch.observe(el)
+    for (const el of [scroller, header.current]) if (el) watch.observe(el)
     return () => watch.disconnect()
-  }, [flat])
+  }, [])
 
-  /** Scroll the day just enough that a text box (with its label, if that fits too) shows between the bars. */
+  /** Scroll the day just enough that a text box (with its label, if that fits too) shows under the title bar. */
   const reveal = (field: HTMLElement) => {
     const scroller = card.current?.closest<HTMLElement>('[data-day-scroller]')
     if (!scroller) return
     const s = scroller.getBoundingClientRect()
-    // Sticky bars can cover the day's edges (once scrolled, they will); loose ones scroll away above and below.
+    // A sticky title bar can cover the top of the day (once scrolled, it will); a loose one scrolls away.
     const top = s.top + (loose ? 0 : (header.current?.offsetHeight ?? 0)) + FIELD_MARGIN
-    const bottom = s.bottom - (loose ? 0 : (footer.current?.offsetHeight ?? 0)) - FIELD_MARGIN
+    const bottom = s.bottom - FIELD_MARGIN
     const section = field.closest('section')
     const box = (section && section.getBoundingClientRect().height <= bottom - top ? section : field).getBoundingClientRect()
     const d = box.top < top || box.height > bottom - top ? box.top - top : box.bottom > bottom ? box.bottom - bottom : 0
     if (d) scroller.scrollTop += d
   }
-  // After a resize (the keyboard arriving, or the bars coming unstuck), the box being typed in stays in sight.
+  // After a resize (the keyboard arriving, or the bar coming unstuck), the box being typed in stays in sight.
   useLayoutEffect(() => {
     const field = document.activeElement
     if (isTextField(field) && card.current?.contains(field)) reveal(field)
@@ -265,7 +255,7 @@ export function InlineAdd({ date, index, onClose }: Props) {
     }
   }
 
-  const crumbs = trail(step, store.state.items)
+  const here = heading(step, store.state.items)
 
   let body: ReactNode
   let yes: ReactNode = null
@@ -301,7 +291,7 @@ export function InlineAdd({ date, index, onClose }: Props) {
         findButton
       />
     )
-    yes = <YesButton compact={flat} disabled={busy} onClick={() => void finishTravel(from.travelId, null)} />
+    yes = <YesButton compact disabled={busy} onClick={() => void finishTravel(from.travelId, null)} />
   } else if (step.at === 'pick') {
     const from = step
     const meal = MEAL_TYPES.includes(step.type)
@@ -321,23 +311,23 @@ export function InlineAdd({ date, index, onClose }: Props) {
         findButton
       />
     )
-    if (meal) yes = <YesButton compact={flat} disabled={busy} onClick={() => void finish(from.type, selected)} />
+    if (meal) yes = <YesButton compact disabled={busy} onClick={() => void finish(from.type, selected)} />
   } else if (step.at === 'try') {
     body = <TryNewPanel kind={step.kind} shelf={step.shelf} query={step.query} chosen={idea} onChoose={setIdea} />
-    if (idea) yes = <YesButton compact={flat} disabled={busy} onClick={() => void addTried()} />
+    if (idea) yes = <YesButton compact disabled={busy} onClick={() => void addTried()} />
     // No steps back: from "Add?" to the ideas, from the ideas to the list she came from.
     const from = step.from
     no = () => (idea ? setIdea(null) : setStep(from))
   } else {
     body = <NewItemFields kind={step.kind} draft={draft} onChange={setDraft} />
-    yes = <YesButton compact={flat} disabled={!draftReady(draft) || busy} onClick={() => void saveNew()} />
+    yes = <YesButton compact disabled={!draftReady(draft) || busy} onClick={() => void saveNew()} />
     // No on the new word goes back to the list it came from (as the full-screen form did).
     const from = step.from
     no = () => setStep(from)
   }
   const answers = (
     <>
-      <NoButton compact={flat} onClick={no} />
+      <NoButton compact onClick={no} />
       {yes}
     </>
   )
@@ -355,43 +345,22 @@ export function InlineAdd({ date, index, onClose }: Props) {
         if (isTextField(e.target)) reveal(e.target)
       }}
     >
-      {/* Opaque, and sticky inside the day's scroller: the way back stays in sight while the tiles scroll.
-          (-top-3 / -bottom-3: sticky insets count from inside the scroller's padding; these reach its edges.) */}
-      <header ref={header} className={`${stick} -top-3 z-10 flex items-center gap-3 border-b-4 border-orange bg-orange-light px-3 py-2`}>
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-          {crumbs.map((c, i) => {
-            const last = i === crumbs.length - 1
-            return (
-              <Fragment key={i}>
-                {i > 0 && <ChevronRight size={32} strokeWidth={3} className="shrink-0 text-ink-soft" aria-hidden />}
-                {last ? (
-                  <h3 className="flex min-w-0 items-center gap-2" aria-current="step">
-                    {c.before}
-                    {typeof c.symbol === 'string' ? <Symbol symbol={c.symbol} size="text-4xl" /> : c.symbol}
-                    <span className="text-3xl font-extrabold">{c.word}</span>
-                  </h3>
-                ) : (
-                  <BigButton size="sm" onClick={() => go(c.step)} aria-label={`Back to ${c.word}`}>
-                    {typeof c.symbol === 'string' ? <Symbol symbol={c.symbol} size="text-3xl" /> : c.symbol}
-                    <span className="text-xl font-extrabold">{c.word}</span>
-                  </BigButton>
-                )}
-              </Fragment>
-            )
-          })}
-        </div>
-        {flat && <div className="flex shrink-0 gap-3">{answers}</div>}
+      {/* Opaque, and sticky inside the day's scroller: what she is choosing, and the way out, stay in sight
+          while the tiles scroll. (-top-3: sticky insets count from inside the scroller's padding; this reaches its edge.) */}
+      {/* The answers drop under the title when both won't fit on one line (a phone's "Bus ➜ Where to?"). */}
+      <header ref={header} className={`${stick} -top-3 z-10 flex flex-wrap items-center gap-3 border-b-4 border-orange bg-orange-light px-3 py-2`}>
+        <h3 className="flex min-w-0 flex-[1_1_14rem] flex-wrap items-center gap-2" aria-current="step">
+          {here.before}
+          {typeof here.symbol === 'string' ? <Symbol symbol={here.symbol} size="text-4xl" /> : here.symbol}
+          <span className="text-3xl font-extrabold">{here.word}</span>
+        </h3>
+        <div className="ml-auto flex shrink-0 gap-3">{answers}</div>
       </header>
 
       <div key={stepKey} className={`px-3 py-4 ${shownStep.key === stepKey ? shownStep.slide : ''}`}>
         {body}
       </div>
 
-      {!flat && (
-        <footer ref={footer} className={`${stick} -bottom-3 z-10 flex flex-wrap justify-end gap-3 border-t-4 border-orange bg-orange-light px-3 py-2`}>
-          {answers}
-        </footer>
-      )}
     </div>
   )
 }
@@ -400,31 +369,26 @@ function isTextField(el: EventTarget | null): el is HTMLInputElement | HTMLTextA
   return el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && !['button', 'checkbox', 'radio', 'file'].includes(el.type))
 }
 
-/** The breadcrumb for a step: every step before it (tap to go back), then where she is. */
-function trail(step: Step, items: Record<Id, LibraryItem>): Crumb[] {
-  const add: Crumb = { step: { at: 'type' }, word: 'Add', symbol: <PlusMark /> }
-  if (step.at === 'type') return [add]
-  if (step.at === 'pick') return [add, { step, ...eventTypeInfo(step.type) }]
+/** The title for a step: what she is choosing now (after "Bus ➜" on Where to?). */
+function heading(step: Step, items: Record<Id, LibraryItem>): Heading {
+  if (step.at === 'type') return { word: 'Add', symbol: <PlusMark /> }
+  if (step.at === 'pick') return eventTypeInfo(step.type)
   if (step.at === 'where') {
     const mode = items[step.travelId]
-    return [
-      ...trail({ at: 'pick', type: 'travel' }, items),
-      {
-        step,
-        word: 'Where to?',
-        symbol: WHERE_TO_SYMBOL,
-        before: mode && (
-          <span className="inline-flex shrink-0 items-center gap-2">
-            <Symbol symbol={mode.symbol} size="text-4xl" />
-            <span className="text-3xl font-extrabold">{mode.name}</span>
-            <ArrowRight size={32} strokeWidth={3} aria-hidden />
-          </span>
-        ),
-      },
-    ]
+    return {
+      word: 'Where to?',
+      symbol: WHERE_TO_SYMBOL,
+      before: mode && (
+        <span className="inline-flex shrink-0 items-center gap-2">
+          <Symbol symbol={mode.symbol} size="text-4xl" />
+          <span className="text-3xl font-extrabold">{mode.name}</span>
+          <ArrowRight size={32} strokeWidth={3} aria-hidden />
+        </span>
+      ),
+    }
   }
-  if (step.at === 'try') return [...trail(step.from, items), { step, word: 'Try', symbol: TRY_SYMBOL }]
-  return [...trail(step.from, items), { step, word: 'New', symbol: <PlusMark filled /> }]
+  if (step.at === 'try') return { word: 'Try', symbol: TRY_SYMBOL }
+  return { word: 'New', symbol: <PlusMark filled /> }
 }
 
 /** The usage count for adding a row of this type. */

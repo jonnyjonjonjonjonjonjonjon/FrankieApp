@@ -11,12 +11,10 @@ import { Tile } from '../ui/Tile'
 
 /** Lists longer than this get a Find box. */
 const FIND_FROM = 12
-/** Lists up to this long show "All" as one grid (shelf by shelf, no headings), so a short list fits one screen. */
+/** Lists up to this long have no shelf tabs: one grid, shelf by shelf, so a short list stays simple. */
 const FLAT_UP_TO = 12
 
 const GRID = 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4'
-/** A shelf with fewer words than this gives the Try tile one gentle pulse when it opens. */
-const NUDGE_UNDER = 4
 
 interface Props {
   kind: LibraryKind
@@ -34,7 +32,7 @@ interface Props {
    */
   findButton?: boolean
   /**
-   * The Try tile (foods and activities only), first in the grid: ideas she
+   * The Try tile (foods and activities only), last in the grid before New: ideas she
    * doesn't have yet. Called with the shelf she was looking at and what she
    * had typed in Find.
    */
@@ -42,11 +40,11 @@ interface Props {
 }
 
 /**
- * The tiles answering one question, on shelves (backlog item 3). Tabs above
- * the grid jump to one shelf; "All" (always where it opens) shows every shelf
- * as its own section, so nothing is hidden behind a tab (a short list is one
- * grid in shelf order instead, so it still fits on one screen). Empty shelves are
- * left out, and a list with fewer than two shelves in use has no tabs at all.
+ * The tiles answering one question, on shelves (backlog item 3). A short list
+ * (FLAT_UP_TO or fewer) is just one grid in shelf order, with no tabs. A longer
+ * one gets tabs above the grid to jump to one shelf; "All" (always where it
+ * opens) shows every shelf as its own section, so nothing is hidden behind a tab.
+ * Empty shelves are left out, and fewer than two shelves in use means no tabs.
  * A meal's own shelf comes first with no heading (the meal is the question).
  * Content only: ItemPicker wraps it in a Sheet, the day's add card uses it inline.
  */
@@ -59,7 +57,10 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
 
   const all = subset ?? store.itemsOfKind(kind)
   const shelves = shelvesOf(kind, all, mealSlot)
-  const tabbed = shelves.length >= 2
+  const tabbed = shelves.length >= 2 && all.length > FLAT_UP_TO
+  // Untabbed: shelf by shelf (a meal's own foods first); kinds without shelves (places, travel) keep their order.
+  const byShelf = shelves.flatMap(s => s.items)
+  const inShelfOrder = byShelf.length === all.length ? byShelf : all
   // A shelf emptied while open (its last word moved away) falls back to All.
   const current = tabbed && shelves.some(s => s.category.id === tab) ? tab : 'all'
 
@@ -124,14 +125,11 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
   const tryKind = kind === 'food' || kind === 'activity' ? kind : null
   const tryShelf = current !== 'all' ? current : firstHeadless ? (mealSlot ?? null) : null
   const tryable = Boolean(onTry) && tryKind !== null && (Boolean(q) || freshIdeas(tryKind, Object.values(store.state.items), tryShelf).length > 0)
-  const shelfCount = tryShelf ? (shelves.find(s => s.category.id === tryShelf)?.items.length ?? 0) : all.length
   const tryTile = tryable && (
     <Tile
       key="try"
       word="Try"
       symbol={TRY_SYMBOL}
-      accent
-      className={shelfCount < NUDGE_UNDER ? 'try-nudge' : ''}
       onSelect={() => onTry?.({ shelf: tryShelf, query: query.trim() })}
     />
   )
@@ -166,12 +164,6 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
             {found.map(tile)}
             {newTile}
           </div>
-        ) : tabbed && current === 'all' && all.length <= FLAT_UP_TO ? (
-          <div className={GRID}>
-            {tryTile}
-            {shelves.flatMap(s => s.items).map(tile)}
-            {newTile}
-          </div>
         ) : tabbed && current === 'all' ? (
           <>
             {shelves.map(({ category, items }, i) => (
@@ -183,17 +175,21 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
                   </h3>
                 )}
                 <div className={GRID}>
-                  {i === 0 && tryTile}
                   {items.map(tile)}
                 </div>
               </section>
             ))}
-            {newTile && <div className={GRID}>{newTile}</div>}
+            {(tryTile || newTile) && (
+            <div className={GRID}>
+              {tryTile}
+              {newTile}
+            </div>
+          )}
           </>
         ) : (
           <div className={GRID}>
+            {(tabbed ? (shelves.find(s => s.category.id === current)?.items ?? []) : inShelfOrder).map(tile)}
             {tryTile}
-            {(tabbed ? (shelves.find(s => s.category.id === current)?.items ?? []) : all).map(tile)}
             {newTile}
           </div>
         )}

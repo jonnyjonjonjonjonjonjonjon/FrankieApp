@@ -9,10 +9,12 @@ import { Sheet } from '../ui/Sheet'
 import { Symbol } from '../ui/Symbol'
 import { Tile } from '../ui/Tile'
 import { NoButton, YesButton } from '../ui/YesNo'
-import { Mosaic, ShelfTab } from './ChoiceGrid'
 import { addIdea } from './newItemDraft'
 
 const FIND_SYMBOL = '🔍'
+const MORE_SYMBOL = 'mb:more'
+/** Ideas shown at a time: a short, calm grid (More shows the next ones). */
+const IDEAS_AT_ONCE = 6
 const GRID = 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4'
 
 interface Props {
@@ -28,7 +30,9 @@ interface Props {
 
 /**
  * Try something new (backlog item 16): foods or activities she doesn't have
- * yet, with a Find box for more. Tapping an idea asks
+ * yet, kept simple (owner, Sept 2026): six ideas at a time (the shelf she came
+ * from first), a More tile for the next six, and a Find tile that opens a
+ * Find box. Tapping an idea asks
  * "Add?"; the caller's Yes adds it (and picks it), No goes back. Content
  * only: the TryNew sheet wraps it for the full-screen pickers, the day's add
  * card shows it inline.
@@ -36,8 +40,10 @@ interface Props {
 export function TryNewPanel({ kind, shelf = null, query: initialQuery = '', chosen, onChoose }: Props) {
   const store = useStore()
   const [query, setQuery] = useState(initialQuery)
-  /** The shelf tab tapped (null: none yet). */
-  const [tab, setTab] = useState<string | null>(shelf ?? null)
+  /** Which six ideas are showing (More steps on, and wraps round). */
+  const [page, setPage] = useState(0)
+  /** The Find box is open: tapped open, or she had already typed something before Try. */
+  const [finding, setFinding] = useState(initialQuery.trim() !== '')
   useEffect(() => {
     track('try_open')
   }, [])
@@ -55,11 +61,10 @@ export function TryNewPanel({ kind, shelf = null, query: initialQuery = '', chos
   const all = store.state.items
   const items = useMemo(() => Object.values(all), [all])
   const fresh = useMemo(() => freshIdeas(kind, items), [kind, items])
-  const shelves = useMemo(() => categoriesFor(kind).filter(c => fresh.some(i => i.category === c.id)), [kind, fresh])
-  // Opens on a shelf rather than All: All's first heading would push the landscape tablet's row of ideas below the fold.
-  const wanted = tab ?? shelves[0]?.id ?? 'all'
-  const current = wanted === 'all' || shelves.some(c => c.id === wanted) ? wanted : (shelves[0]?.id ?? 'all')
-  const newShelf = current !== 'all' ? current : (shelf ?? shelves[0]?.id ?? categoriesFor(kind)[0]?.id ?? '')
+  // Her shelf's ideas first, then the rest in their usual order.
+  const ordered = useMemo(() => (shelf ? [...fresh.filter(i => i.category === shelf), ...fresh.filter(i => i.category !== shelf)] : fresh), [fresh, shelf])
+  const shown = ordered.length <= IDEAS_AT_ONCE ? ordered : [...ordered, ...ordered].slice((page * IDEAS_AT_ONCE) % ordered.length, ((page * IDEAS_AT_ONCE) % ordered.length) + IDEAS_AT_ONCE)
+  const newShelf = shelf ?? categoriesFor(kind)[0]?.id ?? ''
   // Scores the whole Mulberry index: only when the letters (or her words) change.
   const found = useMemo(() => findIdeas(kind, items, query, mulberry, newShelf), [kind, items, query, mulberry, newShelf])
   const q = query.trim()
@@ -83,17 +88,20 @@ export function TryNewPanel({ kind, shelf = null, query: initialQuery = '', chos
 
   return (
     <div className="flex flex-col gap-2.5">
-      <label className="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border-4 border-ink bg-paper px-3 focus-within:border-orange lg:min-h-16">
-        <Symbol symbol={FIND_SYMBOL} size="text-5xl" />
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Find"
-          aria-label="Find"
-          autoComplete="off"
-          className="min-w-0 flex-1 bg-transparent text-4xl font-extrabold outline-none"
-        />
-      </label>
+      {finding && (
+        <label className="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border-4 border-ink bg-paper px-3 focus-within:border-orange lg:min-h-16">
+          <Symbol symbol={FIND_SYMBOL} size="text-5xl" />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Find"
+            aria-label="Find"
+            autoComplete="off"
+            autoFocus={!initialQuery}
+            className="min-w-0 flex-1 bg-transparent text-4xl font-extrabold outline-none"
+          />
+        </label>
+      )}
 
       {q ? (
         <>
@@ -109,31 +117,14 @@ export function TryNewPanel({ kind, shelf = null, query: initialQuery = '', chos
           )}
           {!found.ideas.length && !found.more.length && <Empty symbol={FIND_SYMBOL} word="None" />}
         </>
+      ) : fresh.length ? (
+        <div className={GRID}>
+          {shown.map(tile)}
+          {ordered.length > IDEAS_AT_ONCE && <Tile word="More" symbol={MORE_SYMBOL} onSelect={() => setPage(p => p + 1)} />}
+          {!finding && <Tile word="Find" symbol={FIND_SYMBOL} onSelect={() => setFinding(true)} />}
+        </div>
       ) : (
-        <>
-          {shelves.length >= 2 && (
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Shelves" data-noswipe>
-              <ShelfTab word="All" picture={<Mosaic symbols={shelves.slice(0, 4).map(s => s.symbol)} />} on={current === 'all'} onClick={() => setTab('all')} />
-              {shelves.map(c => (
-                <ShelfTab key={c.id} word={c.word} picture={<Symbol symbol={c.symbol} size="text-4xl" />} on={current === c.id} onClick={() => setTab(c.id)} />
-              ))}
-            </div>
-          )}
-          {current === 'all' ? (
-            shelves.map(c => (
-              <section key={c.id} className="flex flex-col gap-3" aria-label={c.word}>
-                <h3 className="flex items-center gap-3 rounded-2xl bg-soft px-3 py-1">
-                  <Symbol symbol={c.symbol} size="text-4xl" />
-                  <span className="text-2xl font-extrabold">{c.word}</span>
-                </h3>
-                <div className={GRID}>{fresh.filter(i => i.category === c.id).map(tile)}</div>
-              </section>
-            ))
-          ) : (
-            <div className={GRID}>{fresh.filter(i => i.category === current).map(tile)}</div>
-          )}
-          {!fresh.length && <Empty symbol="mb:good" word="All added" />}
-        </>
+        <Empty symbol="mb:good" word="All added" />
       )}
     </div>
   )

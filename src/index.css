@@ -282,12 +282,3 @@ button,
   animation: web-pulse 1.2s ease-in-out infinite;
 }
 
-/* Try tile on a nearly empty shelf: one gentle outline pulse when it opens (no scaling, no loop). */
-@keyframes try-nudge {
-  0%, 100% { outline: 0 solid transparent; outline-offset: 0; }
-  50% { outline: 6px solid var(--color-orange); outline-offset: 4px; }
-}
-.try-nudge {
-  animation: try-nudge 2s ease-in-out 1;
-}
-

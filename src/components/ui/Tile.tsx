@@ -44,7 +44,7 @@ export function Tile({
     ? 'border-orange ring-4 ring-orange-light'
     : accent
       ? 'border-orange-dark bg-orange text-white'
-      : 'border-ink bg-paper'
+      : 'border-line bg-paper'
 
   return (
     <div
@@ -57,7 +57,7 @@ export function Tile({
           onSelect?.()
         }
       }}
-      className={`flex min-h-[7.5rem] flex-col items-center gap-2 rounded-3xl border-4 p-3 text-center transition-transform active:scale-95 ${border} ${className}`}
+      className={`flex min-h-[7.5rem] flex-col items-center gap-2 rounded-3xl border-[3px] p-3 text-center transition-transform active:scale-95 ${border} ${className}`}
     >
       <span className={`font-extrabold leading-tight ${size === 'lg' ? 'text-3xl' : 'text-2xl'}`}>{word}</span>
       <div
