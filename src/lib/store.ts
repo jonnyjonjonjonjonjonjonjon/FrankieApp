@@ -10,7 +10,6 @@ import type {
   LibraryKind,
   PhotoCredit,
   PhotoRecord,
-  Rating,
   Settings,
   TemplateItem,
   View,
@@ -674,11 +673,6 @@ class Store {
     rest.splice(idx, 0, updated)
     await this.updateEvent(date, realId, { time })
     await this.writeOrder(rest.map(e => (e.id === realId ? { ...e, time } : e)))
-  }
-
-  async rateEvent(date: ISODate, id: Id, rating: Rating | null) {
-    track('event_rate')
-    await this.updateEvent(date, id, { rating })
   }
 
   async deleteEvent(date: ISODate, id: Id, word: string) {

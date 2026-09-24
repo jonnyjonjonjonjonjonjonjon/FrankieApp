@@ -49,12 +49,6 @@ export const KIND_SYMBOL: Record<LibraryKind, string> = {
 /** Where to? (a travel event's destination). */
 export const WHERE_TO_SYMBOL = 'mb:where'
 
-export const RATING_FACES = {
-  happy: { symbol: '😊', word: 'Happy' },
-  angry: { symbol: '😠', word: 'Angry' },
-  sad: { symbol: '😢', word: 'Sad' },
-} as const
-
 /** Symbol grid for "add a new word" (PRD §4.6 step 2), with simple word search. */
 export interface SymbolChoice {
   symbol: string

@@ -9,7 +9,6 @@ import { Symbol } from '../ui/Symbol'
 import { ClearButton, NoButton, YesButton } from '../ui/YesNo'
 import { ChoiceGrid } from '../pickers/ChoiceGrid'
 import { NewItemForm } from '../pickers/NewItemForm'
-import { RatingPicker } from '../pickers/RatingPicker'
 import { TimeWheels } from '../pickers/TimePicker'
 import { TryNew } from '../pickers/TryNew'
 
@@ -24,7 +23,7 @@ const CHANGE_SYMBOL = 'mb:change-to'
 interface Props {
   date: string
   event: DiaryEvent
-  /** The part being set, or null for the row's own strip (rating, Change, Remove). */
+  /** The part being set, or null for the row's own strip (Change, Remove). */
   panel: Slot | null
   onPanel: (panel: Slot | null) => void
   /** Removed: the row is gone. */
@@ -33,8 +32,7 @@ interface Props {
 
 /**
  * Setting a day row without leaving the day (owner, Sept 2026; replaces the item screen). Tapping a
- * row opens it: this strip slides open under it with "Did I like it?", Change (activity or travel)
- * and Remove, while the row shows its empty slots (a clock, What?, Where?, Who?). Tapping a slot, or
+ * row opens it: this strip slides open under it with Change (activity or travel) and Remove, while the row shows its empty slots (a clock, What?, Where?, Who?). Tapping a slot, or
  * something already set, opens its choices here instead, with No / Yes; New and Try (rare) still
  * open their full screens.
  */
@@ -106,10 +104,6 @@ export function RowEditor({ date, event, panel, onPanel, onRemoved }: Props) {
     return (
       <Drawer>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <span className="flex flex-wrap items-center gap-3">
-            <span className="text-2xl font-extrabold">Did I like it?</span>
-            <RatingPicker size="md" value={event.rating} onChange={r => void store.rateEvent(date, event.id, r)} />
-          </span>
           <span className="ml-auto flex flex-wrap gap-3">
             {(event.type === 'activity' || travel) && (
               <BigButton onClick={() => onPanel('change')}>

@@ -5,7 +5,7 @@ import { eventFace, travelDestination } from '../../lib/eventFace'
 import { festiveOn } from '../../lib/festive'
 import { useStore } from '../../lib/store'
 import { track } from '../../lib/usage'
-import { eventTypeInfo, RATING_FACES } from '../../lib/symbols'
+import { eventTypeInfo } from '../../lib/symbols'
 import { isDaytime, to12 } from '../../lib/time'
 import type { DiaryEvent, EventType, ISODate } from '../../types'
 import { BigButton } from '../ui/BigButton'
@@ -189,7 +189,6 @@ export function WeekView({ date }: { date: ISODate }) {
                           </div>
                           <span className="text-lg font-extrabold leading-tight break-words">
                             {face.word}
-                            {e.rating && <Symbol symbol={RATING_FACES[e.rating].symbol} size="text-xl" className="ml-1 align-middle" />}
                           </span>
                           {/* Too narrow for one line: where to goes underneath */}
                           {to && (

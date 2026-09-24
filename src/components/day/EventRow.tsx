@@ -1,7 +1,6 @@
 import { ArrowRight, Clock } from 'lucide-react'
 import { eventFace, isMeal, travelDestination } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
-import { RATING_FACES } from '../../lib/symbols'
 import type { DiaryEvent, LibraryItem } from '../../types'
 import { Photo } from '../ui/Photo'
 import { Symbol } from '../ui/Symbol'
@@ -60,20 +59,10 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
             <Symbol symbol={destination.symbol} size="text-3xl" />
             <span className="min-w-0 grow basis-[min-content] break-words font-bold">{destination.name}</span>
           </span>
-          {event.rating && (
-            <span className="inline-flex" aria-label={RATING_FACES[event.rating].word}>
-              <Symbol symbol={RATING_FACES[event.rating].symbol} size="text-3xl" />
-            </span>
-          )}
         </span>
       ) : (
         <span className="line-clamp-2 text-3xl font-extrabold leading-tight">
           {face.word}
-          {event.rating && (
-            <span className="ml-2 inline-flex align-middle" aria-label={RATING_FACES[event.rating].word}>
-              <Symbol symbol={RATING_FACES[event.rating].symbol} size="text-3xl" />
-            </span>
-          )}
         </span>
       )}
     </>
