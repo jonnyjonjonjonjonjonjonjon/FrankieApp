@@ -53,13 +53,15 @@ export function EventRow({ event, onOpen, onTime, onGrip, dragging, current }: P
 
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 flex-col justify-center gap-1 text-left">
         {destination ? (
-          // One line where it fits; on a narrow phone the whole "➜ place" drops under the word, never split mid-name.
-          <span className="flex flex-wrap items-center gap-x-2 text-3xl leading-tight" data-travel-line>
+          // One line where it fits; on a phone "➜ place" drops under the word and a long place name
+          // wraps between its words beside the arrow. Where even its longest word will not fit beside
+          // the arrow (basis = min-content), the name drops under the arrow: never split mid-word, never past the row.
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-3xl leading-tight" data-travel-line>
             <span className="font-extrabold">{face.word}</span>
-            <span className="inline-flex items-center gap-2 whitespace-nowrap">
-              <ArrowRight size={36} strokeWidth={3} aria-label="to" />
+            <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2">
+              <ArrowRight size={36} strokeWidth={3} aria-label="to" className="shrink-0" />
               <Symbol symbol={destination.symbol} size="text-3xl" />
-              <span className="font-bold">{destination.name}</span>
+              <span className="min-w-0 grow basis-[min-content] break-words font-bold">{destination.name}</span>
             </span>
             {event.rating && (
               <span className="inline-flex" aria-label={RATING_FACES[event.rating].word}>

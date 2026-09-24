@@ -59,13 +59,14 @@ export function DayPanel({ date, onOpen, onTime, onPickStay }: Props) {
         {birthdays.map(p => (
           <div key={p.id} className="flex min-h-20 items-center gap-4 rounded-3xl border-4 border-orange bg-orange-light px-4 py-2">
             <Symbol symbol="🎂" size="text-6xl" />
-            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-paper">
-              {p.photoId ? <Photo id={p.photoId} alt={p.name} className="h-full w-full" /> : <Symbol symbol={p.symbol} size="text-5xl" />}
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-paper">
+              {p.photoId && p.showPhoto ? <Photo id={p.photoId} alt={p.name} className="h-full w-full" /> : <Symbol symbol={p.symbol} size="text-5xl" />}
             </div>
-            <span className="text-3xl font-extrabold">{p.name}</span>
-            <span className="text-2xl font-bold text-ink-soft">Birthday</span>
+            <span className="min-w-0 break-words text-3xl font-extrabold">{p.name}</span>
+            {/* The cake says it on a narrow phone; the word joins it where there is room */}
+            <span className="text-2xl font-bold text-ink-soft max-sm:sr-only">Birthday</span>
             {p.birthYear && Number(date.slice(0, 4)) > p.birthYear && (
-              <span className="ml-auto flex h-16 min-w-16 items-center justify-center rounded-full bg-orange px-3 text-3xl font-extrabold text-white" aria-label="Age">
+              <span className="ml-auto flex h-16 min-w-16 shrink-0 items-center justify-center rounded-full bg-orange px-3 text-3xl font-extrabold text-white" aria-label="Age">
                 {Number(date.slice(0, 4)) - p.birthYear}
               </span>
             )}

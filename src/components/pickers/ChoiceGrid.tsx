@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useStore } from '../../lib/store'
 import { categoriesFor, categoryOf, defaultCategory, type Category } from '../../lib/categories'
 import type { Id, LibraryItem, LibraryKind, MealSlot } from '../../types'
@@ -9,6 +9,8 @@ import { Tile } from '../ui/Tile'
 
 /** Lists longer than this get a Find box. */
 const FIND_FROM = 12
+/** Lists up to this long show "All" as one grid (shelf by shelf, no headings), so a short list fits one screen. */
+const FLAT_UP_TO = 12
 
 const GRID = 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4'
 
@@ -27,7 +29,8 @@ interface Props {
 /**
  * The tiles answering one question, on shelves (backlog item 3). Tabs above
  * the grid jump to one shelf; "All" (always where it opens) shows every shelf
- * as its own section, so nothing is hidden behind a tab. Empty shelves are
+ * as its own section, so nothing is hidden behind a tab (a short list is one
+ * grid in shelf order instead, so it still fits on one screen). Empty shelves are
  * left out, and a list with fewer than two shelves in use has no tabs at all.
  * Content only: ItemPicker wraps it in a Sheet, the day's add card uses it inline.
  */
@@ -37,7 +40,7 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
   const [query, setQuery] = useState('')
 
   const all = subset ?? store.itemsOfKind(kind)
-  const shelves = useMemo(() => shelvesOf(kind, all, mealSlot), [kind, all, mealSlot])
+  const shelves = shelvesOf(kind, all, mealSlot)
   const tabbed = shelves.length >= 2
   // A shelf emptied while open (its last word moved away) falls back to All.
   const current = tabbed && shelves.some(s => s.category.id === tab) ? tab : 'all'
@@ -94,6 +97,11 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
       {found ? (
         <div className={GRID}>
           {found.map(tile)}
+          {newTile}
+        </div>
+      ) : tabbed && current === 'all' && all.length <= FLAT_UP_TO ? (
+        <div className={GRID}>
+          {shelves.flatMap(s => s.items).map(tile)}
           {newTile}
         </div>
       ) : tabbed && current === 'all' ? (

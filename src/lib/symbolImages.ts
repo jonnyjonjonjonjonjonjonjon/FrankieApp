@@ -27,7 +27,7 @@ export const EMOJI_TO_MULBERRY: Record<string, string> = {
   "👗": "clothes_female",
   "👟": "trainers",
   "🏊": "swim-to",
-  "🌳": "park-to",
+  "🌳": "tree",
   "☕": "cafe",
   "💇": "haircut",
   "💅": "nail_polish",

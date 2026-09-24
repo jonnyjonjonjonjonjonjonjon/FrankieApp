@@ -1,12 +1,10 @@
 import { useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
-import { MONTH_NAMES } from '../../lib/dates'
+import { isMonthDay, MONTH_DAYS, MONTH_NAMES } from '../../lib/dates'
 import { BigButton } from '../ui/BigButton'
 import { Sheet } from '../ui/Sheet'
 import { ClearButton, NoButton, YesButton } from '../ui/YesNo'
 
-/** Days in each month; February allows the 29th (the birthday shows on the 28th in other years). */
-const MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 const pad = (n: number) => String(n).padStart(2, '0')
 
 interface Props {
@@ -26,14 +24,15 @@ interface Props {
  * year of birth is for the family (it shows her the age on the day).
  */
 export function MonthDayPicker({ title, symbol = '🎂', value, birthYear = null, allowNone, onDone, onBack }: Props) {
-  const init = value && /^\d\d-\d\d$/.test(value) ? value.split('-').map(Number) : null
+  const init = isMonthDay(value) ? value.split('-').map(Number) : null
   const [month, setMonth] = useState<number | null>(init ? init[0] : null)
   const [day, setDay] = useState<number | null>(init ? init[1] : null)
   const [yearText, setYearText] = useState(birthYear ? String(birthYear) : '')
 
   const yearNum = Number(yearText)
   const yearOk = yearText === '' || (yearText.length === 4 && yearNum >= 1900 && yearNum <= new Date().getFullYear())
-  const ready = month !== null && day !== null && yearOk
+  // The day must exist in the month (a 31st moved to April is not a date: it would never show).
+  const ready = month !== null && day !== null && day <= MONTH_DAYS[month - 1] && yearOk
 
   return (
     <Sheet
@@ -54,9 +53,18 @@ export function MonthDayPicker({ title, symbol = '🎂', value, birthYear = null
     >
       <div className="mx-auto flex max-w-4xl flex-col gap-5">
         {month === null ? (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4" role="radiogroup" aria-label="Month">
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4" role="group" aria-label="Month">
             {MONTH_NAMES.map((name, i) => (
-              <BigButton key={name} size="lg" role="radio" aria-checked={false} aria-label={name} onClick={() => setMonth(i + 1)}>
+              <BigButton
+                key={name}
+                size="lg"
+                aria-label={name}
+                onClick={() => {
+                  setMonth(i + 1)
+                  // Keep the day only if this month has it.
+                  setDay(d => (d !== null && d > MONTH_DAYS[i] ? null : d))
+                }}
+              >
                 <span className="text-2xl font-extrabold sm:hidden">{name.slice(0, 3)}</span>
                 <span className="hidden text-2xl font-extrabold sm:inline">{name}</span>
               </BigButton>
@@ -100,7 +108,8 @@ export function MonthDayPicker({ title, symbol = '🎂', value, birthYear = null
             placeholder="optional"
             autoComplete="off"
             aria-invalid={!yearOk}
-            className={`min-h-16 w-40 rounded-2xl border-4 px-3 text-3xl font-extrabold tabular-nums outline-none focus:border-orange ${
+            // The placeholder is smaller, so "optional" fits the box made for four digits.
+            className={`min-h-16 w-40 rounded-2xl placeholder:text-xl placeholder:font-bold border-4 px-3 text-3xl font-extrabold tabular-nums outline-none focus:border-orange ${
               yearOk ? 'border-line' : 'border-orange-dark'
             }`}
           />

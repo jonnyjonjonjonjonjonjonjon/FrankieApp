@@ -103,7 +103,7 @@ export function WeekView({ date }: { date: ISODate }) {
                       <Symbol symbol="🎂" size="text-3xl" />
                       {birthdays.map(p => (
                         <span key={p.id} className="inline-flex items-center gap-1">
-                          {p.photoId ? (
+                          {p.photoId && p.showPhoto ? (
                             <Photo id={p.photoId} alt="" className="h-[1.9rem] w-[1.9rem] rounded-md" />
                           ) : (
                             <Symbol symbol={p.symbol} size="text-3xl" />

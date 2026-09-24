@@ -98,6 +98,16 @@ export function monthDay(s: ISODate): string {
   return s.slice(5)
 }
 
+/** Days in each month; February allows the 29th (a leap-day birthday shows on the 28th in other years). */
+export const MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+/** A real "MM-DD" (a birthday): "02-31" or "13-01" is not. */
+export function isMonthDay(md: string | null | undefined): md is string {
+  if (!md || !/^\d\d-\d\d$/.test(md)) return false
+  const [m, d] = md.split('-').map(Number)
+  return m >= 1 && m <= 12 && d >= 1 && d <= MONTH_DAYS[m - 1]
+}
+
 /** "3 March" for a "MM-DD" (a birthday). */
 export function monthDayLabel(md: string): string {
   const [m, d] = md.split('-').map(Number)

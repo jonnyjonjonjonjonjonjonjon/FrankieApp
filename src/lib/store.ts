@@ -21,7 +21,7 @@ import { categoryOf, defaultCategory } from './categories'
 import { minutesOf } from './time'
 
 const timeKey = (e: DiaryEvent) => (e.time ? minutesOf(e.time) : 1e6)
-import { fromISO, toISO, today } from './dates'
+import { fromISO, isMonthDay, toISO, today } from './dates'
 
 // ------------------------------------------------------------
 // State
@@ -183,7 +183,8 @@ class Store {
         )
         for (const e of stale) await this.updateEvent(e.date, e.id, { deleted: true })
       }
-      const seeds = seedItems()
+      // Travel seeds are newer than v3 and already added by ensureSeeds: stamping them here would push them early.
+      const seeds = seedItems().filter(seed => seed.kind !== 'travel')
       for (const seed of seeds) {
         const cur = this.state.items[seed.id]
         if (!cur) {
@@ -735,7 +736,8 @@ class Store {
     const start = fromISO(from)
     const out: UpcomingBirthday[] = []
     for (const person of this.itemsOfKind('person')) {
-      if (!person.birthday || !/^\d\d-\d\d$/.test(person.birthday)) continue
+      // Only real dates: one like "02-31" never shows on a day, so it is not listed as coming up either.
+      if (!isMonthDay(person.birthday)) continue
       let y = start.getFullYear()
       let date = birthdayIn(person.birthday, y)
       if (date < from) date = birthdayIn(person.birthday, ++y)

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { BedDouble, Stethoscope, Trash2 } from 'lucide-react'
-import { categoriesFor, categoryOf } from '../../lib/categories'
+import { categoriesFor, categoryOf, SHELF_MEAL } from '../../lib/categories'
 import { monthDayLabel } from '../../lib/dates'
 import { useStore } from '../../lib/store'
 import type { Id, LibraryItem } from '../../types'
@@ -38,6 +38,9 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
 export function WordEditor({ itemId, onClose }: { itemId: Id; onClose: () => void }) {
   const store = useStore()
   const item: LibraryItem | undefined = store.state.items[itemId]
+  // The word as it was when the editor opened: save() compares against this, not the live copy,
+  // which a sync from another device may change while the editor is open.
+  const [initial] = useState(item)
   const [name, setName] = useState(item?.name ?? '')
   const [symbol, setSymbol] = useState(item?.symbol ?? '')
   const [newPhoto, setNewPhoto] = useState<Blob | null>(null)
@@ -58,17 +61,34 @@ export function WordEditor({ itemId, onClose }: { itemId: Id; onClose: () => voi
   const save = async () => {
     if (!canSave) return
     setSaving(true)
+    // Only what was changed here is written: an untouched field keeps any newer edit from another device.
+    const was = initial ?? item
+    const photoRemoved = Boolean(was.photoId && !keptPhotoId)
+    const photoChanged = Boolean(newPhoto) || photoRemoved
     if (newPhoto) await store.setItemPhoto(item.id, newPhoto)
-    else if (item.photoId && !keptPhotoId) await store.setItemPhoto(item.id, null)
-    const patch: Partial<LibraryItem> = { name: name.trim(), symbol, showPhoto: hasPhoto && showPhoto }
-    if (categoriesFor(item.kind).length && category) patch.category = category
-    if (item.kind === 'person') Object.assign(patch, { birthday, birthYear })
-    if (item.kind === 'place') {
-      patch.stayable = stayable
-      patch.placeType = medical ? 'medical' : item.placeType === 'medical' ? 'other' : item.placeType
+    else if (photoRemoved) await store.setItemPhoto(item.id, null)
+    const patch: Partial<LibraryItem> = {}
+    const trimmed = name.trim()
+    if (trimmed !== was.name) patch.name = trimmed
+    if (symbol !== was.symbol) patch.symbol = symbol
+    const wantPhoto = hasPhoto && showPhoto
+    const now = store.state.items[item.id] ?? item
+    if ((photoChanged || wantPhoto !== Boolean(was.showPhoto)) && wantPhoto !== Boolean(now.showPhoto)) patch.showPhoto = wantPhoto
+    if (categoriesFor(item.kind).length && category && category !== categoryOf(was)) {
+      patch.category = category
+      // Older copies sort their meal pickers by the meal tag, so it moves with the shelf.
+      if (item.kind === 'food' && SHELF_MEAL[category]) patch.meals = [SHELF_MEAL[category]]
     }
-    await store.updateItem(item.id, patch)
-    store.toast(`${patch.name} saved`)
+    if (item.kind === 'person') {
+      if (birthday !== (was.birthday ?? null)) patch.birthday = birthday
+      if (birthYear !== (was.birthYear ?? null)) patch.birthYear = birthYear
+    }
+    if (item.kind === 'place') {
+      if (stayable !== Boolean(was.stayable)) patch.stayable = stayable
+      if (medical !== (was.placeType === 'medical')) patch.placeType = medical ? 'medical' : 'other'
+    }
+    if (Object.keys(patch).length) await store.updateItem(item.id, patch)
+    store.toast(`${trimmed} saved`)
     onClose()
   }
 

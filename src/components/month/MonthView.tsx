@@ -9,7 +9,7 @@ import { Symbol } from '../ui/Symbol'
 import { SlideCarousel } from '../ui/SlideCarousel'
 
 function Face({ item, size = 'text-2xl' }: { item: LibraryItem; size?: string }) {
-  return item.photoId ? (
+  return item.photoId && item.showPhoto ? (
     <Photo id={item.photoId} alt={item.name} className="h-[1.6em] w-[1.6em] rounded-md" />
   ) : (
     <Symbol symbol={item.symbol} size={size} />
@@ -81,7 +81,7 @@ function MonthGrid({ date }: { date: ISODate }) {
           const events = store.eventsFor(d)
           const medical = events.some(e => e.placeId && items[e.placeId]?.placeType === 'medical')
           const people = [...new Set(events.flatMap(e => e.personIds))].map(id => items[id]).filter(Boolean)
-          const birthday = store.birthdaysOn(d)[0]
+          const birthdays = store.birthdaysOn(d)
           return (
             <button
               key={d}
@@ -103,11 +103,14 @@ function MonthGrid({ date }: { date: ISODate }) {
                 {people.slice(0, 3).map(p => (
                   <Face key={p.id} item={p} />
                 ))}
-                {/* Cake and whose birthday it is */}
-                {birthday && (
-                  <span className="inline-flex items-center gap-0.5" aria-label={`${birthday.name} birthday`}>
+                {/* Cake and whose birthday it is (two faces fit a cell; more shows as +N) */}
+                {birthdays.length > 0 && (
+                  <span className="inline-flex items-center gap-0.5" aria-label={`${birthdays.map(p => p.name).join(' and ')} birthday`}>
                     <Symbol symbol="🎂" size="text-2xl" />
-                    <Face item={birthday} />
+                    {birthdays.slice(0, 2).map(p => (
+                      <Face key={p.id} item={p} />
+                    ))}
+                    {birthdays.length > 2 && <span className="text-base font-extrabold">+{birthdays.length - 2}</span>}
                   </span>
                 )}
               </span>
