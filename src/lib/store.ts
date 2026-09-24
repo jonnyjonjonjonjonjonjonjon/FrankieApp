@@ -385,9 +385,30 @@ class Store {
     }))
   }
 
+  private byDateCache: { events: Record<Id, DiaryEvent>; map: Map<ISODate, DiaryEvent[]> } | null = null
+
+  /**
+   * Stored (not deleted) events grouped by day. Rebuilt only when the events
+   * object changes, so the month carousel's ~126 days don't each scan every event.
+   */
+  eventsByDate(): Map<ISODate, DiaryEvent[]> {
+    const events = this.state.events
+    if (this.byDateCache?.events !== events) {
+      const map = new Map<ISODate, DiaryEvent[]>()
+      for (const e of Object.values(events)) {
+        if (e.deleted) continue
+        const list = map.get(e.date)
+        if (list) list.push(e)
+        else map.set(e.date, [e])
+      }
+      this.byDateCache = { events, map }
+    }
+    return this.byDateCache.map
+  }
+
   /** Stored events plus the routine template for days not yet materialised, in list order. */
   eventsFor(date: ISODate): DiaryEvent[] {
-    const stored = Object.values(this.state.events).filter(e => e.date === date && !e.deleted)
+    const stored = [...(this.eventsByDate().get(date) ?? [])]
     const rec = this.dayRecord(date)
     const list = rec.templateApplied ? stored : [...stored, ...this.virtualTemplate(date)]
     return list.sort((a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || timeKey(a) - timeKey(b) || a.createdAt.localeCompare(b.createdAt))

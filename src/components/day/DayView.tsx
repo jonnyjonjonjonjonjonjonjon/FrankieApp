@@ -4,11 +4,11 @@ import { addDays, longDate, today } from '../../lib/dates'
 import { useStore } from '../../lib/store'
 import type { ISODate, Tab } from '../../types'
 import { BigButton } from '../ui/BigButton'
+import { SlideCarousel } from '../ui/SlideCarousel'
 import { TopBar } from '../ui/TopBar'
 import { ItemPicker } from '../pickers/ItemPicker'
 import { TimePicker } from '../pickers/TimePicker'
 import { AddEventFlow } from './AddEventFlow'
-import { DayCarousel } from './DayCarousel'
 import { DayPanel } from './DayPanel'
 import { EventSheet } from './EventSheet'
 
@@ -77,7 +77,7 @@ export function DayView({ date, from }: Props) {
       />
 
       <div className="min-h-0 flex-1">
-        <DayCarousel
+        <SlideCarousel
           centre={date}
           request={slide}
           onSettle={dir => goDay(addDays(date, dir))}

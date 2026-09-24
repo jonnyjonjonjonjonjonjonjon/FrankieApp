@@ -1,26 +1,29 @@
 import { useEffect, useRef, useState, type ReactNode, type TouchEvent, type TransitionEvent } from 'react'
 
 interface Props {
-  /** Identifies the centre day; when it changes the track is rebuilt at rest. */
+  /** Identifies the centre panel (a day, a month…); when it changes the track is rebuilt at rest. */
   centre: string
-  /** Render the panel for an offset of -1, 0 or +1 days from the current one. */
+  /** Render the panel for an offset of -1, 0 or +1 from the current one. */
   render: (offset: -1 | 0 | 1) => ReactNode
   /** Called once the slide has finished; the parent then changes the date. */
   onSettle: (direction: -1 | 1) => void
   /** Bump this to trigger an arrow-driven slide from the parent. */
   request: { dir: -1 | 1; n: number } | null
+  /** Ignore touches (the panel is busy with something else); arrow requests still slide. */
+  locked?: boolean
 }
 
 const THRESHOLD = 70
 
 /**
- * Three panels (yesterday, today, tomorrow) on a track that sits one panel to
- * the left (margin, not transform). Dragging moves the track with the finger;
- * releasing past the threshold slides to the neighbour. When it lands the
- * parent changes the date and the track is REMOUNTED at rest: no transform
- * left on it, so low-end GPUs cannot keep a stale copy of the old day.
+ * Three panels (yesterday, today, tomorrow; or last, this and next month) on a
+ * track that sits one panel to the left (margin, not transform). Dragging
+ * moves the track with the finger; releasing past the threshold slides to the
+ * neighbour. When it lands the parent changes the date and the track is
+ * REMOUNTED at rest: no transform left on it, so low-end GPUs cannot keep a
+ * stale copy of the old day.
  */
-export function DayCarousel({ centre, render, onSettle, request }: Props) {
+export function SlideCarousel({ centre, render, onSettle, request, locked = false }: Props) {
   const [dx, setDx] = useState(0)
   const [animTo, setAnimTo] = useState<-1 | 1 | 0 | null>(null) // null = free, 0 = snapping back
   const [dragging, setDragging] = useState(false)
@@ -38,7 +41,7 @@ export function DayCarousel({ centre, render, onSettle, request }: Props) {
   }, [request])
 
   const onTouchStart = (e: TouchEvent) => {
-    if (animTo !== null) return
+    if (animTo !== null || locked) return
     if ((e.target as HTMLElement).closest('[data-noswipe]')) return
     const t = e.touches[0]
     start.current = { x: t.clientX, y: t.clientY, horizontal: null }
