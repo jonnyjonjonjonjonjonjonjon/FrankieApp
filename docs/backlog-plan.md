@@ -30,7 +30,7 @@ emoji, see §2.4).
 | 4 | Thumbs up Yes / thumbs down No | **Yes** | Mulberry has `good` (thumbs up) and `bad` (thumbs down). |
 | 5 | Usage stats in Family settings | **Yes** | Counted on each device (counts only, no content), synced as one small doc per device per day, and summarised in Family settings. |
 | 6 | Travel (bus, train, taxi, car, plane, boat) + destination | **Yes** | New event type `travel` and library kind `travel`, with the destination held in the event's existing place field. Shown on one line: "Bus → Swimming pool". |
-| 7 | "+" between items, adding without leaving the day | **Yes** | An inline "composer" card opens in the list at that spot, with its breadcrumb and Yes/No kept on screen while its tiles scroll. The bottom Add button and the separate add screens go away. The + slots cost about 3rem per row, so the landscape tablet shows about half a row less (measured in tests). |
+| 7 | "+" between items, adding without leaving the day | **Yes** | An inline "composer" card opens in the list at that spot, with its breadcrumb and Yes/No kept on screen while its tiles scroll. The bottom Add button and the separate add screens go away. The + slots cost 3rem per row, but the Add bar's height comes back: the landscape tablet still opens on two whole rows, and shows 2.6 rows a screen instead of 2.9 once scrolled (measured, §6.7). |
 | 8 | Hold an item to drag it | **Yes** | Press and hold for about 0.45 s, the row lifts, then drag. A short tap still opens the row. Moving before the hold completes still scrolls or swipes. Chrome decides at touch-start whether it may scroll, so this needs a permanent touch listener on the list (§6.4). The headless tests can't fully copy Chrome's touch handling on Android, so **the real check is on Frankie's tablet**. |
 | 9 | Week view: days/dates stay at the top | **Yes** | A sticky header row inside the week's scroll area. |
 | 10 | Remove the Year button | **Yes** | The Year button and the year picker are removed. |
@@ -1038,6 +1038,58 @@ has `touch-action: none` from the start.)
     - Tick two foods after scrolling, then tap Yes without scrolling back.
       Take screenshots at each size.
 
+### 6.7 Batch 3 as built (deviations from the design above)
+
+- **Space, measured** (test 9, a 10-row day at 1280×800): batch 2 opened on 2
+  whole rows (+7% of a third) in a 460px list with rows 158px apart (2.9 rows a
+  screen once scrolled). Batch 3 opens on 2 whole rows in a 575px list (the Add
+  bar's height is back) with rows 218px apart (2.6 rows a screen). The expected
+  "3.5 → 3" was wrong for both builds: Staying at takes the first 115px.
+- **Sticky header and footer use `-top-3` / `-bottom-3`**, not `top-0` /
+  `bottom-0`: sticky insets count from inside the scroller's `py-3` padding, so
+  at 0 the tiles showed through a 15px strip above and below. The card has
+  `overflow: clip` (rounds off the header/footer corners; unlike `hidden` it
+  makes no scroll box, so they still stick), and the header/footer are square.
+- **The carousel is `overflow: clip`** (outer box and the three panels), not
+  `overflow-hidden`. Focusing the New word's text box inside the card made the
+  browser scroll the hidden box sideways, leaving the day half off screen; a
+  clipped box can't be scrolled. The test selector `main div.shrink-0.h-full`
+  still matches.
+- **The day scroller** is `relative` and carries `data-day-scroller`. The card
+  finds it with `closest()`, and measures its place with `offsetTop` (the
+  arrival animation's transform would skew a bounding box). Opening scrolls the
+  card to 8px below the top, smoothly; a step change that leaves the card's top
+  above the view (a long food list → back to Add) jumps it back into view.
+- **A new row arrives with `.open-in`**, not `tick-pop`: tick-pop overshoots to
+  125%, which would push a full-width row past both screen edges.
+- **Breadcrumb**: earlier steps are small bordered buttons (`aria-label="Back to
+  Activity"`), the current one is a plain heading. "Add" and "New" show a drawn
+  + (a white circle like the + she tapped; orange like the New tile), because
+  ➕ resolves to Mulberry's text-drawn "add", a thin purple cross.
+- **No** closes the card, except on **New**, where it goes back to the list it
+  came from (as the full-screen form did). A meal's ticks survive New and are
+  cleared by going back to Add.
+- While the card is open the other + buttons fade out and are `inert` (their
+  space is kept), so there is one card and nothing moves.
+- **Drag measurements**: the row gap is read from the list's computed
+  `row-gap` (the old hard-coded 12px was right on no screen size: gap-3 is 10.5,
+  13.5 or 15px); midpoints are the rows' own boxes, not their wrappers (which
+  include the + below). Edge auto-scroll is clamped to the scroll range
+  measured at lift, so the lifted row's transform can't stretch the day.
+- **Pressing** a row that is the current one (already orange) turns its border
+  dark orange. Holding and letting go without moving doesn't open the row.
+- **Clash test**: dragging the 5:30 pm Dinner above the 7:30 am Breakfast also
+  clears Lunch's 11:30, which sits between them (the store's rule, unchanged).
+- **Tests**: `gauntlet/b3/b3.mjs` (tests 1-11 at tablet, portrait and phone,
+  plus the mouse path, auto-scroll and cancel), `extra.mjs` (empty day, the
+  pressing state), `views.mjs` (month swipe, week, day arrows, the card closing
+  on a new day, no swipe while adding) and batch 1/2's scripts under
+  `b3/regress/` with the add steps pointed at the card. Intended changes there:
+  "No on Lunch → back to Add" (No now closes the card) and "no header Back"
+  (the breadcrumb's "Back to Add" matches). Batch 2's test 4 was already stale
+  against its own fix commit (the birthday picker changed); `b2-fix2.mjs`
+  covers that picker and passes.
+
 ---
 
 ## 7. Batch 4 — Festive days (item 13) and birthday check (item 14)
@@ -1532,8 +1584,10 @@ lines change.
 20. **Meal pickers open on "All"** with that meal's foods first (like today),
     and the shelf tabs are a shortcut above them. Would opening straight on the
     meal's own shelf be better for her, now or once she's used to tabs?
-21. **The + between rows** costs space: at 1280×800 the day shows about half a
-    row less than today (tests measure it exactly). Is that acceptable, or
-    should the + only appear after tapping an "Add" button?
+21. **The + between rows** costs space, but less than feared because the Add
+    bar has gone: at 1280×800 the day still opens showing two whole rows under
+    Staying at (as before), and once scrolled it shows 2.6 rows a screen instead
+    of 2.9. Is that acceptable, or should the + only appear after tapping an
+    "Add" button?
 22. **Stats** count anyone using the tablet outside Family mode as Frankie.
     OK, or should relatives always switch Family mode on?
