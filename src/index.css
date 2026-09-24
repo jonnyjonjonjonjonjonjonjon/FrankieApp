@@ -119,13 +119,13 @@ button,
   to { transform: translateY(0); opacity: 1; }
 }
 .rise {
-  animation: rise 350ms var(--move-ease);
+  animation: rise 500ms var(--move-ease);
 }
 
 /* The day's add card and a newly added row arrive (opacity and a rise only;
    no fill-mode, so nothing keeps a transform once it has landed). */
 @keyframes open-in {
-  from { transform: translateY(3rem); opacity: 0; }
+  from { transform: translateY(4rem); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
 .open-in {
@@ -136,29 +136,46 @@ button,
    and no fill-mode: nothing keeps a transform once it has landed (the Tab A8 ghosts under resting
    transforms). Full-screen panels slide up from the bottom; tabs and add-card steps slide in from the side they
    are going to (right = onward, left = back); pop-ups grow in; a changed grid fades in. */
-/* How long things take to arrive: slow enough for Frankie to see where each new thing comes from
-   (owner: "a bit slower, more obvious"). A gentle ease keeps the movement visible to the end instead
-   of snapping into place in the first few frames. */
+/* How long things take: slow enough for Frankie to follow where each thing comes from and goes
+   (owner: "slower, more obvious"). An ease-in-out keeps the movement visible from start to end. */
 :root {
-  --move: 450ms;
-  --move-slow: 550ms;
-  --move-ease: cubic-bezier(0.3, 0.1, 0.25, 1);
+  --move: 700ms;
+  --move-slow: 800ms;
+  --move-ease: cubic-bezier(0.45, 0, 0.2, 1);
 }
+/* Full-screen panels slide up from the bottom and back down when they close. Solid all the way
+   (no fade), so the screen underneath never shows through them. */
 @keyframes screen-in {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
-/* Solid all the way (no fade), so the screen underneath never shows through it. */
+@keyframes screen-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
 .screen-in {
   animation: screen-in var(--move-slow) var(--move-ease);
 }
+.screen-out {
+  animation: screen-out var(--move-slow) var(--move-ease);
+}
+/* Views push sideways: the new one comes in from the side of its tab while the old one leaves the
+   other way (its leaving copy, see useLeaveGhost). Add-card steps come in the same way. */
 @keyframes from-right {
-  from { transform: translateX(6rem); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 @keyframes from-left {
-  from { transform: translateX(-6rem); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes to-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+@keyframes to-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
 }
 .from-right {
   animation: from-right var(--move) var(--move-ease);
@@ -166,26 +183,67 @@ button,
 .from-left {
   animation: from-left var(--move) var(--move-ease);
 }
+.to-left {
+  animation: to-left var(--move) var(--move-ease);
+}
+.to-right {
+  animation: to-right var(--move) var(--move-ease);
+}
+/* Pop-ups grow in and shrink away. */
 @keyframes pop-in {
   from { transform: scale(0.8); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+@keyframes pop-out {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(0.8); opacity: 0; }
+}
 .pop-in {
   animation: pop-in var(--move) var(--move-ease);
+}
+.pop-out {
+  animation: pop-out var(--move) var(--move-ease);
+}
+/* The day's add card closes by rolling up into the + it came from: solid, so the rows under it
+   are uncovered rather than blended with it. Keeps the day-scroller clip (the --clip-* edges). */
+@keyframes roll-up {
+  from { clip-path: inset(var(--clip-t, 0px) var(--clip-r, 0px) var(--clip-b, 0px) var(--clip-l, 0px)); }
+  to { clip-path: inset(var(--clip-t, 0px) var(--clip-r, 0px) 100% var(--clip-l, 0px)); }
+}
+.roll-up {
+  animation: roll-up var(--move) var(--move-ease);
+}
+/* A leaving copy (useLeaveGhost): only the copy itself moves. */
+.leaving * {
+  animation: none !important;
+  transition: none !important;
 }
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
 .fade-in {
   animation: fade-in var(--move) ease-out;
 }
+.fade-out {
+  animation: fade-out var(--move) ease-out;
+}
 @media (prefers-reduced-motion: reduce) {
   .screen-in,
+  .screen-out,
   .from-right,
   .from-left,
+  .to-left,
+  .to-right,
   .pop-in,
+  .pop-out,
   .fade-in,
+  .fade-out,
+  .roll-up,
   .open-in,
   .rise {
     animation: none;

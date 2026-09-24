@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useStore } from './lib/store'
 import type { View } from './types'
 import { StoreProvider } from './lib/StoreProvider'
@@ -12,6 +12,7 @@ import { TabBar } from './components/ui/TabBar'
 import { Toast } from './components/ui/Toast'
 import { ChargePrompt } from './components/ui/ChargePrompt'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
+import { useLeaveGhost } from './components/ui/useLeaveGhost'
 import { today } from './lib/dates'
 import { WeekView } from './components/week/WeekView'
 
@@ -40,8 +41,22 @@ function Views() {
     setShown({ key, order: now?.order ?? 0, slide })
   }
   return (
-    <div key={key} className={`h-full ${shown.key === key ? shown.slide : ''}`}>
+    <ViewFrame key={key} slide={shown.key === key ? shown.slide : ''} leaves={key !== 'loading'}>
       <Screen />
+    </ViewFrame>
+  )
+}
+
+/** Which way a view leaves, given how its replacement arrived. */
+const LEAVE: Record<string, string> = { 'from-right': 'to-left', 'from-left': 'to-right', 'fade-in': 'fade-out' }
+
+/** One view: slides in, and when it's replaced, slides out the other way while the new one comes in. */
+function ViewFrame({ slide, leaves, children }: { slide: string; leaves: boolean; children: ReactNode }) {
+  const frame = useRef<HTMLDivElement>(null)
+  useLeaveGhost(frame, () => (leaves ? (LEAVE[document.querySelector<HTMLElement>('[data-view-frame]')?.dataset.slide ?? ''] ?? '') : ''), { zIndex: 5 })
+  return (
+    <div ref={frame} data-view-frame data-slide={slide} className={`h-full ${slide}`}>
+      {children}
     </div>
   )
 }
@@ -78,7 +93,7 @@ export default function App() {
       <ErrorBoundary>
         <SignInGate>
           <div className="flex h-dvh flex-col bg-paper">
-            <main className="min-h-0 flex-1">
+            <main className="min-h-0 flex-1 overflow-clip">
               <Views />
             </main>
             <TabBar />

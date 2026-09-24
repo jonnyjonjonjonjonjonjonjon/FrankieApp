@@ -10,6 +10,7 @@ import { Symbol } from '../ui/Symbol'
 import { Tile } from '../ui/Tile'
 import { NoButton, YesButton } from '../ui/YesNo'
 import { useMediaQuery } from '../ui/useMediaQuery'
+import { useLeaveGhost } from '../ui/useLeaveGhost'
 import { ChoiceGrid } from '../pickers/ChoiceGrid'
 import { NewItemFields } from '../pickers/NewItemFields'
 import { addIdea, draftReady, newDraft, saveDraft, type NewItemDraft } from '../pickers/newItemDraft'
@@ -81,6 +82,8 @@ export function InlineAdd({ date, index, onClose }: Props) {
   const [idea, setIdea] = useState<Idea | null>(null)
   const [busy, setBusy] = useState(false)
   const card = useRef<HTMLDivElement>(null)
+  // Closing rolls it up into the + it came from (kept inside the day, clear of the bars).
+  useLeaveGhost(card, 'roll-up', { clipTo: '[data-day-scroller]', zIndex: 20 })
   const header = useRef<HTMLElement>(null)
   const footer = useRef<HTMLElement>(null)
   const flat = useMediaQuery(FLAT_SCREEN)

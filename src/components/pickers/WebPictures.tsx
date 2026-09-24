@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { creditOf, fetchImageBlob, searchImages, type WebImage } from '../../lib/imageSearch'
 import { useStore } from '../../lib/store'
@@ -6,6 +6,7 @@ import type { PhotoCredit } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Symbol } from '../ui/Symbol'
 import { NoButton } from '../ui/YesNo'
+import { useLeaveGhost } from '../ui/useLeaveGhost'
 
 /** Wait this long after the last letter before searching (Openverse's anonymous limits are low). */
 const DEBOUNCE_MS = 700
@@ -149,6 +150,8 @@ interface PanelProps {
  */
 function WebPanel({ word, images, more, onMore, onClose, onPick }: PanelProps) {
   const store = useStore()
+  const panel = useRef<HTMLDivElement>(null)
+  useLeaveGhost(panel, 'pop-out', { zIndex: 45 })
   const [getting, setGetting] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
   /** Pictures whose thumbnail didn't load: left out rather than shown broken. */
@@ -168,6 +171,7 @@ function WebPanel({ word, images, more, onMore, onClose, onPick }: PanelProps) {
 
   return createPortal(
     <div
+      ref={panel}
       className="pop-in fixed inset-2 z-[45] flex flex-col overflow-hidden rounded-3xl border-4 border-ink bg-paper"
       role="dialog"
       aria-label={`Web pictures: ${word}`}

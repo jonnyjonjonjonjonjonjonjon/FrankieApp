@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { BigButton } from './BigButton'
 import { Symbol } from './Symbol'
+import { useLeaveGhost } from './useLeaveGhost'
 
 interface Props {
   title: string
@@ -19,8 +20,11 @@ interface Props {
 
 /** Full-screen panel with a visible Back button (or a No in the footer). Replaces dialogs. */
 export function Sheet({ title, symbol, onBack, backWord = 'Back', children, footer, hideBack = false, before }: Props) {
+  const root = useRef<HTMLDivElement>(null)
+  // Closing (by any route) slides it back down.
+  useLeaveGhost(root, 'screen-out', { zIndex: 40 })
   return (
-    <div className="screen-in fixed inset-0 z-40 flex flex-col bg-paper" role="dialog" aria-label={title}>
+    <div ref={root} className="screen-in fixed inset-0 z-40 flex flex-col bg-paper" role="dialog" aria-label={title}>
       <header className="flex items-center gap-3 border-b-4 border-line px-3 py-2">
         {!hideBack && (
           <BigButton variant="secondary" size="md" onClick={onBack} aria-label={backWord}>

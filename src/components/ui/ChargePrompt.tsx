@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BatteryLow, Plug } from 'lucide-react'
 import { CHARGE_AT, CHARGER_PHOTO_ID, isFrankiesTablet } from '../../lib/device'
 import { buzz } from '../../lib/haptics'
@@ -6,6 +6,7 @@ import { useBattery } from '../../lib/useBattery'
 import { BigButton } from './BigButton'
 import { Symbol } from './Symbol'
 import { usePhotoUrl } from './usePhotoUrl'
+import { useLeaveGhost } from './useLeaveGhost'
 
 const LATER_MS = 10 * 60 * 1000
 
@@ -30,9 +31,15 @@ export function ChargePrompt() {
   }, [snoozed])
 
   if (!show) return null
-  const pct = Math.round(battery.level * 100)
+  return <ChargeScreen pct={Math.round(battery.level * 100)} photo={photo} onLater={() => setSnoozed(true)} />
+}
+
+/** The prompt itself: its own component so it can shrink away when she plugs in or taps Later. */
+function ChargeScreen({ pct, photo, onLater }: { pct: number; photo: string | null; onLater: () => void }) {
+  const root = useRef<HTMLDivElement>(null)
+  useLeaveGhost(root, 'pop-out', { zIndex: 60 })
   return (
-    <div className="pop-in fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-paper px-6 text-center" role="alertdialog" aria-label="Charge">
+    <div ref={root} className="pop-in fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-paper px-6 text-center" role="alertdialog" aria-label="Charge">
       <div className="flex items-center gap-6">
         <BatteryLow size={120} strokeWidth={2.5} className="text-ink" />
         <Symbol symbol="🔌" size="text-9xl" />
@@ -43,7 +50,7 @@ export function ChargePrompt() {
         <Plug size={44} strokeWidth={2.5} />
         {pct}%
       </div>
-      <BigButton size="sm" variant="ghost" onClick={() => setSnoozed(true)}>
+      <BigButton size="sm" variant="ghost" onClick={onLater}>
         Later
       </BigButton>
     </div>
