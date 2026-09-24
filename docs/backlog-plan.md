@@ -24,14 +24,14 @@ emoji, see §2.4).
 
 | # | Item | Feasible? | Notes |
 |---|------|-----------|-------|
-| 1 | Disable pinch zoom | **Yes** | Viewport meta + CSS `touch-action` + a small JS guard. Chrome's accessibility setting "Force enable zoom" overrides it, and Android's own Magnification gesture still works, so Frankie can still magnify if someone switches that on for her. |
-| 2 | Pictures from the web (Google safe search) | **Yes, but not from Google without a key** | Google's only official image search API (Custom Search JSON API) is closed to new customers and needs an API key, a search-engine id and billing. Scraping Google Images from a web app is blocked by CORS and by Google's terms. We build the exact UX the owner asked for on a **pluggable provider**: by default **Openverse** (free, no key, works from the browser, `mature=false` filters adult content, openly licensed pictures), plus a dormant **Google** adapter that switches on if the owner enters a key and search-engine id. |
-| 3 | Categories for people, food, activities | **Yes** | New `category` field and migration v6. People: Family / Staff / Friends. Food and activities: see §4. |
+| 1 | Disable pinch zoom | **Yes** | Viewport meta + CSS `touch-action` (+ `gesturestart` / ctrl-wheel guards for iPad and laptops; no document-wide touch listener, which would slow scrolling on the Tab A8). Chrome's accessibility setting "Force enable zoom" overrides it, and Android's own Magnification gesture still works, so Frankie can still magnify if someone switches that on for her. |
+| 2 | Pictures from the web (Google safe search) | **Yes, but not from Google without a key** | Google's only official image search API (Custom Search JSON API) is closed to new customers and needs an API key, a search-engine id and billing. Scraping Google Images from a web app is blocked by CORS and by Google's terms. Google has also announced that the API will close for existing customers (around January 2027), and a key would sit in the synced settings where every family member can read it. We build the exact UX the owner asked for on a **pluggable provider** with one source, **Openverse** (free, no key, `mature=false` filters content flagged as adult, openly licensed pictures). Openverse's filter is flag-based and weaker than Google SafeSearch, so by default the web box shows **only in Family mode** (Q1). Its browser access (CORS) for thumbnails can't be tested from the build machine, so the box fails quietly and this is reported as untested. |
+| 3 | Categories for people, food, activities | **Yes** | New optional `category` field, worked out at read time for older records (no data migration, so no sync conflicts, see §2.1). People: Family / Staff / Friends. Food and activities: see §4. |
 | 4 | Thumbs up Yes / thumbs down No | **Yes** | Mulberry has `good` (thumbs up) and `bad` (thumbs down). |
 | 5 | Usage stats in Family settings | **Yes** | Counted on each device (counts only, no content), synced as one small doc per device per day, and summarised in Family settings. |
 | 6 | Travel (bus, train, taxi, car, plane, boat) + destination | **Yes** | New event type `travel` and library kind `travel`, with the destination held in the event's existing place field. Shown on one line: "Bus → Swimming pool". |
-| 7 | "+" between items, adding without leaving the day | **Yes** | An inline "composer" card opens in the list at that spot. The bottom Add button and the separate add screens go away. |
-| 8 | Hold an item to drag it | **Yes** | Press and hold for about 0.45 s, the row lifts, then drag. A short tap still opens the row. Moving before the hold completes still scrolls or swipes. |
+| 7 | "+" between items, adding without leaving the day | **Yes** | An inline "composer" card opens in the list at that spot, with its breadcrumb and Yes/No kept on screen while its tiles scroll. The bottom Add button and the separate add screens go away. The + slots cost about 3rem per row, so the landscape tablet shows about half a row less (measured in tests). |
+| 8 | Hold an item to drag it | **Yes** | Press and hold for about 0.45 s, the row lifts, then drag. A short tap still opens the row. Moving before the hold completes still scrolls or swipes. Chrome decides at touch-start whether it may scroll, so this needs a permanent touch listener on the list (§6.4). The headless tests can't fully copy Chrome's touch handling on Android, so **the real check is on Frankie's tablet**. |
 | 9 | Week view: days/dates stay at the top | **Yes** | A sticky header row inside the week's scroll area. |
 | 10 | Remove the Year button | **Yes** | The Year button and the year picker are removed. |
 | 11 | Centred month title with arrows either side | **Yes** | |
@@ -42,38 +42,110 @@ emoji, see §2.4).
 | 16 | Encourage new choices ("Try something new") | **Yes** | A curated list of Mulberry foods/activities she doesn't have yet, with a search and a looping picture demo showing how to search. |
 
 Nothing on the list is blocked. Item 2 is the only one that can't use the named
-supplier (Google) unless the owner gets a key.
+supplier (Google): its API needs a key the owner would have to create, is closed
+to new sign-ups and is being wound down.
+
+**One condition for going live**: batch 1 must be **published on its own, and
+every device updated to it**, before anything from batch 2 onwards is published
+(§10, Q19). The copy of the app already on Frankie's tablet crashes on a travel
+event; batch 1 adds the guards and a safety net that recovers from crashes.
 
 ---
 
 ## 2. Cross-cutting decisions (apply to every batch)
 
-### 2.1 Migrations
+### 2.1 Migrations and sync: never out-stamp the cloud
 
-`settings.templateVersion` is 5 today. Only **batch 2** changes stored data, and
-it becomes **v6**. Restructure `Store.migrate()` into a linear chain so later
-steps are simple to add (behaviour must stay identical for v1-v5):
+**The flaw in today's code** (fixed in batch 1, because every later batch relies
+on it). Sync is last-write-wins on `updatedAt`: `sync.applyRemote` drops a cloud
+record whose stamp is not newer than the local one. But:
+
+- `StoreProvider` runs `store.load()` (which awaits `migrate()`) **before**
+  `sync.start()`. Migrations therefore run on the device's possibly stale local
+  copy. The write hooks are still `null`, so nothing is pushed, but every
+  `updateItem` / `updateSettings` stamps *now*. When the first snapshot
+  arrives, every cloud version edited before that moment loses. A rename,
+  photo or removal made elsewhere is lost on that device for good.
+- A **fresh install** (a new family phone) seeds items at epoch, but
+  `DEFAULT_SETTINGS` has no `templateVersion`. The whole v1→v5 chain runs, v3
+  calls `updateItem` on every seed and `updateSettings` writes the template,
+  all stamped *now*. The new phone then ignores the cloud's seed edits **and the
+  cloud settings** (no PIN, default routine), until someone edits them again. If
+  that edit happens on the new phone, it overwrites the family's settings.
+
+**Rules from now on:**
+
+1. **Boot and seed writes are silent and epoch-stamped** (as `load()` already
+   does for seeds), so any cloud version wins.
+2. **A fresh install runs no migration.** In `load()`, when the item store is
+   empty, the boot settings also get `templateVersion: CURRENT_TEMPLATE_VERSION`
+   (a constant at the top of `store.ts`, currently `5`), written silently with
+   the same old stamp as `homePlaceId` (`new Date(1)`). The seeds already have
+   the current shape (categories and travel included from batch 2).
+3. **When sync is configured, migrate only after the first server snapshot.**
+   - `StoreProvider` calls `store.load({ migrate: !sync.enabled })`.
+   - In `sync.listen()`, for each collection, remember whether the first
+     snapshot with `!snap.metadata.fromCache` has arrived, and collect the
+     promises of the `applyRemote` calls it made. Once **all five collections**
+     have one, `await Promise.all(...)` and call `store.syncedOnce()`. That sets
+     a flag and runs `migrate()`.
+   - `store.applyRemote('settings')` still calls `migrate()`, but only once that
+     flag is set.
+   - By then every local record is at least as new as the cloud's, so a
+     migration's *now* stamps
+     behave like a family edit made after seeing the current data, and they
+     sync normally (the write hooks are set by then).
+   - A device that is offline or signed out just doesn't migrate until it
+     connects. The screens must render old shapes anyway (rule 5), so nothing
+     breaks.
+   - With sync off (`VITE_SYNC=off`, or no Firebase config), `load()` migrates
+     straight away as now.
+4. **Re-entry guard**: `load` and `applyRemote` can both start `migrate()`.
+   Keep one in-flight promise: `migrate() { return (this.migrating ??=
+   this.runMigrations().finally(() => { this.migrating = null })) }`.
+5. **New fields are resolved at read time, not written by a migration.**
+   - Batch 2 adds **no v6 migration** and does not bump `templateVersion`.
+   - `categoryOf()` resolves a missing `category` (§2.3).
+   - The travel seeds are added by `ensureSeeds()`, which `load()` calls every
+     time. It writes any **missing** `seed-travel-*` item exactly like the boot
+     seeds: epoch stamp, `db.putItems(missing, true)`. If the family has already
+     edited or removed one in the cloud, that version is newer and wins when it
+     arrives. Seeds are never pushed until someone edits them, just as now.
+   - `category` is written only when the family edits a word (WordEditor,
+     NewItemForm, Try).
+6. The chain stays linear, with behaviour identical for v1-v5:
 
 ```ts
 const version = s.templateVersion ?? 1
-if (version >= 6) return
+if (version >= CURRENT_TEMPLATE_VERSION) return
 if (version < 3) { /* existing v2+v3 block, unchanged */ }
 if (version < 4) await this.migrateV4()
 if (version < 5) await this.migrateV5()
-await this.migrateV6()
 ```
 
 (The v2/v3 block ends by writing `templateVersion: 3`, and each `migrateVn`
-writes `templateVersion: n`, exactly as now.) Migrations run on every device and
-their writes sync. Every step must be **idempotent**: it only fills in fields
-that are missing and never overwrites family edits.
+writes `templateVersion: n`, exactly as now.) Every step stays **idempotent**:
+it only fills in fields that are missing and never overwrites family edits. A
+future step that must write data follows rules 3 and 4.
 
-**Old app versions on other devices.** The PWA auto-updates (checked hourly),
-but for a short time an old copy may meet new data. In **batch 1**, make the
-readers tolerant **before** batch 2 adds new types:
-`EVENT_TYPES[ev.type] ?? EVENT_TYPES.activity` everywhere an event type is looked
-up (`eventFace`, `WeekView`, `EventSheet`, `AddEventFlow`). Today an unknown
-`type` would crash an old client on `EVENT_TYPES[x].word`.
+**Old app versions on other devices.** The PWA auto-updates, checked hourly
+and on every start. But the copy of the app that will first meet a travel
+event is **the one already installed** on Frankie's tablet, not batch 1. Deploy
+is "push to `main`", so if the whole branch is merged at once, batch 1's guards
+ship in the same build as travel. A phone that updates first and adds "Bus"
+would then crash the tablet's old build on `EVENT_TYPES['travel'].word`. There
+is no error boundary today, so Frankie would see a white screen. Hence:
+
+- **Batch 1** makes the readers tolerant:
+  `EVENT_TYPES[ev.type] ?? EVENT_TYPES.activity` everywhere an event type is
+  looked up (`eventFace`, `WeekView`, `EventSheet`, `AddEventFlow`,
+  `SettingsView`'s routine list). Library lists only use known kinds already.
+- **Batch 1** adds a top-level **ErrorBoundary** (§3.5): it shows the book
+  symbol, asks the service worker for an update, then reloads once.
+- **Release order** (§10, Q19): publish batch 1 alone. Wait until every device
+  shows its version number on the day screen (at least a few days, with
+  Frankie's tablet checked by hand). Only then publish batch 2 or later, which
+  are the first to write a new event type or library kind.
 
 ### 2.2 Yes / No buttons (item 4) — the pattern used everywhere
 
@@ -89,16 +161,19 @@ export function NoButton({ onClick, word = 'No' }: …)              // white, i
   green Yes. The word is on an inner `<span className="text-2xl">`, because the
   global `button { font: inherit }` rule overrides text sizes set on the button.
 - Order in every footer: **No on the left, Yes on the right** (bottom-right,
-  where her right index finger goes). Any "clear" action (No time / No place)
-  sits further left, apart from them.
+  where her right index finger goes). Any "clear" action sits at the far left,
+  with a clear gap (`mr-auto`) between it and No.
 - **Screens that are a question** (pickers and forms) swap their header Back
   button for the No button in the footer. That way one screen never has two
   ways to cancel. Add a `hideBack?: boolean` prop to `Sheet`.
 - **Navigation screens** keep Back: EventSheet (changes save straight away),
   photo viewer, "Add to routine", Settings.
 - Single-choice pickers (tap a tile = choose) have only No in the footer.
-- "None" in the Where? picker becomes **"No place"**, so it can't be mixed up
-  with No. Add an `allowNone` word prop: `noneWord`.
+- **Clearing a value** (the Where? picker's "None", the time picker's "No
+  time") becomes one button: the word **"Clear"** with Mulberry `mb:remove-to`
+  (a hand taking a square away). It never starts with "No", and the thumbs-down
+  is used only on No, so a single-word reader can't mix them up (Q9). New
+  `ClearButton` in `YesNo.tsx` (white, `border-line`, `size="lg"`).
 
 ### 2.3 Categories (items 3, 15, 16) — one model for all kinds
 
@@ -113,12 +188,19 @@ export function categoryOf(item: LibraryItem): string | null
 export function categoriesFor(kind: LibraryKind): Category[]
 ```
 
-- `categoryOf` falls back like this. A person uses `role` (carer→staff,
-  friend→friends, family→family, else friends). A food uses `meals[0]`
-  (breakfast/lunch/dinner as is, treat→treats, drink→drinks, else dinner). An
-  activity falls back to `home`. With this fallback the screens never depend on
-  the migration having run, and items added by an old client still land
-  somewhere sensible.
+- `categoryOf` resolves in this order, and **nothing is written** (§2.1 rule 5):
+  1. `item.category`, if set and still a known id for that kind.
+  2. `SEED_CATEGORY[item.id]`: a map exported from `seed.ts`, built from the
+     `category` in each `SeedSpec`. Seeded words on existing diaries have no
+     `category` field, and without this step every seeded activity would fall
+     into "Home".
+  3. The fallback for user-made words. A person uses `role` (carer→staff,
+     friend→friends, family→family, else friends). A food uses `meals[0]`
+     (breakfast/lunch/dinner as is, treat→treats, drink→drinks, else dinner).
+     An activity uses `home`.
+
+  The screens never depend on a migration, and words added by an old client
+  still land somewhere sensible.
 - `role` and `meals` stay in the type, marked deprecated. Stop writing `role` on
   new people and stop sorting the food picker by `meals`. `meals` is still
   written for new foods from a meal picker, so old clients keep their ordering.
@@ -140,11 +222,16 @@ Several screens now need to appear **either** as a full-screen Sheet (EventSheet
 edits, Family settings) **or** inside the day's inline composer (batch 3). Build
 them as content components with a thin Sheet wrapper:
 
-| Content component | Sheet wrapper used by |
-|---|---|
-| `ChoiceGrid` (tiles + category tabs + Try/New tiles) | `ItemPicker` |
-| `NewItemFields` (word, category, picture) | `NewItemForm` |
-| `TryNewPanel` | `TryNew` sheet |
+| Content component | Built in | Sheet wrapper used by |
+|---|---|---|
+| `ChoiceGrid` (tiles + category tabs + New tile; Try tile only when an `onTry` prop is passed) | batch 2 | `ItemPicker` |
+| `NewItemFields` (word, category, picture) | batch 2 | `NewItemForm` |
+| `PictureChooser` (preview + Camera/Photos + symbol search; the web box slot) | batch 2 | used by `NewItemFields` and `WordEditor` |
+| `TryNewPanel` | batch 5 | `TryNew` sheet |
+
+Batch 3's inline New depends on batch 2's `NewItemFields`. Batch 3 passes no
+`onTry`, so no Try tile appears until batch 5 adds `TryNewPanel` and wires it
+into both `ItemPicker` and the composer.
 
 ### 2.6 Testing conventions (every batch)
 
@@ -162,33 +249,49 @@ them as content components with a thin Sheet wrapper:
 - Touch gestures: `const cdp = await page.context().newCDPSession(page)` and
   `Input.dispatchTouchEvent` (touchStart / touchMove / touchEnd) with
   `hasTouch: true` contexts. Use `page.mouse` for the pointer-only paths.
-- A seeded older diary for migration tests: before the app loads, open IndexedDB
-  `frankies-diary` v2 in `page.addInitScript` and write the old records (store
-  names and keys as in `db.ts`). Or load the previous commit's build once on the
-  same origin and port.
+- A seeded older diary for migration tests. Do **not** seed from
+  `addInitScript`: that races the app's own `openDB` and boot seeding. Instead:
+  1. Load the app once, so the database exists at the current version.
+  2. In `page.evaluate`, `indexedDB.open('frankies-diary')` **without** a version
+     number, then overwrite the records with older-shaped ones (store names and
+     keys as in `db.ts`).
+  3. Reload.
+
+  Or build the previous commit, load it once on the same origin and port, then
+  switch to the new build.
+- Unit-style checks of pure modules (`festive.ts`, `categories.ts`, `ideas.ts`):
+  there is no `tsx` or `esbuild`, and `dist` is bundled. Bundle the module with
+  `npx rolldown src/lib/festive.ts --format esm --file <scratchpad>/festive.mjs`
+  and `import()` it from a node script in the scratchpad. The module must not
+  import anything that touches `window` or `idb`.
+- Synthetic events whose `defaultPrevented` is checked need `cancelable: true`.
 - After each batch: `npx tsc -b`, `npx eslint src`, then look at every
   screenshot with the Read tool.
 
 ---
 
-## 3. Batch 1 — Quick UI wins (items 1, 4, 10, 11, 12, 9)
+## 3. Batch 1 — Quick UI wins and a safety net (items 1, 4, 10, 11, 12, 9)
 
 ### 3.1 No pinch zoom (item 1)
 
 - `index.html` viewport:
-  `width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover`.
+  `width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content`.
+  The last part makes `h-dvh` shrink when the soft keyboard opens (Chrome's
+  default only resizes the visual viewport), so typing in the day's add card
+  (New, Try's Find box) stays visible above the keyboard.
 - `src/index.css`: `html, body { touch-action: pan-x pan-y; }`. The allowed
   touch actions are intersected up to the root, so this removes pinch-zoom even
   inside buttons with `touch-action: manipulation`. The carousel (`pan-y`) and
-  the drag grip (`none`) are unaffected.
-- New file `src/lib/noZoom.ts`, called once from `main.tsx`. It adds three
-  non-passive listeners on `document`:
-  - `touchmove` with `e.touches.length > 1` → `preventDefault()`.
+  the drag grip (`none`) are unaffected. The CSS also covers Samsung Internet
+  when its "Manage website zoom" setting overrides `user-scalable`.
+- New file `src/lib/noZoom.ts`, called once from `main.tsx`. It adds two
+  listeners on `document`, and **no `touchmove` listener**: a permanent
+  non-passive `touchmove` on the document would make every scroll in the app
+  wait for the main thread, which lags on the Tab A8 whenever React is busy.
   - `gesturestart` → `preventDefault()` (Safari/iPad).
-  - `wheel` with `e.ctrlKey` → `preventDefault()` (trackpad pinch on laptops).
+  - `wheel` (`{ passive: false }`) with `e.ctrlKey` → `preventDefault()`
+    (trackpad pinch on laptops).
   - Keyboard zoom (Ctrl +/−) stays: it is family-only and helps sighted relatives.
-- Edge cases: two-finger touches that aren't a pinch are also blocked. Nothing
-  in the app uses two fingers.
 
 ### 3.2 Yes / No everywhere Done/Cancel appear (item 4)
 
@@ -196,11 +299,11 @@ Build `YesNo.tsx` and add `Sheet.hideBack` (§2.2). Replace in:
 
 | File | Change |
 |---|---|
-| `pickers/ItemPicker.tsx` | Footer: `[noneWord?] [No] [Yes (multi only)]`, `hideBack` |
+| `pickers/ItemPicker.tsx` | Footer: `[Clear (allowNone only)] … [No] [Yes (multi only)]`, `hideBack` |
 | `pickers/NewItemForm.tsx` | Footer: `[No] [Yes disabled until valid]`, `hideBack` |
-| `pickers/TimePicker.tsx` | Footer: `[No time?] [No] [Yes]`, `hideBack` |
+| `pickers/TimePicker.tsx` | Footer: `[Clear (was No time)] … [No] [Yes]`, `hideBack` |
 | `day/AddEventFlow.tsx` | Type step: `[No]`, `hideBack` (the whole flow goes in batch 3) |
-| `day/EventSheet.tsx` | `ItemPicker` for place gets `noneWord="No place"` |
+| `day/EventSheet.tsx` | The place `ItemPicker` keeps `allowNone`, which now shows Clear |
 
 ### 3.3 Month screen: no Year button, centred title, slide (items 10, 11, 12)
 
@@ -251,7 +354,33 @@ Build `YesNo.tsx` and add `Sheet.hideBack` (§2.2). Replace in:
   hurts. The owner asked for landscape; see Q7.
 - The header row also gets the festive symbol from batch 4 (a small slot now).
 
-### 3.5 Batch 1 tests
+### 3.5 Safety net: tolerant readers, crash recovery, safe boot (for all later batches)
+
+- **Tolerant readers**: the `?? EVENT_TYPES.activity` guards from §2.1.
+- **ErrorBoundary**: new file `src/components/ui/ErrorBoundary.tsx`, a class
+  component (the only one in the app, since React has no hook for this). It
+  wraps everything inside `StoreProvider` in `App.tsx`.
+  - On error, it shows the 📖 book symbol at `text-8xl`, the same as the loading
+    screen, so Frankie sees nothing alarming. It logs the error to the console.
+  - Recovery: `navigator.serviceWorker.getRegistration()` → `update()`, then
+    `location.reload()` once the update settles or after 4 s, whichever comes
+    first.
+  - **Loop guard**: before reloading, it writes a timestamp to `sessionStorage`
+    (`frankies-diary-crash-reload`, in try/catch). If it already reloaded less
+    than 60 s ago, it does not reload again. It stays on the book, retries
+    `update()` every 5 minutes, and shows a small family-sized "Again" button
+    (lucide `RotateCw` icon, reloads on tap) under the book.
+- **IndexedDB upgrade handlers** in `db.ts` `openDB`, ready for any future
+  version bump: `blocking() { db.close(); location.reload() }` (an old tab
+  lets a newer one upgrade) and `terminated() { location.reload() }`. Batch 5
+  does **not** bump the main database (usage gets its own, §8.2), so this is
+  only a precaution.
+- **Safe boot and migration timing**: §2.1 rules 1-4 (fresh install gets
+  `templateVersion` at boot, migrate after the first server snapshot when sync
+  is on, single in-flight `migrate()`). These fix today's code and must be
+  published before anything else changes stored data.
+
+### 3.6 Batch 1 tests
 
 1. `document.querySelector('meta[name=viewport]').content` contains
    `user-scalable=no`, and `getComputedStyle(document.documentElement).touchAction`
@@ -271,6 +400,23 @@ Build `YesNo.tsx` and add `Sheet.hideBack` (§2.2). Replace in:
    equals the container's `top`. Take screenshots before and after, and on phone
    portrait scroll both ways.
 6. Regression: day swipe and arrows still work, and the drag grip still reorders.
+7. **Fresh boot doesn't out-stamp the cloud**: new context, load, then read
+   IndexedDB in `page.evaluate`. Every `seed-*` item has `updatedAt` equal to
+   `1970-01-01T00:00:00.000Z`. `settings.updatedAt` is at most
+   `1970-01-01T00:00:00.001Z`. `settings.templateVersion` is 5. Reload and
+   check again.
+8. **v5 diary is left alone**: write v5-shaped records (method in §2.6), note
+   every record's `updatedAt`, reload twice. No `updatedAt` changed, and
+   `templateVersion` is still 5 (idempotent). A v4 diary (`templateVersion: 4`,
+   one seed with its v4 emoji) is migrated to 5 exactly once.
+9. **Unknown event type**: write an event with `type: 'zzz'` to IndexedDB and
+   reload. Day, Week and Month render (the row shows as an Activity), and there
+   is no white screen.
+10. **ErrorBoundary**: make one render throw. For example, write an event whose
+    `people` is a string rather than an array, if that throws; otherwise add a
+    temporary throw in a local build that is **not committed**. The book symbol
+    shows, the page reloads once, and after a second crash within 60 s it stays
+    on the book with "Again".
 
 ---
 
@@ -287,8 +433,11 @@ Build `YesNo.tsx` and add `Sheet.hideBack` (§2.2). Replace in:
 ### 4.2 Food — by meal, the way Frankie thinks of her day
 
 Frankie picks food *for a meal*. So the shelves are the meals she already knows,
-plus three kinds that aren't a meal. The meal picker **opens on its own shelf**
-(Lunch opens "Lunch"), and every other shelf is one tap away.
+plus three kinds that aren't a meal. The meal picker opens on **"All"**, as it
+does today every food is visible, with **the meal's own shelf first** (Lunch
+shows the Lunch section at the top, then the others). The shelf tabs are an
+extra shortcut, not a hidden layer: Cake is still on the first screen under
+Treats (Q20).
 
 | id | Word | Symbol | Seeded items |
 |---|---|---|---|
@@ -320,6 +469,8 @@ listed). So Fun, Relax and Fruit appear as soon as something is added to them.
 
 ## 5. Batch 2 — Library model: categories, Travel, birthdays, managing words (items 3, 6, 14, 15)
 
+Publish only after batch 1 is live on every device (§2.1, §10).
+
 ### 5.1 Types (`src/types.ts`)
 
 ```ts
@@ -331,8 +482,8 @@ export interface LibraryItem {
   category?: string
   /** Year of birth, optional; shows her age on the birthday band. */
   birthYear?: number | null
-  /** @deprecated since v6 — use category. */ role?: PersonRole
-  /** @deprecated since v6 for grouping; still written for meal pickers. */ meals?: MealSlot[]
+  /** @deprecated since the categories change — use category. */ role?: PersonRole
+  /** @deprecated for grouping (use category); still written for meal pickers. */ meals?: MealSlot[]
 }
 
 export type EventType = … | 'activity' | 'travel'
@@ -347,7 +498,8 @@ export interface DiaryEvent {
 ### 5.2 Seeds (`src/lib/seed.ts`)
 
 - `SeedSpec` gains `category?: string`, set for every person, food and activity
-  as in §4 (Tara → `staff`). `seedItems()` copies it.
+  as in §4 (Tara → `staff`). `seedItems()` copies it. Export
+  `SEED_CATEGORY: Record<Id, string>`, built from `SEED`, for `categoryOf()`.
 - Append the travel seeds **at the end of `SEED`**. Seed `order` is the array
   index, so appending keeps every existing order the same:
 
@@ -362,17 +514,17 @@ export interface DiaryEvent {
 
   (`mb:ferry` rather than `mb:boat`, which is a sailing dinghy. See Q5.)
 
-### 5.3 Migration v6 (`store.migrateV6`)
+### 5.3 No v6 migration (see §2.1 rule 5)
 
-1. For each seed with a `category`: if the stored item exists and has no
-   `category`, set it from the seed.
-2. For each non-seeded person, food or activity without `category`: set
-   `categoryOf(item)` (the fallback in §2.3).
-3. Add any missing travel seed (like the v3 migration adds stay places), with
-   `db.putItem` + `set`.
-4. `updateSettings({ templateVersion: 6 })`.
-
-Idempotent: it never overwrites a category that is already set.
+- `templateVersion` stays **5**, and nothing in this batch rewrites stored
+  records on load.
+- `store.ensureSeeds()` (called by `load()` after the boot seeding) adds any
+  missing `seed-travel-*` item with the epoch stamp, silently. It is idempotent,
+  because it only adds ids that are missing locally.
+- Categories come from `categoryOf()` (§2.3). `category` is stored only when
+  the family saves a word.
+- Fresh installs get the travel seeds and `category` on every seed straight
+  from `seedItems()`, still epoch-stamped.
 
 ### 5.4 Symbols and words (`src/lib/symbols.ts`)
 
@@ -409,7 +561,10 @@ This batch builds the data and the picking. Batch 3 moves it inline.
 1. **"Travel"**: `ItemPicker kind="travel"` (single choice). Tiles: Bus, Train,
    Taxi, Car, Plane, Boat, + New.
 2. **"Where to?"** (symbol `mb:where`): `ItemPicker kind="place"`, single
-   choice, `allowNone noneWord="No place"`.
+   choice (tapping a place finishes). The footer is `[No] [Yes]`, and here
+   **Yes adds the travel with no destination** ("Bus" on its own). The header
+   shows the chosen mode, so Yes reads as "yes, the bus". A new
+   `ItemPicker` prop `onSkip` shows that Yes on a single-choice picker.
 3. Finish: `addEvent({ type: 'travel', travelId, placeId })`, toast "Bus added".
 
 **Showing it on one line** (`EventRow.tsx`): for travel events the title line is
@@ -428,12 +583,14 @@ This batch builds the data and the picking. Batch 3 moves it inline.
 Elsewhere:
 
 - `EventSheet` for travel: rows "Travel" (the mode) → `ItemPicker kind="travel"`,
-  and "Where to?" (placeId) → places with "No place". There is no separate
+  and "Where to?" (placeId) → places with Clear. There is no separate
   "Where?" row.
 - `WeekView` "others" list: mode symbol box + time. Word "Bus", then a second
   line "➜ Swimming pool" (`text-base font-bold`) with a small destination
   symbol. It is too narrow for one line.
 - `MonthView`: unchanged (see Q16).
+- Old clients: a travel event shows as a plain Activity row (batch 1 guard), and
+  travel items are never listed, because old screens only list known kinds.
 
 ### 5.7 Categories in the pickers (item 3)
 
@@ -443,14 +600,18 @@ In `ChoiceGrid` (extracted from `ItemPicker`, §2.5):
   non-empty** shelves. They sit in a horizontal row
   (`flex gap-3 overflow-x-auto`, `data-noswipe`). Each tab is a `BigButton`
   with its symbol at `text-4xl` and its word; the selected tab is `primary`
-  (orange). The first tab is **"All"** (symbol `mb:lots_more`).
-- The **initial tab** is the meal's shelf for a meal picker. Otherwise it is
-  "All". In "All", the grid is split into sections with a header band per shelf
-  (`text-2xl font-extrabold`, symbol `text-4xl`), so the whole list can still be
-  scanned.
+  (orange). The first tab is **"All"**. Its picture is a 2×2 mosaic of the
+  first four shelf symbols (Mulberry's `lots_more` / `every` are too abstract
+  for her).
+- The **initial tab is always "All"**. In "All", the grid is split into
+  sections with a header band per shelf (`text-2xl font-extrabold`, symbol
+  `text-4xl`), so the whole list can still be scanned. A meal picker puts **its
+  own shelf's section first** (Lunch → Lunch section, then Breakfast, Dinner,
+  Fruit, Treats, Drinks), so today's "meal's foods first" order is kept.
 - Search ("Find", shown when there are more than 12 items) searches across all
   shelves and ignores the tab.
-- The **New** tile passes the current tab's category (or the meal's) to
+- The **New** tile passes the current tab's category (in "All": the meal's
+  shelf, else the kind's first shelf) to
   `NewItemForm`. `NewItemForm` shows the category as a row of toggle buttons
   that the family can change. Default: the one passed in.
 - Selected items from several shelves stay selected while switching tabs (multi).
@@ -542,20 +703,31 @@ No new collections. Items and events carry the new fields through the existing
 
 ### 5.12 Batch 2 tests
 
-1. **Migration**: seed a v5 IndexedDB (no `category`, no travel items,
-   `templateVersion: 5`, one user food with `meals: ['treat']`, one user person
-   with `role: 'carer'`). Load the app, then assert: templateVersion 6, Toast is
-   `breakfast`, Tara is `staff`, the user food is `treats`, the user person is
-   `staff`, and six travel items exist. Reload and nothing changes (idempotent).
-2. **Pickers**: Add → Lunch opens on the "Lunch" tab with Sandwich first. Tap
-   "Treats" → Cake shows. Pick Sandwich + Cake → Yes → the row shows both.
+1. **No stamped writes on an existing diary**: write a v5-shaped diary using
+   the §2.6 method (no `category`, no travel items, `templateVersion: 5`, one
+   user food with `meals: ['treat']`, one user person with `role: 'carer'`, and
+   one user activity). Note every record's `updatedAt`, then reload. Assert:
+   - `templateVersion` is still 5, and **no existing record's `updatedAt`
+     changed**. No record has `category` written.
+   - Six `seed-travel-*` items exist, each with `updatedAt` at epoch.
+   - Through the UI: Toast is under the Breakfast shelf, Tara under Staff, Walk
+     under Active (not Home), the user food under Treats, the user person under
+     Staff, and the user activity under Home.
+   - Reload again: nothing changes (idempotent).
+   - **Fresh boot**: in a new context, every seed (travel included) has an
+     epoch `updatedAt` and a `category`, and `settings.updatedAt` is not bumped.
+2. **Pickers**: Add → Lunch opens on "All" with the Lunch section first
+   (Sandwich is the first tile) and Cake visible further down under Treats. Tap
+   the "Treats" tab → only treats show. Pick Sandwich + Cake → Yes → the row
+   shows both.
    People picker: tabs Family / Staff show, Friends is hidden (empty). Take
    screenshots on tablet and phone.
 3. **Travel**: Add → Travel → Bus → Where to? → Swimming pool. The row text
    includes "Bus" and "Swimming pool", and the title-line element's height is
    one line (≤ 1.6 × its font size) at 1280×800. Take screenshots on tablet and
    phone (with a long destination such as "Jon's house"). Also check the week
-   column and EventSheet rows "Travel" and "Where to?".
+   column and EventSheet rows "Travel" and "Where to?". Add → Travel → Taxi →
+   Yes (no place) → the row says "Taxi" with no arrow.
 4. **Birthdays**: Family (set a PIN) → Birthdays → Add → Mum → March → 3 → Yes.
    The list shows "Mum · 3 March". The day view on 3 March shows the band, week
    shows the face and month shows cake + face. Take screenshots.
@@ -571,33 +743,55 @@ No new collections. Items and events carry the new fields through the existing
 
 - The bottom **Add bar is gone**. The day list gets more height.
 - A small round **+** sits **between every pair of rows, above the first and
-  below the last**:
-  - a 3.25rem circle (about 46px on phones, 65px on the tablet), centred
-  - a white background, `border-4 border-orange-dark`, orange `Plus` icon (34px)
-  - `aria-label="Add here"`
-  - in its own slot of about 3.5rem.
-
-  It is small next to the rows, so the list stays readable, but still a big
-  enough target.
-- Tapping + opens the **composer**: a card that slides open *in that spot*. The
-  rows below move down, and the card scrolls into view
-  (`scrollIntoView({ block: 'nearest', behavior: 'smooth' })`). It has an orange
-  `border-4`, `bg-orange-light` and rounded-3xl. She never leaves the day.
+  below the last**. Geometry (constants at the top of `DayEvents.tsx`):
+  - Each **+ slot is 2.25rem tall** (`SLOT_REM`). The list keeps its `gap-3`
+    (0.75rem) on both sides of every slot, so rows sit **3.75rem apart** instead
+    of 0.75rem today: **3rem more per row** (about 60px on the tablet).
+  - The button is a **3.25rem circle** (about 46px on phones, 65px on the
+    tablet), absolutely centred in its slot. It spills 0.5rem into the gaps
+    above and below, but stays 0.25rem clear of the rows, so it never covers a
+    row's own tap area.
+  - A white background, `border-4 border-orange-dark`, orange `Plus` icon
+    (34px), `aria-label="Add here"`.
+  - Cost: at 1280×800 the list shows about half a row less than today. This is
+    measured before and after (test 9), and reported to the owner.
+- Tapping + opens the **composer**: a card *in that spot* with an orange
+  `border-4`, `bg-orange-light` and `rounded-3xl`. The rows below move down, and
+  the card is scrolled to the **top** of the day list
+  (`scrollIntoView({ block: 'start', behavior: 'smooth' })`). She never leaves
+  the day.
+  - It appears with a new `.open-in` keyframe (opacity 0→1, `translateY(12px)`→0,
+    180ms, **no `animation-fill-mode: forwards`**), like `.rise`. Nothing
+    animates `height` or `max-height`, which would re-lay out the whole list on
+    every frame on the A8. Nothing leaves a resting transform.
+- **The card's header and footer never scroll away.** A meal step can be
+  taller than the day list on every device: at 1280×800 the list is only about
+  450-500px tall under the top bar, tab bar and Staying-at band, and about 25
+  food tiles plus tabs fill three or more rows.
+  - The header (breadcrumb) is `sticky top-0 z-10 bg-orange-light`, and the
+    footer (No / Yes) is `sticky bottom-0 z-10 bg-orange-light`, both with an
+    opaque background, a `border-orange` rule and the card's rounded corners.
+  - They stick inside the day scroller (`DayPanel`'s `overflow-y-auto` div,
+    which must stay the nearest scrolling ancestor, with no `overflow` set on
+    anything in between). While she scrolls the tiles, the breadcrumb (her way
+    back) stays at the top and **Yes / No stay at the bottom**.
 - **Composer steps** (all inside the card):
   1. **"Add"** (➕): tiles for Activity, Travel, Breakfast, Lunch, Dinner,
      Shower, Brush teeth, Wake up, Bed. Types with nothing to choose (Shower,
      Teeth, Wake up, Bed) are added straight away.
-  2. **Choose** for Activity or a meal: `ChoiceGrid` with shelves, Try (batch
-     5) and New. Activity is single choice (tap = added). A meal is multi (tap
-     tiles, then Yes).
-  3. **Travel**: mode tiles → **"Where to?"** places + "No place" button → added.
-  - A **breadcrumb** header shows what has been chosen: `[Travel symbol] Travel ›
-    [Bus symbol] Bus ›`. Tapping a crumb goes back to that step.
-  - The footer of the card always has **No** (closes the composer, adds
-    nothing). Multi steps also have **Yes**.
-  - **New** (make a new word) and **Try** open *inside the card* too
-    (`NewItemFields` / `TryNewPanel`), with the soft keyboard pushing the page
-    up. Only the Staying-at picker and row edits still use full screens.
+  2. **Choose** for Activity or a meal: `ChoiceGrid` with shelves and New (Try
+     comes in batch 5). Activity is single choice (tap = added). A meal is
+     multi (tap tiles, then Yes).
+  3. **Travel**: mode tiles → **"Where to?"** places (tap = added). Yes in the
+     footer adds the mode with no destination (as in §5.6).
+  - The **breadcrumb** header shows what has been chosen: `[Travel symbol]
+    Travel › [Bus symbol] Bus ›`. Tapping a crumb goes back to that step.
+  - The footer always has **No** (closes the composer, adds nothing). Multi
+    steps and Where to? also have **Yes**.
+  - **New** (make a new word, batch 2's `NewItemFields`) opens *inside the
+    card* too. Thanks to `interactive-widget=resizes-content` (§3.1) the soft
+    keyboard shrinks the page instead of covering it. Only the Staying-at
+    picker and row edits still use full screens.
 - When added: the composer closes, the new row appears at that spot with the
   existing `tick-pop` animation, and the toast says "Walk added".
 - Tapping a row still opens its **EventSheet**, unchanged in this batch
@@ -614,13 +808,20 @@ rest. Without `index` it behaves as now (append).
 
 - **Delete** `src/components/day/AddEventFlow.tsx` and the Add bar in `DayView.tsx`.
 - New `src/components/day/InlineAdd.tsx` (the composer). Props:
-  `{ date, index, onClose }`. State: `step: 'type' | 'pick' | 'travel' | 'where' | 'new' | 'try'`,
-  plus the type, travel id and selection. It uses `ChoiceGrid` directly, not
-  `ItemPicker`'s Sheet.
-- `DayView.tsx` holds `compose: { index: number } | null` and passes it (with
-  `onCompose(index)` and `onCloseCompose`) to `DayPanel`, **for offset 0 only**.
-  Neighbour panels render without + buttons, which is cheaper and avoids
-  flashes during a slide.
+  `{ date, index, onClose }`. State: `step: 'type' | 'pick' | 'travel' | 'where' | 'new'`
+  (batch 5 adds `'try'`), plus the type, travel id and selection. It uses
+  `ChoiceGrid` directly, not `ItemPicker`'s Sheet.
+- `DayView.tsx` holds `compose: { index: number } | null`. It passes
+  `onCompose(index)` and `onCloseCompose` to the centre `DayPanel` only.
+  - **The + slots render in all three panels with identical geometry**, so the
+    day sliding in already has its final layout. The carousel remounts the
+    track when a slide lands; if the slots appeared only then, every row would
+    drop by 3rem at the end of each swipe, a visible jolt and a full relayout
+    on the A8.
+  - In the neighbour panels the slot buttons are non-interactive: `DayPanel`
+    gets `interactive={offset === 0}`, and the neighbour's slot wrappers get
+    `inert` and `aria-hidden`. The composer itself only ever renders in the
+    centre panel.
   - Changing day (arrow/swipe/tab) closes the composer.
   - `SlideCarousel locked={Boolean(compose)}` stops day swipes while composing.
     The composer also carries `data-noswipe`.
@@ -632,53 +833,91 @@ rest. Without `index` it behaves as now (append).
 
 ### 6.4 Hold to drag (item 8)
 
-In `DayEvents.tsx`, on each slot's row wrapper:
+**Why the obvious approach fails on Android.** Chrome decides at `touchstart`
+whether a touch sequence may be blocked by script. It hit-tests the areas that
+have **non-passive** touch listeners, and keeps that answer for the whole
+sequence. A row today only has passive React and pointer listeners, and its
+`touch-action` is `pan-y` (carousel track) or `manipulation` (buttons). So a
+non-passive `touchmove` listener added *on* `pointerdown` comes too late: the
+touchmoves arrive with `cancelable = false` and `preventDefault()` is ignored.
+The first move after the hold would start a native scroll of the day list,
+Chrome would send `pointercancel`, and the drag would die. `touch-action` also
+can't be changed in the middle of a gesture. (The grip works only because it
+has `touch-action: none` from the start.)
 
-- `onPointerDown` starts a **hold timer** with constants at the top of the file:
-  `HOLD_MS = 450` and `HOLD_SLOP = 10` px. Record the start point.
-- While holding, the row shows a **pressing** state after 120ms: its border
-  turns orange and the row grows by 0.02 over the rest of the hold (a CSS
-  transition), so she can see something is happening.
+**Design**, in `DayEvents.tsx`, constants at the top: `HOLD_MS = 450`,
+`HOLD_SLOP = 10` (px), `EDGE_PX = 64`, `EDGE_SPEED = 14` (px per frame):
+
+- **Persistent non-passive touch listeners**: a `useEffect` on the list root
+  `div` adds native `touchstart` and `touchmove` listeners with
+  `{ passive: false }`, and removes them on unmount. Registering them from the
+  start marks the list as a blocking region, so its touchmoves stay cancelable.
+  - The handler is trivial: `if (liftRef.current) e.preventDefault()`. It never
+    cancels `touchstart`, so taps, clicks and normal scrolls are untouched.
+  - **Cost, accepted**: a scroll that starts on a row now waits for the main
+    thread to run that one-line handler before scrolling. That is why it must
+    stay trivial, with no state reads or allocations. Scrolls that start
+    outside the list (the Staying-at band, the gaps) are not affected.
+- `onPointerDown` on each row wrapper starts the **hold timer** and records the
+  start point.
+- **Pressing feedback** after 120ms: the row's **border turns orange** (a
+  colour change only). There is **no scale or transform**: most taps last
+  longer than 120ms, so a transform would make every tap animate, on a GPU that
+  already struggles.
 - `pointermove` beyond `HOLD_SLOP` before the timer fires → cancel. It was a
-  scroll or a swipe, and the browser keeps doing that.
+  scroll or a swipe, and the browser keeps doing that (`liftRef` is still
+  false, so nothing is prevented).
 - `pointerup` before the timer fires → it was a tap, and the click opens the row
   as now.
-- **Timer fires** → `buzz(30)` (`lib/haptics.ts`), then `setPointerCapture`. Run
-  the same drag code the grip uses (lift, rows slide aside, `moveEvent` on
-  release, the existing clash rule: clashing times are cleared).
-- **Stopping the page and the carousel from moving during a drag**:
-  - A non-passive `touchmove` listener, added on `pointerdown` (not at lift) and
-    removed on end, calls `preventDefault()` once `dragging` is true. The finger
-    held still, so the browser has not started scrolling and the event can
-    still be cancelled.
-  - New `src/components/ui/gestureLock.ts` (`lockGestures()` / `unlockGestures()`
-    / `gesturesLocked()`). `SlideCarousel.onTouchMove` returns early and resets
-    its drag when it is locked.
+- **Timer fires**: set `liftRef.current = true`, `buzz(30)`
+  (`lib/haptics.ts`), `setPointerCapture`, and `lockGestures()`. Then run the
+  same drag code the grip uses (lift, rows slide aside, `moveEvent` on release,
+  the existing clash rule: clashing times are cleared).
+- **`pointercancel` during a live drag** is handled explicitly. The row drops
+  back to where it started (no `moveEvent`), all state is cleared, and
+  `liftRef`, the gesture lock, the timers and auto-scroll are reset. This is
+  the same path as `pointerup`, but with `to = from`.
+- **Edge auto-scroll**: while lifted, if the finger is within `EDGE_PX` of the
+  day scroller's top or bottom edge, a `requestAnimationFrame` loop scrolls it
+  by up to `EDGE_SPEED` px per frame (faster closer to the edge). Midpoints are
+  measured once in **content coordinates** (`rect.top + scroller.scrollTop`).
+  Then `target(y)` uses `y + scroller.scrollTop`, and the lifted row's `dy`
+  adds `scrollTop - startScrollTop`. No re-measuring per frame, and a row can
+  be taken to the end of a long day.
+- **Carousel**: new `src/components/ui/gestureLock.ts` (`lockGestures()` /
+  `unlockGestures()` / `gesturesLocked()`). `SlideCarousel.onTouchMove`
+  returns early and resets its drag when it is locked.
 - **Swallow the click after a drag**: set `suppressClick` on lift and clear it
   in an `onClickCapture` that calls `preventDefault()` + `stopPropagation()`.
 - **Stop Android's long-press menus**: `onContextMenu={e => e.preventDefault()}`
-  on the row, and CSS `-webkit-touch-callout: none` on rows (the images inside
-  are `draggable={false}` already).
+  on the row, and CSS `-webkit-touch-callout: none` plus `user-select: none` on
+  rows (the images inside are `draggable={false}` already).
 - The **grip stays** as an instant drag handle (no hold) for family, since it is
-  harmless. See Q12.
+  harmless. It shares the pointercancel and auto-scroll code. See Q12.
 - Drag is disabled while the composer is open. + slots fade to `opacity-0`
-  during a drag and keep their space.
+  during a drag (opacity only) and keep their space.
+- **Verification**: CDP touch events in headless Chromium exercise the code
+  path, but they don't fully copy how Chrome on Android decides what is
+  scrollable. **The real check is on Frankie's Tab A8**, and it is listed as a
+  must-try in the owner's notes (Q12).
 
 ### 6.5 Edge cases
 
 - A template (virtual) day: `+` → `addEvent` materialises, so indices match.
-- + below the last row of an empty day: an empty list shows a single larger
-  **"+ Add"** button (orange, `min-h-24`) where the list would be.
+- An empty day: a single larger **"+ Add"** button (orange, `min-h-24`) where
+  the list would be, in all three panels (same geometry rule).
 - A hold that starts on the clock button or the symbol button works the same.
   A short tap keeps their own action.
 - The composer is open and a remote sync changes the day's list: the composer
   keeps its `index`, clamped on insert.
 - Portrait tablet and phone: composer tiles use `grid-cols-2 sm:grid-cols-3 lg:grid-cols-5`.
+- The composer is open on a short day, so the card is shorter than the list:
+  the sticky header and footer simply sit in place.
 
 ### 6.6 Batch 3 tests
 
 1. No "Add" button at the bottom of the day. The day has N rows and N+1
-   `[aria-label="Add here"]` buttons.
+   `[aria-label="Add here"]` buttons in the visible panel.
 2. Tap the + between rows 1 and 2 → the composer is visible at that spot →
    Activity → Walk → the row list shows Walk at index 1 and the composer is
    gone. Take screenshots at each step on tablet (landscape + portrait) and phone.
@@ -688,14 +927,42 @@ In `DayEvents.tsx`, on each slot's row wrapper:
    one line.
 5. New inline: + → Activity → New → type "Bowling", pick a symbol → Yes → added
    and selected, still on the day view (no full-screen `role=dialog`).
-6. Hold-to-drag, touch (CDP): touchStart on row 3, wait 600ms, move up 250px in
-   10 steps, touchEnd → row 3 is now at index 1. Take a mid-drag screenshot.
-   The mouse path works the same.
+6. **Hold-to-drag, touch (CDP)**:
+   - Before starting, in `page.evaluate`, add a `pointercancel` listener on
+     `window` that counts events, and read the day scroller's `scrollTop`.
+   - touchStart on row 3, wait 600ms, move up 250px in 10 steps, touchEnd →
+     row 3 is now at index 1.
+   - Assert that the scroller's `scrollTop` is **unchanged**, and that **no
+     `pointercancel`** fired.
+   - Take a mid-drag screenshot. The mouse path works the same.
+   - **Auto-scroll**: on a day with 10 rows at 1280×800, hold the first row and
+     move to within 30px of the scroller's bottom edge. Wait until `scrollTop`
+     reaches its maximum, then release. The row lands last.
+   - **Cancel**: dispatch a `pointercancel` mid-drag (for example
+     `touchCancel` via CDP). The order is unchanged, and the next tap opens the
+     row normally.
 7. Tap (touchStart + touchEnd within 100ms) opens EventSheet. A quick vertical
    move of 200px in 150ms scrolls the list and does not drag. A quick horizontal
    swipe still changes the day. After a drag, no EventSheet opens.
 8. The clash rule: drag a 5 pm dinner above a 7:30 am breakfast → both lose
    their times (as now).
+9. **Slot geometry and visible rows** at 1280×800. On the previous build (batch 2)
+   and on this one, count the rows whose bounding box is fully inside the day
+   scroller. Report both numbers (expected: about 3.5 → about 3), and take
+   screenshots of both. Also check that each `Add here` circle's box does not
+   overlap either neighbouring row's box.
+10. **No jolt after a swipe**: swipe to the next day with CDP. Mid-slide,
+    record the incoming panel's first row `top` relative to its panel. After it
+    settles, the same row's `top` in the centre panel is equal (±1px).
+11. **Yes/No stay on screen**: at 1280×800, 800×1280 and 412×915, open + →
+    Lunch.
+    - The bounding boxes of the Yes and No buttons and the breadcrumb lie inside
+      the viewport and inside the day scroller's visible rect, without any
+      scrolling.
+    - Scroll the day scroller by 300px (or to its end, if shorter). The same
+      three boxes are still fully visible.
+    - Tick two foods after scrolling, then tap Yes without scrolling back.
+      Take screenshots at each size.
 
 ---
 
@@ -729,7 +996,10 @@ line each.
   with the word (`text-lg font-bold`).
 - **Month** (`MonthView.tsx`): the symbol at `text-2xl sm:text-3xl` at the
   cell's **top-right**, beside the day number, so it can't be mistaken for the
-  bottom markers. Non-today cells take the festive background. Today stays orange.
+  bottom markers.
+  - Background precedence: **today** (orange) wins, then **staying away**
+    (the existing `bg-sky`), then the festive background. On a day she is away,
+    the festive symbol alone marks it, so "where she sleeps" never gets lost.
 - **Birthdays re-check**: day band, week band with faces and month cake + face
   all show on the same date as a festive day without overlapping (test on a fake
   25 December birthday).
@@ -737,14 +1007,18 @@ line each.
 ### 7.3 Batch 4 tests
 
 1. `easterSunday` for 2024-2030 equals 03-31, 04-20, 04-05, 03-28, 04-16, 04-01
-   and 04-21 (run it as a tiny node script against the built module, or check
-   in `page.evaluate` through the month view).
+   and 04-21. Bundle `src/lib/festive.ts` with `npx rolldown` into the
+   scratchpad (§2.6) and assert from a node script. Also check `festiveOn` for
+   25 Dec, 31 Oct, and a normal day. `festive.ts` imports only types and
+   `dates.ts`.
 2. With `page.clock` set to 25 Dec 2026: the Today view shows the Christmas
    band, the week header shows the tree, the month cell has the tree at top
    right. Take screenshots at tablet, portrait and phone sizes. Do the same for
    31 Oct 2026 and 28 Mar 2027 (navigate there).
 3. Give Mum a birthday of 25 Dec: the day shows both bands, the week shows both
    and the month shows the tree plus cake + face without overflow.
+4. Stay away (Eastbourne) over 24-26 Dec: the 25 Dec month cell keeps the sky
+   background and shows the tree.
 
 ---
 
@@ -757,27 +1031,42 @@ line each.
 ```ts
 export interface WebImage { id: string; thumb: string; title: string; creator?: string; license?: string; pageUrl?: string; provider: string }
 export interface ImageProvider { name: string; search(q: string, page: number, signal: AbortSignal): Promise<WebImage[]> }
-export function activeProvider(settings: Settings): ImageProvider
+export const PROVIDERS: ImageProvider[]            // [openverse] today
 export async function fetchImageBlob(img: WebImage): Promise<Blob>   // CORS fetch of the thumbnail
 ```
 
-- **Openverse** (default, no key):
+- **Openverse** (the only provider, no key):
   `GET https://api.openverse.org/v1/images/?q=<q>&mature=false&page_size=20&page=<n>`.
-  It maps `results[]` to `{ id, thumb: r.thumbnail, title, creator, license, pageUrl: r.foreign_landing_url }`.
-  The `thumbnail` links go through `api.openverse.org`, which allows CORS, so
-  the picture can be fetched as a Blob, shrunk and stored like any photo.
-- **Google** (dormant):
-  `GET https://www.googleapis.com/customsearch/v1?key=&cx=&q=&searchType=image&safe=active&num=10&start=`.
-  It is only used when `settings.imageSearch.googleKey` and `googleCx` are set
-  in Family settings ("Web pictures" row under Data). Pictures are fetched from
-  `items[].image.thumbnailLink`.
+  - It maps `results[]` to `{ id, thumb: r.thumbnail, title, creator, license,
+    pageUrl: r.foreign_landing_url }`.
+  - The `thumbnail` links go through `api.openverse.org/v1/images/<id>/thumb/`.
+    The picture is fetched as a Blob, shrunk and stored like any photo.
+  - **Untested from here**: this machine can't reach Openverse, so CORS on the
+    search and `/thumb/` endpoints is assumed, not verified. Every failure
+    (network, CORS, HTTP error, bad JSON) is caught, and the web box then hides
+    itself quietly. Report this to the owner as "needs a first try on a real
+    device".
+  - `mature=false` removes results **flagged** as mature by their source
+    (mostly Flickr and other CC collections). It is weaker than Google
+    SafeSearch, hence the Family-mode default below.
+- **Google is not built.** Its Custom Search JSON API is closed to new
+  customers and announced to close for existing ones (around January 2027).
+  A key entered in Family settings would also be stored in the synced settings,
+  where every family member's device can read it. The `ImageProvider`
+  interface keeps a later keyed source (Pixabay, Google, …) to one new file and
+  one line in `PROVIDERS` (Q1).
 - **Wikimedia Commons** is **not** included: it has no safe-search filter. See Q2.
 - Keep results in memory per query for the session, so re-opening doesn't hit
   the network. Openverse's anonymous limits are low, so debounce and cache.
-- Settings type: `imageSearch?: { provider: 'openverse' | 'google'; googleKey?: string; googleCx?: string }`.
+
+**Who sees it**: the web box shows only while **Family mode** is on (new words
+made from Family → Words, and New in the day's add card while a relative has
+Family mode on). Frankie making a new word on her own gets Camera, Photos and
+the symbol search as today. One constant, `WEB_PICTURES_FAMILY_ONLY = true`, at
+the top of `WebPictures.tsx` (Q1).
 
 **UX**: new file `src/components/pickers/WebPictures.tsx`, placed inside
-`PictureChooser`, so the new-word form and the word editor both get it:
+batch 2's `PictureChooser`, so the new-word form and the word editor both get it:
 
 ```
 [ chosen picture 9rem ]  [ Camera ]  [ Photos ]  [ WEB BOX ]
@@ -787,11 +1076,11 @@ export async function fetchImageBlob(img: WebImage): Promise<Blob>   // CORS fet
   square: `border-4 border-ink rounded-2xl`. It holds a 2×2 mosaic of the first
   four results for the **word being typed** (debounced 700ms, from 2 letters)
   and a small `mb:globe` badge with the word "Web" along the bottom.
-  - While loading: the globe and a gentle pulse.
+  - While loading: the globe, with an opacity pulse (no transform).
   - No results: the globe and "None".
   - Offline (`navigator.onLine === false`) or error: the box is hidden, and
     nothing is shown that could confuse her.
-- **Tapping the box expands it**: a panel grows from the box (the `rise`
+- **Tapping the box expands it**: a panel opens from the box (the `rise`
   animation, `fixed inset-2 z-50 rounded-3xl border-4 bg-paper`). It has a
   scrolling grid of results (`grid-cols-3 sm:grid-cols-4 lg:grid-cols-5`,
   square tiles with `object-cover`), a "More" button at the end (next page), and
@@ -810,25 +1099,32 @@ export async function fetchImageBlob(img: WebImage): Promise<Blob>   // CORS fet
 ### 8.2 Usage stats (item 5)
 
 **What is counted**: counts only, never content. Actions made while Family mode
-is on are **not** counted, because that is the family, not Frankie.
+is on are **not** counted, because that is the family, not Frankie. Anyone
+using the tablet *outside* Family mode is counted as Frankie; the stats screen
+says so in one line ("Counts everything done outside Family mode on each
+device").
+
+Keys use underscores, never dots, so they are safe as Firestore field names
+(sync is off in every test here, so a field-path surprise could not be caught
+offline):
 
 | key | Label shown | Where tracked |
 |---|---|---|
-| `view.today` / `view.week` / `view.month` / `view.photos` | Today / Week / Month / Photos screens | `store.go()` (only when the view kind changes) |
-| `view.day` | Opened a day | `store.go()` for `kind: 'day'` |
-| `nav.swipe` / `nav.arrow` | Swiped / arrows (days + months) | `DayView` / `MonthView` settle handlers |
-| `add.open` | Tapped + | `InlineAdd` mount |
-| `add.activity` / `add.meal` / `add.travel` / `add.routine` | Added activity / meal / travel / routine item | `InlineAdd` finish |
-| `add.cancel` | Tapped No while adding | `InlineAdd` |
-| `event.open` / `event.time` / `event.rate` / `event.move` / `event.remove` | Opened / timed / rated / moved / removed a row | `DayView`, `EventSheet`, `DayEvents` |
-| `photo.add` / `photo.view` / `tile.flip` | Took/added a photo, looked at a photo, flipped a tile | `PhotoStrip`, `store.toggleItemPhoto` |
-| `word.new` / `word.web` | Made a new word / used a web picture | `NewItemFields` |
-| `try.open` / `try.add` / `try.demo` | Opened Try / added an idea / watched the demo | `TryNewPanel` |
-| `stay.change` | Changed "Staying at" | `DayView` |
+| `view_today` / `view_week` / `view_month` / `view_photos` | Today / Week / Month / Photos screens | `store.go()` (only when the view kind changes) |
+| `view_day` | Opened a day | `store.go()` for `kind: 'day'` |
+| `nav_swipe` / `nav_arrow` | Swiped / arrows (days + months) | `DayView` / `MonthView` settle handlers |
+| `add_open` | Tapped + | `InlineAdd` mount |
+| `add_activity` / `add_meal` / `add_travel` / `add_routine` | Added activity / meal / travel / routine item | `InlineAdd` finish |
+| `add_cancel` | Tapped No while adding | `InlineAdd` |
+| `event_open` / `event_time` / `event_rate` / `event_move` / `event_remove` | Opened / timed / rated / moved / removed a row | `DayView`, `EventSheet`, `DayEvents` |
+| `photo_add` / `photo_view` / `tile_flip` | Took/added a photo, looked at a photo, flipped a tile | `PhotoStrip`, `store.toggleItemPhoto` |
+| `word_new` / `word_web` | Made a new word / used a web picture | `NewItemFields` |
+| `try_open` / `try_add` / `try_demo` | Opened Try / added an idea / watched the demo | `TryNewPanel` |
+| `stay_change` | Changed "Staying at" | `DayView` |
 
 Plus two numbers per day: **sessions** (app opened, or back after 5 minutes
 away) and **active minutes** (distinct minutes with at least one tap, counted
-from a `pointerdown` listener on `document`).
+from a passive `pointerdown` listener on `document`).
 
 **Data**:
 
@@ -849,24 +1145,42 @@ export interface UsageDay {
 ```
 
 - `src/lib/device.ts`: `deviceId()` (random UUID kept in localStorage
-  `frankies-diary-device-id`) and `deviceLabel()` / `setDeviceLabel()`. The
-  default label is "Frankie's tablet" if flagged, else "Phone" or "Computer"
-  from a user-agent guess. `ThisDevice.tsx` gets a "Device name" text input.
-- `src/lib/db.ts`: `DB_VERSION = 3` with a new object store `usage` (keyPath
-  `id`). `Collection` and `Record_` gain `'usage'` / `UsageDay`, plus
-  `putUsage(u, silent)`, and `loadAll` returns `usage`. Include it in `clearAll`.
-- `src/lib/usage.ts`: `track(key)` returns early in family mode. It updates
-  **today's doc for this device** in store state straight away (so the stats
-  screen is always current), marks it dirty, and **persists at most every 60 s**,
-  and at once on `visibilitychange → hidden` and `pagehide`. The persist goes
-  `db.putUsage` → the write hook → Firestore.
-- `src/lib/store.ts`: `state.usage: Record<Id, UsageDay>`, with `localRecord`
-  and `applyRemote` cases for `'usage'`. `exportJSON` includes usage.
-- `src/lib/sync.ts`: add `'usage'` to `COLLECTIONS`. Push uses `record.id`.
-  Each doc has **one writer** (its own device), so last-write-wins on
-  `updatedAt` is exact. The firestore rules already allow any collection for
-  members. The volume is about 1 write per minute of use per device, and roughly
-  365 small docs per device per year.
+  `frankies-diary-device-id`, in try/catch, falling back to a per-session id)
+  and `deviceLabel()` / `setDeviceLabel()`. The default label is "Frankie's
+  tablet" if flagged, else "Phone" or "Computer" from a user-agent guess.
+  `ThisDevice.tsx` gets a "Device name" text input.
+- **Not in `DiaryState`, and not in the main database.** If usage lived in the
+  store's state, every `track()` would call `store.set`, and `useStore`
+  re-renders the whole app, including three day panels on Frankie's tablet.
+  Instead:
+  - `src/lib/usage.ts` is a **small module store** with its own
+    `subscribe` / `useUsage()` hook (`useSyncExternalStore`). Only the stats
+    screen subscribes.
+  - Local persistence is a **separate IndexedDB database**
+    `frankies-diary-usage` (version 1, one store `days`, keyPath `id`), opened
+    lazily by `usage.ts`. The main `frankies-diary` database keeps
+    `DB_VERSION = 2`. No upgrade means no tab can block it, and old app copies
+    are unaffected.
+- `track(key)` returns early in Family mode. It updates **today's doc for this
+  device** in memory, marks it dirty, and **persists at most every 60 s**, and
+  at once on `visibilitychange → hidden` and `pagehide`. Persisting writes the
+  local database, then calls `sync.pushUsage(doc)` when sync is ready. Each doc
+  has **one writer** (its own device), so last-write-wins is exact.
+- `src/lib/sync.ts`:
+  - `pushUsage(u)`: `setDoc(doc(fs, 'usage', u.id), u)`. It is **not** added to
+    `COLLECTIONS`, so there is no permanent listener, and other devices' usage
+    never streams into Frankie's tablet.
+  - When sync becomes ready, `usage.flushUnsent()` pushes this device's docs
+    whose `updatedAt` is newer than their local `pushedAt`.
+  - `fetchUsage(from: ISODate)`: a one-off
+    `getDocs(query(collection(fs, 'usage'), where('date', '>=', from)))`, called
+    only while "Frankie's use" is open (and again with its refresh button).
+    It is merged with this device's local docs; the local copy wins for its own
+    id.
+  - The Firestore rules already allow any collection for members. The volume is
+    about 1 write per minute of use per device, and roughly 365 small docs per
+    device per year. A single-field range query needs no composite index.
+- `exportJSON` includes this device's usage docs.
 - Two tabs open on one device may overwrite each other's counts for that day.
   The loss is small and acceptable (noted in code).
 
@@ -877,6 +1191,8 @@ export interface UsageDay {
   - **7 days / 30 days**
   - **Frankie's tablet / All devices**. If no device is flagged, the view is
     "All devices" with the hint "Mark Frankie's tablet in This device".
+- The line about what counts as Frankie (above). With sync on and the fetch
+  failing (offline), it shows "This device only" above the numbers.
 - Summary tiles (big numbers): **days used**, **sessions**, **active minutes**
   and **most used** (label).
 - **"By part"**: a horizontal bar per label, sorted by count, showing the count
@@ -902,7 +1218,11 @@ export function freshIdeas(kind, items: LibraryItem[], category?: string): Idea[
 
 "Already in her list" means an item of that kind (**including removed ones**,
 so things the family took out aren't suggested again) with the same symbol or
-the same name (case- and space-insensitive).
+the same name (case- and space-insensitive). Symbols are **normalised before
+comparing**: seeds and older words store emoji (🍎, 🍔, 🥗…) while ideas use
+`mb:` names, so compare `preferMulberry(item.symbol)` (which maps through
+`EMOJI_TO_MULBERRY`) with the idea's symbol. Otherwise a word she already has,
+such as a user "Apple" 🍎, would be suggested again.
 
 | Shelf | Ideas (name → `mb:` symbol) |
 |---|---|
@@ -930,21 +1250,27 @@ placed **first** in the grid, so she sees it before the defaults.
   "All").
 
 **TryNewPanel** (`src/components/pickers/TryNew.tsx`: content plus a Sheet
-wrapper; inline in the composer in batch 3):
+wrapper). This batch passes `onTry` to `ChoiceGrid` in both `ItemPicker` and
+the batch-3 composer, whose step list gains `'try'`, so Try opens inside the
+day's add card too:
 
 - **The demo, "how to search"**, at the top. It is a strip of three picture
   panels. A highlight ring and a pointing hand (`mb:touch_screen` at `text-6xl`)
-  move from panel to panel every 1.2s, looping:
+  move from panel to panel every 1.2s. It plays **three rounds**
+  (`animation-iteration-count: 3`) and then rests on panel 3, which is easier
+  on her attention and on the A8's GPU:
   1. The **Find box** with 🔍 and the letters "c", "ca", "cak", "cake"
      appearing one by one.
   2. **Result tiles** popping in (the Cake, Cupcake and Doughnut symbols).
   3. The **thumbs up**, `mb:good`.
 
-  It is purely visual (she is deaf) and uses CSS keyframes only. With
+  It is purely visual (she is deaf) and uses CSS keyframes only. The ring and
+  hand move with `transform` inside a small fixed-size strip, which is fine for
+  a short run; nothing else in the panel animates. With
   `prefers-reduced-motion`, the three panels are static and numbered 1-2-3.
   - It auto-plays the first 3 times Try is opened on a device (localStorage
     counter in try/catch), then folds into a **"Show me"** button (`mb:look-to`)
-    that replays it. It is tracked as `try.demo`.
+    that replays it (three more rounds). It is tracked as `try_demo`.
 - **The Find box**: big (`min-h-24 text-4xl`), with the 🔍 symbol inside at the
   left. Typing filters:
   - the ideas (by name) first
@@ -958,10 +1284,10 @@ wrapper; inline in the composer in batch 3):
   and the word, and "Add?" with **No / Yes**. Yes does
   `addItem(kind, name, symbol, null, { category, meals })`. In a picker or the
   composer, the new item is **selected** (single → added to the day; multi →
-  ticked). The toast says "Croissant added". It is tracked as `try.add`.
+  ticked). The toast says "Croissant added". It is tracked as `try_add`.
 - **Nudge** (small and kind): if the current shelf has fewer than 4 items, the
-  Try tile gets a gentle ✨ pulse animation (one 2 s pulse on open, not
-  looping). That's all: no pop-ups.
+  Try tile gets a gentle ✨ pulse (one 2 s opacity/outline pulse on open, no
+  scaling, not looping). That's all: no pop-ups.
 
 ### 8.4 Batch 5 tests
 
@@ -970,6 +1296,8 @@ wrapper; inline in the composer in batch 3):
    `https://api.openverse.org/v1/images/<id>/thumb/`. Route those thumbnail URLs
    to coloured PNGs (with `access-control-allow-origin: *`). Then:
    - Family → Words → Food → Add → type "cake": the web box shows 4 thumbnails.
+   - Leave Family mode, then + → Activity → New → type "cake": there is **no**
+     web box, and Openverse is never requested (count the routed requests).
    - Tap → the expanded grid scrolls, and More loads page 2.
    - Pick one → the preview shows the picture → Yes. The item has a `photoId`,
      and its tile shows the camera badge.
@@ -982,7 +1310,11 @@ wrapper; inline in the composer in batch 3):
    - Enter Family → Frankie's use. The counts show Week 1, Month 1, Added
      activity 1, Rated 1, Moved 1, and 1 active day.
    - Repeat the same actions in Family mode: the counts don't change.
-   - Reload: the counts persisted (IndexedDB).
+   - Reload: the counts persisted (the `frankies-diary-usage` database). The
+     main `frankies-diary` database is still version 2.
+   - Code check (review, not Playwright): `usage.ts` never calls into
+     `store` state setters, and `DiaryState` has no usage field.
+   - No count key contains a `.`.
    - Take a screenshot of the section at tablet and phone sizes.
 3. **Try**:
    - Open Add → Breakfast → Try. The demo is visible and animating (screenshot
@@ -993,7 +1325,11 @@ wrapper; inline in the composer in batch 3):
    - Type "grape" in Find → Grapes shows.
    - Type "zebra" → Mulberry pictures that aren't foods show under "More
      pictures".
-   - The 4th open shows "Show me" instead of auto-playing.
+   - The 4th open shows "Show me" instead of auto-playing. After about 11 s
+     the demo has stopped (`getAnimations()` on the strip is empty or finished).
+   - A user food "Apple" with symbol 🍎 → Fruit ideas don't offer Apple.
+   - Try is reachable inline: + → Breakfast → Try opens inside the card, with
+     no full-screen dialog.
 
 ---
 
@@ -1008,7 +1344,8 @@ wrapper; inline in the composer in batch 3):
 | People shelves | `mb:family`, `mb:care_assistant_1a`, `mb:hug-to` |
 | Food shelves | `mb:breakfast_1`, `mb:lunch_1`, `mb:dinner_hot`, `mb:fruit`, `mb:sweet`, `mb:drink` |
 | Activity shelves | `mb:house`, `mb:go_outside-to`, `mb:exercise-to`, `mb:party_celebration`, `mb:meet-to`, `mb:relax-to` |
-| "All" shelf | `mb:lots_more` |
+| "All" shelf | a 2×2 mosaic of the first four shelf symbols (no new symbol) |
+| Clear (was None / No time) | `mb:remove-to` |
 | Christmas, Easter, Halloween | `mb:Christmas_tree`, `mb:Easter_egg`, `mb:pumpkin_lantern` |
 | Birthdays | 🎂 (→ `mb:birthday_cake`) |
 | Words manager | `mb:pencil` |
@@ -1020,24 +1357,56 @@ wrapper; inline in the composer in batch 3):
 
 ---
 
-## 10. Build order and commits
+## 10. Build order, commits and release
 
 One commit per item or tight group, message style as in `git log`
 (e.g. "Month: centred title, arrows either side; no Year button"), each ending
-with the two attribution lines. Batches go in order (b1 → b5). Batch 3 depends
-on batch 2's `ChoiceGrid` and travel; batch 5's Try and web box plug into
-components extracted in batches 2 and 3. Update `README.md`'s "What is built"
-table at the end of each batch, when its lines change.
+with the two attribution lines. Batches go in order (b1 → b5):
+
+- Batch 2 extracts `ChoiceGrid`, `NewItemFields` and `PictureChooser`, and adds
+  travel.
+- Batch 3 depends on batch 2's `ChoiceGrid`, `NewItemFields` and travel. It
+  shows no Try tile.
+- Batch 5 plugs Try into `ChoiceGrid` and the batch-3 composer, and the web
+  box into batch 2's `PictureChooser`.
+
+Update `README.md`'s "What is built" table at the end of each batch, when its
+lines change.
+
+**Release (an owner action; the builder never pushes or merges):**
+
+1. **Batch 1 is published on its own first.** All its commits come first on
+   the branch. The builder reports the hash of the **last batch-1 commit**, and
+   the owner merges exactly up to it into `main` (deploy is on push to `main`).
+2. **Wait until every device runs it.** Each device shows the version number on
+   the day screen (`v1.x.NNN`). Open the app on Frankie's tablet and every
+   family phone, and check that the number is at least batch 1's. Allow a few
+   days for phones that are rarely opened.
+3. **Then publish batches 2-5**, together or one at a time. Batch 2 is the first
+   to write a new event type (`travel`) or library kind. Older copies would
+   crash on it, which is what batch 1's guards and ErrorBoundary prevent.
+4. **Why it matters**: if the whole branch is merged at once, the copy already
+   on Frankie's tablet (without the guards) can meet a Bus event added from a
+   phone that updated first. That means a white screen on Day and Week until
+   the tablet happens to update.
 
 ---
 
 ## 11. Questions for the owner (decided by default, easy to change)
 
-1. **Google image search**: Google's official API is closed to new sign-ups and
-   needs a key, a search-engine id and billing. We built it on Openverse (free,
-   filtered for adult content). If you already have a Custom Search key and
-   engine id, enter them in Family settings and Google is used instead. Would
-   you prefer another keyed source such as Pixabay (free key, safe search)?
+1. **Google image search**: Google's official API (Custom Search JSON API) is
+   closed to new sign-ups, needs an API key, a search-engine id and billing that
+   **you would have to create**, and Google has announced it will close for
+   existing customers too (around January 2027). A key would also be visible to
+   every family member's device through the synced settings. So we built your
+   exact layout on **Openverse** (free, no key, filters pictures *flagged* as
+   adult). Openverse's filter is weaker than Google SafeSearch, so the web box
+   shows **only in Family mode**, not when Frankie makes a word on her own.
+   - Should Frankie see it too?
+   - Would you rather have a keyed source with proper safe search, such as
+     Pixabay (free key)?
+   - Openverse couldn't be reached from the build machine, so please try the
+     web box on the tablet first; if it stays empty, tell us.
 2. **Wikimedia Commons** could add more pictures but has no safe-search filter,
    so it is **off**. Keep it off?
 3. **Food shelves** are by meal (Breakfast, Lunch, Dinner, Fruit, Treats,
@@ -1053,14 +1422,18 @@ table at the end of each batch, when its lines change.
    landscape. OK?
 8. **Pinch zoom** is off on **every** device, family phones too. Should phones
    keep it?
-9. In pickers, the **Back button is replaced by No** at the bottom right, and
-   "None" becomes "No place". OK?
+9. In pickers, the **Back button is replaced by No** at the bottom, and
+   "None" / "No time" become **"Clear"** (a hand-taking-away picture), so no
+   other button starts with "No". OK? On the travel "Where to?" step, **Yes**
+   with no place chosen adds just the bus. Is that clear enough for her?
 10. **New words and Try open inside the day's add card** (typing happens on the
     day screen). OK, or would a full screen be easier for typing?
 11. **Tapping an existing row** still opens its detail screen (time, where, who,
     rating). Do you want that inline too, as a next step?
 12. The **grip handle stays** (instant drag for family) alongside
-    hold-to-drag. Remove it to declutter?
+    hold-to-drag. Remove it to declutter? Also, **please try hold-to-drag on
+    Frankie's tablet** (press a row for half a second, then move): automated
+    tests can't fully copy Android's touch handling.
 13. **Festive days**: only Christmas Day, Easter Sunday and Halloween. Add
     Christmas Eve, Boxing Day, Good Friday, Easter Monday, Bonfire Night,
     Valentine's, Mother's/Father's Day, New Year? A festive look for all of
@@ -1076,3 +1449,17 @@ table at the end of each batch, when its lines change.
 17. **Try something new**: is the curated list fine, and should we nudge more,
     for example when she picks the same thing many days running?
 18. The **thumbs** pictures are Mulberry's (light skin tone). Fine?
+19. **Release order**: batch 1 has to go live, and every device (above all
+    Frankie's tablet) has to show its version number, **before** the rest is
+    published. Otherwise the tablet's current copy could show a white screen
+    when a phone adds the first travel event. Can you check each device's
+    version number after merging batch 1, or should we add a "devices and their
+    versions" list to Family settings (the stats already know each device)?
+20. **Meal pickers open on "All"** with that meal's foods first (like today),
+    and the shelf tabs are a shortcut above them. Would opening straight on the
+    meal's own shelf be better for her, now or once she's used to tabs?
+21. **The + between rows** costs space: at 1280×800 the day shows about half a
+    row less than today (tests measure it exactly). Is that acceptable, or
+    should the + only appear after tapping an "Add" button?
+22. **Stats** count anyone using the tablet outside Family mode as Frankie.
+    OK, or should relatives always switch Family mode on?
