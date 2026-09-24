@@ -125,11 +125,63 @@ button,
 /* The day's add card and a newly added row arrive (opacity and a short rise only;
    no fill-mode, so nothing keeps a transform once it has landed). */
 @keyframes open-in {
-  from { transform: translateY(12px); opacity: 0; }
+  from { transform: translateY(1.5rem); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
 .open-in {
-  animation: open-in 180ms ease-out;
+  animation: open-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Everything new arrives rather than just appearing (owner, Sept 2026). Transform and opacity only,
+   and no fill-mode: nothing keeps a transform once it has landed (the Tab A8 ghosts under resting
+   transforms). Full-screen panels slide up from the bottom; tabs and add-card steps slide in from the side they
+   are going to (right = onward, left = back); pop-ups grow in; a changed grid fades in. */
+@keyframes screen-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+/* Solid all the way (no fade), so the screen underneath never shows through it. */
+.screen-in {
+  animation: screen-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes from-right {
+  from { transform: translateX(3rem); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes from-left {
+  from { transform: translateX(-3rem); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.from-right {
+  animation: from-right 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.from-left {
+  animation: from-left 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes pop-in {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.pop-in {
+  animation: pop-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in {
+  animation: fade-in 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen-in,
+  .from-right,
+  .from-left,
+  .pop-in,
+  .fade-in,
+  .open-in,
+  .rise {
+    animation: none;
+  }
 }
 
 /* Day rows are held to lift them: no Android callout or text selection on a long press. */

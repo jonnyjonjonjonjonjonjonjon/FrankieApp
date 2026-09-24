@@ -158,43 +158,46 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
         </div>
       )}
 
-      {found ? (
-        <div className={GRID}>
-          {tryTile}
-          {found.map(tile)}
-          {newTile}
-        </div>
-      ) : tabbed && current === 'all' && all.length <= FLAT_UP_TO ? (
-        <div className={GRID}>
-          {tryTile}
-          {shelves.flatMap(s => s.items).map(tile)}
-          {newTile}
-        </div>
-      ) : tabbed && current === 'all' ? (
-        <>
-          {shelves.map(({ category, items }, i) => (
-            <section key={category.id} className="flex flex-col gap-3" aria-label={category.word}>
-              {!(i === 0 && firstHeadless) && (
-                <h3 className="flex items-center gap-3 rounded-2xl bg-soft px-3 py-1">
-                  <Symbol symbol={category.symbol} size="text-4xl" />
-                  <span className="text-2xl font-extrabold">{category.word}</span>
-                </h3>
-              )}
-              <div className={GRID}>
-                {i === 0 && tryTile}
-                {items.map(tile)}
-              </div>
-            </section>
-          ))}
-          {newTile && <div className={GRID}>{newTile}</div>}
-        </>
-      ) : (
-        <div className={GRID}>
-          {tryTile}
-          {(tabbed ? (shelves.find(s => s.category.id === current)?.items ?? []) : all).map(tile)}
-          {newTile}
-        </div>
-      )}
+      {/* A different shelf (or Find's results) fades in rather than snapping. */}
+      <div key={found ? 'found' : current} className="fade-in flex flex-col gap-4">
+        {found ? (
+          <div className={GRID}>
+            {tryTile}
+            {found.map(tile)}
+            {newTile}
+          </div>
+        ) : tabbed && current === 'all' && all.length <= FLAT_UP_TO ? (
+          <div className={GRID}>
+            {tryTile}
+            {shelves.flatMap(s => s.items).map(tile)}
+            {newTile}
+          </div>
+        ) : tabbed && current === 'all' ? (
+          <>
+            {shelves.map(({ category, items }, i) => (
+              <section key={category.id} className="flex flex-col gap-3" aria-label={category.word}>
+                {!(i === 0 && firstHeadless) && (
+                  <h3 className="flex items-center gap-3 rounded-2xl bg-soft px-3 py-1">
+                    <Symbol symbol={category.symbol} size="text-4xl" />
+                    <span className="text-2xl font-extrabold">{category.word}</span>
+                  </h3>
+                )}
+                <div className={GRID}>
+                  {i === 0 && tryTile}
+                  {items.map(tile)}
+                </div>
+              </section>
+            ))}
+            {newTile && <div className={GRID}>{newTile}</div>}
+          </>
+        ) : (
+          <div className={GRID}>
+            {tryTile}
+            {(tabbed ? (shelves.find(s => s.category.id === current)?.items ?? []) : all).map(tile)}
+            {newTile}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

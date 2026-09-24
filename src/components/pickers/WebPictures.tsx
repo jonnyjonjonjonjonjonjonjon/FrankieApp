@@ -168,7 +168,7 @@ function WebPanel({ word, images, more, onMore, onClose, onPick }: PanelProps) {
 
   return createPortal(
     <div
-      className="rise fixed inset-2 z-[45] flex flex-col overflow-hidden rounded-3xl border-4 border-ink bg-paper"
+      className="pop-in fixed inset-2 z-[45] flex flex-col overflow-hidden rounded-3xl border-4 border-ink bg-paper"
       role="dialog"
       aria-label={`Web pictures: ${word}`}
       data-noswipe

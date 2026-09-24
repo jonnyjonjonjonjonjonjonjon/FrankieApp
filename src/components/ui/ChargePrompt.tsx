@@ -32,7 +32,7 @@ export function ChargePrompt() {
   if (!show) return null
   const pct = Math.round(battery.level * 100)
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-paper px-6 text-center" role="alertdialog" aria-label="Charge">
+    <div className="pop-in fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-paper px-6 text-center" role="alertdialog" aria-label="Charge">
       <div className="flex items-center gap-6">
         <BatteryLow size={120} strokeWidth={2.5} className="text-ink" />
         <Symbol symbol="🔌" size="text-9xl" />

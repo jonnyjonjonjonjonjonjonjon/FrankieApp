@@ -85,7 +85,8 @@ export function SettingsView() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    // Keyed apart from the PIN screen, so the settings slide in once the PIN is right.
+    <div key="open" className="from-right flex h-full flex-col">
       <TopBar
         onBack={back}
         title="Family settings"

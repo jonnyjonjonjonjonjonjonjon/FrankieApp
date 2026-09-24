@@ -20,7 +20,7 @@ interface Props {
 /** Full-screen panel with a visible Back button (or a No in the footer). Replaces dialogs. */
 export function Sheet({ title, symbol, onBack, backWord = 'Back', children, footer, hideBack = false, before }: Props) {
   return (
-    <div className="rise fixed inset-0 z-40 flex flex-col bg-paper" role="dialog" aria-label={title}>
+    <div className="screen-in fixed inset-0 z-40 flex flex-col bg-paper" role="dialog" aria-label={title}>
       <header className="flex items-center gap-3 border-b-4 border-line px-3 py-2">
         {!hideBack && (
           <BigButton variant="secondary" size="md" onClick={onBack} aria-label={backWord}>

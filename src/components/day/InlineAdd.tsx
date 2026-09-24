@@ -41,6 +41,9 @@ interface Props {
   onClose: (addedId?: Id) => void
 }
 
+/** How deep each step is, so moving between them slides the right way. */
+const STEP_DEPTH: Record<Step['at'], number> = { type: 0, pick: 1, where: 2, new: 3, try: 2 }
+
 type Step =
   | { at: 'type' }
   /** Activity, a meal's foods, or how she is travelling. */
@@ -109,6 +112,10 @@ export function InlineAdd({ date, index, onClose }: Props) {
   // back to Add), and New's autofocus lets the browser scroll the box to wherever it likes.
   const stepKey = step.at === 'pick' ? `pick:${step.type}` : step.at === 'try' ? `try:${idea ? 'chosen' : ''}` : step.at
   useLayoutEffect(() => toTop('auto'), [stepKey])
+  // Which way the new step slides in: deeper steps from the right, going back from the left.
+  const depth = STEP_DEPTH[step.at] + (step.at === 'try' && idea ? 1 : 0)
+  const [shownStep, setShownStep] = useState({ key: stepKey, depth, slide: '' })
+  if (shownStep.key !== stepKey) setShownStep({ key: stepKey, depth, slide: depth >= shownStep.depth ? 'from-right' : 'from-left' })
 
   // How much room the bars leave between them, whenever the day or the bars change size.
   useEffect(() => {
@@ -362,7 +369,9 @@ export function InlineAdd({ date, index, onClose }: Props) {
         {flat && <div className="flex shrink-0 gap-3">{answers}</div>}
       </header>
 
-      <div className="px-3 py-4">{body}</div>
+      <div key={stepKey} className={`px-3 py-4 ${shownStep.key === stepKey ? shownStep.slide : ''}`}>
+        {body}
+      </div>
 
       {!flat && (
         <footer ref={footer} className={`${stick} -bottom-3 z-10 flex flex-wrap justify-end gap-3 border-t-4 border-orange bg-orange-light px-3 py-2`}>
