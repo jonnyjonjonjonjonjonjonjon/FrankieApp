@@ -263,10 +263,13 @@ export function InlineAdd({ date, index, onClose }: Props) {
     track('add_cancel')
     onClose()
   }
+  // The kinds of row she adds most come first; ties keep the usual order.
+  const typeUses = store.usage().types
+  const typesByUse = [...EVENT_TYPE_ORDER].sort((a, b) => (typeUses[b] ?? 0) - (typeUses[a] ?? 0))
   if (step.at === 'type') {
     body = (
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {EVENT_TYPE_ORDER.map(type => (
+        {typesByUse.map(type => (
           <Tile
             key={type}
             word={eventTypeInfo(type).word}

@@ -55,12 +55,15 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
   /** The Find box is open (findButton only: otherwise it always shows). */
   const [finding, setFinding] = useState(false)
 
-  const all = subset ?? store.itemsOfKind(kind)
+  // Most used first (owner, Sept 2026); ties keep the family's order. A given subset keeps its own order.
+  const uses = store.usage().items
+  const byUse = <T extends { id: Id }>(list: T[]) => [...list].sort((a, b) => (uses[b.id] ?? 0) - (uses[a.id] ?? 0))
+  const all = subset ?? byUse(store.itemsOfKind(kind))
   const shelves = shelvesOf(kind, all, mealSlot)
   const tabbed = shelves.length >= 2 && all.length > FLAT_UP_TO
-  // Untabbed: shelf by shelf (a meal's own foods first); kinds without shelves (places, travel) keep their order.
+  // Untabbed: most used first, then shelf by shelf (a meal's own foods first); kinds without shelves keep their order.
   const byShelf = shelves.flatMap(s => s.items)
-  const inShelfOrder = byShelf.length === all.length ? byShelf : all
+  const inShelfOrder = byShelf.length === all.length ? (subset ? byShelf : byUse(byShelf)) : all
   // A shelf emptied while open (its last word moved away) falls back to All.
   const current = tabbed && shelves.some(s => s.category.id === tab) ? tab : 'all'
 

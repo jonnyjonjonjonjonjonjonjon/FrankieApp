@@ -445,6 +445,7 @@ class Store {
   }
 
   private byDateCache: { events: Record<Id, DiaryEvent>; map: Map<ISODate, DiaryEvent[]> } | null = null
+  private usageCache?: { events: Record<Id, DiaryEvent>; items: Record<Id, number>; types: Partial<Record<EventType, number>> }
 
   /**
    * Stored (not deleted) events grouped by day. Rebuilt only when the events
@@ -463,6 +464,34 @@ class Store {
       this.byDateCache = { events, map }
     }
     return this.byDateCache.map
+  }
+
+  /**
+   * How often each word and each kind of row has been used in the diary, so pickers can put the
+   * most used first (owner, Sept 2026). Words count every row that uses them (its activity, travel,
+   * foods, place, people). Row types count only rows someone added, not the daily routine's.
+   * Rebuilt only when the events change.
+   */
+  usage(): { items: Record<Id, number>; types: Partial<Record<EventType, number>> } {
+    const events = this.state.events
+    if (this.usageCache?.events !== events) {
+      const items: Record<Id, number> = {}
+      const types: Partial<Record<EventType, number>> = {}
+      const count = (id: Id | null | undefined) => {
+        if (id) items[id] = (items[id] ?? 0) + 1
+      }
+      for (const e of Object.values(events)) {
+        if (e.deleted) continue
+        if (!e.fromTemplate) types[e.type] = (types[e.type] ?? 0) + 1
+        count(e.activityId)
+        count(e.travelId)
+        count(e.placeId)
+        e.foodIds.forEach(count)
+        e.personIds.forEach(count)
+      }
+      this.usageCache = { events, items, types }
+    }
+    return this.usageCache
   }
 
   /** Stored events plus the routine template for days not yet materialised, in list order. */
