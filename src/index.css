@@ -68,8 +68,12 @@ html {
   }
 }
 
+/* No pinch zoom (the viewport meta asks too; this also covers browsers that
+   ignore it). Touch actions intersect up to the root, so pinch stays off even
+   inside buttons with touch-action: manipulation. */
 html,
 body {
+  touch-action: pan-x pan-y;
   overscroll-behavior: none;
   color: var(--color-ink);
   font-family: var(--font-sans);
