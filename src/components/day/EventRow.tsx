@@ -18,8 +18,10 @@ interface Props {
 }
 
 /**
- * One row of the day, kept plain (owner, Sept 2026): symbol (tap for photo), word, time, place, who.
- * Tap it to open it (its time is set there, under When?); hold it to drag it.
+ * One row of the day, kept plain (owner, Sept 2026): symbol (tap for photo), then the word and its
+ * time, then what goes with it (foods, place, people) as pictures with their names across the rest
+ * of the row, dropping under the word where the row is too narrow. Tap it to open it (its time is set
+ * there, under When?); hold it to drag it.
  */
 export function EventRow({ event, onOpen, dragging, pressing, current }: Props) {
   const store = useStore()
@@ -31,6 +33,8 @@ export function EventRow({ event, onOpen, dragging, pressing, current }: Props) 
   const place = event.type !== 'travel' && event.placeId ? items[event.placeId] : null
   const people = event.personIds.map(id => items[id]).filter(Boolean)
   const showPhoto = face.photoId && face.showPhoto
+  // What goes with it, as pictures on the right: the meal's foods, where, who.
+  const extras = [...(isMeal(event) ? foods : []), ...(place ? [place] : []), ...people]
 
   return (
     <div
@@ -59,51 +63,48 @@ export function EventRow({ event, onOpen, dragging, pressing, current }: Props) 
         )}
       </button>
 
-      <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 flex-col justify-center gap-1 text-left">
-        {destination ? (
-          // One line where it fits; on a phone "➜ place" drops under the word and a long place name
-          // wraps between its words beside the arrow. Where even its longest word will not fit beside
-          // the arrow (basis = min-content), the name drops under the arrow: never split mid-word, never past the row.
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-3xl leading-tight" data-travel-line>
-            <span className="font-extrabold">{face.word}</span>
-            <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2">
-              <ArrowRight size={36} strokeWidth={3} aria-label="to" className="shrink-0" />
-              <Symbol symbol={destination.symbol} size="text-3xl" />
-              <span className="min-w-0 grow basis-[min-content] break-words font-bold">{destination.name}</span>
-            </span>
-            {event.rating && (
-              <span className="inline-flex" aria-label={RATING_FACES[event.rating].word}>
-                <Symbol symbol={RATING_FACES[event.rating].symbol} size="text-3xl" />
+      <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-1 pr-2 text-left">
+        <span className="flex min-w-[10rem] flex-1 flex-col justify-center gap-1">
+          {destination ? (
+            // One line where it fits; on a phone "➜ place" drops under the word and a long place name
+            // wraps between its words beside the arrow. Where even its longest word will not fit beside
+            // the arrow (basis = min-content), the name drops under the arrow: never split mid-word, never past the row.
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-3xl leading-tight" data-travel-line>
+              <span className="font-extrabold">{face.word}</span>
+              <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2">
+                <ArrowRight size={36} strokeWidth={3} aria-label="to" className="shrink-0" />
+                <Symbol symbol={destination.symbol} size="text-3xl" />
+                <span className="min-w-0 grow basis-[min-content] break-words font-bold">{destination.name}</span>
               </span>
-            )}
-          </span>
-        ) : (
-          <span className="line-clamp-2 text-3xl font-extrabold leading-tight">
-            {face.word}
-            {event.rating && (
-              <span className="ml-2 inline-flex align-middle" aria-label={RATING_FACES[event.rating].word}>
-                <Symbol symbol={RATING_FACES[event.rating].symbol} size="text-3xl" />
-              </span>
-            )}
-          </span>
-        )}
-        {event.time && <TimeLabel time={event.time} />}
-        {(foods.length > 0 || place || people.length > 0) && (
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xl font-bold text-ink-soft">
-            {isMeal(event) &&
-              foods.map(f => (
-                <span key={f.id} className="inline-flex items-center gap-1">
-                  <Symbol symbol={f.symbol} size="text-3xl" /> {f.name}
+              {event.rating && (
+                <span className="inline-flex" aria-label={RATING_FACES[event.rating].word}>
+                  <Symbol symbol={RATING_FACES[event.rating].symbol} size="text-3xl" />
                 </span>
-              ))}
-            {place && (
-              <span className="inline-flex items-center gap-1">
-                <Symbol symbol={place.symbol} size="text-3xl" /> {place.name}
-              </span>
-            )}
-            {people.map(p => (
-              <span key={p.id} className="inline-flex items-center gap-1">
-                <Symbol symbol={p.symbol} size="text-3xl" /> {p.name}
+              )}
+            </span>
+          ) : (
+            <span className="line-clamp-2 text-3xl font-extrabold leading-tight">
+              {face.word}
+              {event.rating && (
+                <span className="ml-2 inline-flex align-middle" aria-label={RATING_FACES[event.rating].word}>
+                  <Symbol symbol={RATING_FACES[event.rating].symbol} size="text-3xl" />
+                </span>
+              )}
+            </span>
+          )}
+          {event.time && <TimeLabel time={event.time} />}
+        </span>
+        {extras.length > 0 && (
+          <span className="ml-auto flex flex-wrap justify-end gap-x-3 gap-y-2">
+            {extras.map(x => (
+              <span key={x.id} className="flex w-24 flex-col items-center gap-1">
+                {/* A person's (or place's) own photo when it is set to show, as on their tile. */}
+                {x.photoId && x.showPhoto ? (
+                  <Photo id={x.photoId} alt="" className="h-16 w-16 rounded-xl" />
+                ) : (
+                  <Symbol symbol={x.symbol} size="text-5xl" />
+                )}
+                <span className="text-center text-lg font-bold leading-tight text-ink-soft">{x.name}</span>
               </span>
             ))}
           </span>
