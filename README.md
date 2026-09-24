@@ -26,6 +26,9 @@ Installable as a PWA (Android tablet, Chrome/Edge on Windows). Everything is sto
 | 4.4 Day view: date, staying-at, an ordered list with a small + between rows (and above the first, below the last) that opens an add card right there, so adding never leaves the day (press and hold a row, or grab its grip, to drag it; a tap still opens it; times are optional via the clock button, and a timed row dragged out of sequence loses its time along with the rows it clashes with), routine template, meals → food picker, Travel (bus, train, taxi, car, plane, boat) → Where to?, shown on one line "Bus ➜ Swimming pool", When/Where/Who pickers, ratings, photo strip; days slide side to side | `components/day/`, `components/pickers/` |
 | 4.5 Tiles: word + symbol, photo badge, tap the symbol to flip to the photo (remembered per tile) | `components/ui/Tile.tsx` |
 | 4.6 "+ Add" everywhere; add-to-day with no typing; pickers on shelves (tabs for People: Family / Staff / Friends, Food by meal plus Fruit / Treats / Drinks, Activities: Home / Out / Active / Fun / Friends / Relax; "All" shows every shelf); new word = Word → Shelf → Picture (symbol grid with search and/or photo) → Yes; question screens answer with thumbs-up Yes / thumbs-down No (and Clear to take a value away) | `components/day/InlineAdd.tsx`, `components/pickers/` (`ChoiceGrid`, `NewItemFields`, `PictureChooser`), `lib/categories.ts` |
+| Pictures from the web: in Family mode the new-word form and the word editor show a box beside Camera / Photos filled with pictures of the word being typed (Openverse, openly licensed, adult-flagged pictures left out; Google's image search needs a paid key, so it isn't used); tap it for all of them, tap one to use it (its credit shows in the word editor) | `lib/imageSearch.ts` (pluggable providers), `components/pickers/WebPictures.tsx` |
+| Try something new: a Try tile first in the food and activity lists offers foods and activities she doesn't have yet (curated, on shelves), a Find over every Mulberry picture, and a picture demo of how to search; one tap and Yes adds it | `lib/ideas.ts`, `components/pickers/TryNew.tsx` |
+| Frankie's use: counts of which parts of the diary are used (never content, never in Family mode), per device and day, with sessions and active minutes; Family settings → Frankie's use shows 7 / 30 days, Frankie's tablet or all devices, by part, by day and by device | `lib/usage.ts` (own local database; synced as one small doc per device per day), `components/settings/UsageStats.tsx`, `lib/device.ts` |
 | 4.9 Birthdays: Family settings → Birthdays (soonest first; month, then day; optional year born shows the age on the day band) | `components/settings/Birthdays.tsx`, `components/pickers/MonthDayPicker.tsx`; day / week / month views |
 | Words: Family settings → Words, by kind and shelf: rename, change picture or shelf, stay / doctor-or-dentist for places, reorder with arrows, remove and restore | `components/settings/WordsManager.tsx`, `WordEditor.tsx` |
 | Festive days: Christmas (25 Dec), Easter Sunday (worked out each year) and Halloween (31 Oct) show as a band with symbol + word on the day, the symbol beside the date and a word band in the week, and the symbol at the top right of the month cell in the day's colours (green, lilac, pale orange; today's orange and "staying away" sky blue come first) | `lib/festive.ts` (one line per day); day / week / month views |
@@ -45,6 +48,7 @@ How it works (`src/lib/sync.ts`):
 - IndexedDB stays the source the screens read from, so everything works offline. Every local write is pushed to Firestore (the SDK queues writes while offline) and every remote change is written back locally, last-write-wins on `updatedAt`.
 - Photos are shrunk to stay under Firestore's 1 MB document limit, upload from an outbox that retries when the device comes online, and download on demand on other devices.
 - Access is by Google account: the signed-in email must be listed in the `members` collection. `firestore.rules` enforces it. Members are managed in Family settings → Family accounts; the very first member is added in the Firebase console.
+- Usage stats (Family settings → Frankie's use) go to a `usage` collection, one small doc per device per day, pushed at most once a minute while in use; there is no listener for it, so they are only read when the stats screen opens. The existing rules already cover it.
 - Frankie's tablet signs in once (with a family account) and stays signed in.
 - Start-up never out-stamps the cloud: a fresh install writes its starting lists silently with old timestamps and runs no migrations, and on a device with sync configured, tidy-ups for older diaries wait until every collection's first snapshot from the server has been applied.
 
@@ -65,6 +69,10 @@ src/
     seed.ts             starting lists (PRD 4.11)
     symbols.ts          event types, rating faces, symbol grid for new words
     categories.ts       shelves per kind; categoryOf() places older records at read time
+    usage.ts            usage counts (own IndexedDB database, never in the diary's state)
+    device.ts           per-device settings: Frankie's tablet flag, device id and name
+    imageSearch.ts      web pictures: pluggable providers (Openverse today)
+    ideas.ts            Try something new: curated foods and activities
     dates.ts, time.ts   date helpers; 12-hour / half-hour time helpers
     festive.ts          Christmas / Easter / Halloween: festiveOn(date), easterSunday(year)
     images.ts           image shrinking + object-URL cache

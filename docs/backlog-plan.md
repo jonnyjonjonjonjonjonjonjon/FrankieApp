@@ -1572,6 +1572,65 @@ day's add card too:
    - Try is reachable inline: + → Breakfast → Try opens inside the card, with
      no full-screen dialog.
 
+### 8.5 Batch 5 as built (deviations from the design above)
+
+- **Web box size**: the chosen picture's size (9rem square), not the buttons'
+  height: a 2×2 of 4.5rem thumbnails was too small to make out. Order on
+  tablets is exactly `[picture] [Camera / Photos] [web box]`; on phones the
+  picture and the web box share the first row and Camera / Photos go under
+  them (three rows otherwise). While typing it pulses the globe ("looking"),
+  then shows the first four results; "None" if there are none; hidden offline,
+  on any error, and under 2 letters.
+- **The opened panel is portalled to `<body>`** at `z-[45]`: above a
+  full-screen sheet (z-40), below the toast (z-50, so "Couldn't get that
+  picture" shows on it), and out of reach of the day card's clipping and
+  arrival transform. Broken thumbnails are left out. "More" stops at
+  Openverse's `page_count`.
+- **`search()` returns `{ images, more }`** and `fetchImageBlob` tries the
+  full-size picture if the thumbnail can't be fetched. Searches are cached per
+  word and page for the session (a failed one is forgotten, so it is retried).
+- **`PictureChooser.onPhoto(photo, credit)`**: camera and gallery pass `null`;
+  the draft carries `photoCredit`; `store.setItemPhoto(id, photo, credit)`
+  writes `photoCredit` (null for any other photo, so it clears on change).
+- **Try's "Add?"** is not a confirm under the tile: tapping an idea shows one
+  big "Add?" (picture and word), answered by the screen's own No / Yes (the
+  card's bar or the sheet's footer), so one screen never has two Yes / No
+  pairs. No goes back to the ideas; No again goes back to the list.
+- **Try's first row**: on wide screens the demo strip, the Find box and Show me
+  share one row, and Find is `min-h-20` (`min-h-16` on `lg`) rather than
+  `min-h-24`: at 1280×800 the first row of ideas then sits at 491-686px in the
+  114-690px day (it was cut off at the tile's picture before). Show me is always
+  there (it also replays during the three auto-played opens).
+- **Try tile** shows while finding too (Try then opens with what was typed), and
+  pulses when the shelf in view has under 4 words. A Find in Try shows an idea
+  when one of its Mulberry pictures matches (so "cup cake" finds Cupcake).
+- **Usage persistence**: saved to the local database 2s after a count (so a
+  reload loses nothing) and pushed to the cloud at most once a minute, and at
+  once when the app is hidden. `pushedAt` stays local. "Start again" also
+  clears this device's counts; Export includes them.
+- **Screens counted**: the Today tab's day is "Today screen" even after swiping
+  to another date (swipes are counted as swipes); a day opened from Week, Month
+  or Photos is "Opened a day". Family → Leave goes back before Family mode ends,
+  so the family handing back isn't counted. Most counts live in the store's
+  mutations (rate, time, move, remove, stay, photo, flip), which Family mode
+  pauses too.
+- **Device name** in This device (blank = the guess: Frankie's tablet, Tablet,
+  Phone, Computer).
+- **Tests**: `gauntlet/b5/web.mjs` (mocked Openverse: 4 thumbnails, mature=false,
+  panel, More to page 2, pick → photo + credit, editor credit, abort and offline
+  hide the box, Frankie mode makes no request, Family mode in the day card,
+  a failed picture keeps the panel, cache), `stats.mjs` (the counts after Week,
+  Month, Today, +, rate and drag; nothing in Family mode; reload persists;
+  database versions; no dotted keys; sessions; 30 days / All devices; rename),
+  `try.mjs` (inline Try, no defaults offered, Croissant ticked and on
+  Breakfast, grape / zebra, an activity idea adds the row, the 4th open waits
+  for Show me and the demo finishes resting on panel 3, a user 🍎 apple and a
+  removed Croissant aren't offered, Try from a row's Food sheet). All at
+  1280×800, 800×1280 and 412×915. Regressions in `b5/regress/` (batches 1-4):
+  same results as before this batch, except where the Try tile is now first in
+  a food list (batch 2's "first tile Sandwich" and "only treats"; batch 3's
+  "tick two foods in view" picks by position and now gets one on the phone).
+
 ---
 
 ## 9. All symbols chosen (verified to exist)
