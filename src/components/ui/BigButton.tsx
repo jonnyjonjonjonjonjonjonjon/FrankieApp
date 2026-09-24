@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
-type Variant = 'primary' | 'secondary' | 'green' | 'ghost' | 'danger'
+type Variant = 'primary' | 'secondary' | 'green' | 'ghost' | 'danger' | 'quiet'
 type Size = 'sm' | 'md' | 'lg'
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -15,6 +15,7 @@ const VARIANT: Record<Variant, string> = {
   green: 'bg-green text-white border-green active:brightness-90',
   ghost: 'bg-transparent text-ink border-transparent active:bg-soft',
   danger: 'bg-paper text-ink border-ink active:bg-soft',
+  quiet: 'bg-paper text-ink border-line active:bg-soft',
 }
 
 const SIZE: Record<Size, string> = {

@@ -1,17 +1,17 @@
 import { useMemo, useState } from 'react'
-import { Check, Moon, Sun } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
 import { isDaytime, parseHHMM, to12, toHHMM } from '../../lib/time'
 import type { HHMM } from '../../types'
 import { AnalogueFace } from '../ui/AnalogueFace'
-import { BigButton } from '../ui/BigButton'
 import { Sheet } from '../ui/Sheet'
 import { TimeLabel } from '../ui/TimeLabel'
+import { ClearButton, NoButton, YesButton } from '../ui/YesNo'
 import { Wheel } from './Wheel'
 
 interface Props {
   title?: string
   value: HHMM
-  /** Offer a "No time" button that hands back null. */
+  /** Offer a "Clear" button that hands back null (removes the time). */
   allowNone?: boolean
   onDone: (t: HHMM | null) => void
   onBack: () => void
@@ -35,7 +35,7 @@ function HourItem({ h }: { h: number }) {
 
 /**
  * When? — two scroll wheels, hours (with am/pm and sun/moon) and minutes in
- * fives, beside a clock that follows them. Done confirms.
+ * fives, beside a clock that follows them. Yes confirms, No leaves it as it was.
  */
 export function TimePicker({ title = 'When?', value, allowNone = false, onDone, onBack }: Props) {
   const init = parseHHMM(value)
@@ -60,17 +60,12 @@ export function TimePicker({ title = 'When?', value, allowNone = false, onDone, 
       title={title}
       symbol="🕒"
       onBack={onBack}
+      hideBack
       footer={
         <>
-          {allowNone && (
-            <BigButton size="lg" onClick={() => onDone(null)}>
-              No time
-            </BigButton>
-          )}
-          <BigButton variant="green" size="lg" onClick={() => onDone(result)}>
-            <Check size={44} strokeWidth={3.5} />
-            Done
-          </BigButton>
+          {allowNone && <ClearButton onClick={() => onDone(null)} />}
+          <NoButton onClick={onBack} />
+          <YesButton onClick={() => onDone(result)} />
         </>
       }
     >

@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Check } from 'lucide-react'
 import { useStore } from '../../lib/store'
 import { KIND_SYMBOL } from '../../lib/symbols'
 import type { Id, LibraryItem, LibraryKind, MealSlot } from '../../types'
 import { AddTile } from '../ui/AddTile'
-import { BigButton } from '../ui/BigButton'
 import { Sheet } from '../ui/Sheet'
 import { Tile } from '../ui/Tile'
+import { ClearButton, NoButton, YesButton } from '../ui/YesNo'
 import { NewItemForm } from './NewItemForm'
 
 interface Props {
@@ -73,19 +72,12 @@ export function ItemPicker({ kind, title, symbol, multi = false, initial = [], m
       title={title}
       symbol={symbol ?? KIND_SYMBOL[kind]}
       onBack={onBack}
+      hideBack
       footer={
         <>
-          {allowNone && (
-            <BigButton size="lg" onClick={() => onDone([])}>
-              None
-            </BigButton>
-          )}
-          {multi && (
-            <BigButton variant="green" size="lg" onClick={() => onDone(selected)}>
-              <Check size={44} strokeWidth={3.5} />
-              Done
-            </BigButton>
-          )}
+          {allowNone && <ClearButton onClick={() => onDone([])} />}
+          <NoButton onClick={onBack} />
+          {multi && <YesButton onClick={() => onDone(selected)} />}
         </>
       }
     >

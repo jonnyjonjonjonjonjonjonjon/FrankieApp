@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, X } from 'lucide-react'
 import { useStore } from '../../lib/store'
 import { searchSymbols, KIND_WORD } from '../../lib/symbols'
 import { mulberryIndex, preferMulberry, type MulberryEntry } from '../../lib/symbolImages'
@@ -7,6 +6,7 @@ import type { LibraryItem, LibraryKind, MealSlot } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Sheet } from '../ui/Sheet'
 import { Symbol } from '../ui/Symbol'
+import { NoButton, YesButton } from '../ui/YesNo'
 import { PhotoInput } from './PhotoInput'
 
 interface Props {
@@ -19,7 +19,7 @@ interface Props {
 }
 
 /**
- * Add a new word (PRD §4.6): Word → Picture (symbol and/or photo) → Done, on one screen.
+ * Add a new word (PRD §4.6): Word → Picture (symbol and/or photo) → Yes, on one screen.
  * This is the only place Frankie types.
  */
 export function NewItemForm({ kind, mealSlot, extra, onCreated, onBack }: Props) {
@@ -61,11 +61,12 @@ export function NewItemForm({ kind, mealSlot, extra, onCreated, onBack }: Props)
       title={`New — ${KIND_WORD[kind]}`}
       symbol="➕"
       onBack={onBack}
+      hideBack
       footer={
-        <BigButton variant="green" size="lg" disabled={!canSave} onClick={() => void save()}>
-          <Check size={44} strokeWidth={3.5} />
-          Done
-        </BigButton>
+        <>
+          <NoButton onClick={onBack} />
+          <YesButton disabled={!canSave} onClick={() => void save()} />
+        </>
       }
     >
       <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -101,8 +102,10 @@ export function NewItemForm({ kind, mealSlot, extra, onCreated, onBack }: Props)
             <div className="flex flex-col gap-3">
               <PhotoInput onPick={setPhoto} />
               {photo && (
-                <BigButton size="sm" onClick={() => setPhoto(null)}>
-                  <X size={28} strokeWidth={3} /> No photo
+                // "Clear", not "No photo": only No itself starts with No (Q9).
+                <BigButton size="sm" onClick={() => setPhoto(null)} aria-label="Clear photo">
+                  <Symbol symbol="mb:remove-to" size="text-3xl" />
+                  <span className="text-lg">Clear</span>
                 </BigButton>
               )}
             </div>

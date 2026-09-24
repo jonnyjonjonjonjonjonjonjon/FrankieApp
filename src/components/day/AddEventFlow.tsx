@@ -5,6 +5,7 @@ import type { EventType, Id, ISODate, MealSlot } from '../../types'
 import { MEAL_TYPES } from '../../types'
 import { Sheet } from '../ui/Sheet'
 import { Tile } from '../ui/Tile'
+import { NoButton } from '../ui/YesNo'
 import { ItemPicker } from '../pickers/ItemPicker'
 
 interface Props {
@@ -37,7 +38,7 @@ export function AddEventFlow({ date, onClose }: Props) {
 
   if (step.at === 'type') {
     return (
-      <Sheet title="Add" symbol="➕" onBack={onClose}>
+      <Sheet title="Add" symbol="➕" onBack={onClose} hideBack footer={<NoButton onClick={onClose} />}>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {EVENT_TYPE_ORDER.map(type => (
             <Tile
