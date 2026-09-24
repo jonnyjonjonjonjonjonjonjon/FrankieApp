@@ -104,8 +104,9 @@ export function UsageStats() {
   })
   const parts = new Map<string, number>()
   for (const d of docs) for (const [k, n] of Object.entries(d.counts)) parts.set(k, (parts.get(k) ?? 0) + n)
-  const byPart = [...parts.entries()].filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])
   const label = (k: string) => USAGE_LABELS[k as keyof typeof USAGE_LABELS] ?? k.replace(/_/g, ' ')
+  // Most used first; a tie in word order, so the list doesn't reshuffle between refreshes.
+  const byPart = [...parts.entries()].filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1] || label(a[0]).localeCompare(label(b[0])))
   const devices = new Map<string, { label: string; taps: number; minutes: number }>()
   // Oldest first, so the most recent day's name wins (the family may have renamed it).
   for (const d of [...docs].sort((a, b) => a.date.localeCompare(b.date))) {
@@ -114,6 +115,9 @@ export function UsageStats() {
   }
   const daysUsed = perDay.filter(d => d.taps || d.minutes).length
   const maxPart = byPart[0]?.[1] ?? 0
+  // "Most used": the top part, both when two tie, else how many tie.
+  const top = byPart.filter(([, n]) => n === maxPart)
+  const mostUsed = !top.length ? '—' : top.length <= 2 ? top.map(([k]) => label(k)).join(', ') : `${top.length} tied`
   const maxDay = Math.max(1, ...perDay.map(d => d.taps))
   const empty = !byPart.length && !perDay.some(d => d.minutes)
 
@@ -151,11 +155,12 @@ export function UsageStats() {
             <Stat value={daysUsed} word={`of ${range} days used`} />
             <Stat value={sum(docs.map(d => d.sessions))} word="sessions" />
             <Stat value={sum(perDay.map(d => d.minutes))} word="active minutes" />
-            <Stat value={byPart[0] ? label(byPart[0][0]) : '—'} word="most used" />
+            <Stat value={mostUsed} word="most used" />
           </div>
 
           <section className="flex flex-col gap-2" aria-label="By part">
             <h4 className="text-2xl font-extrabold">By part</h4>
+            {!byPart.length && <p className="text-lg font-bold text-ink-soft">None yet (only time in the app so far)</p>}
             <ul className="flex flex-col gap-1.5">
               {byPart.map(([k, n]) => (
                 <li key={k} className="grid grid-cols-[minmax(0,11rem)_1fr_auto] items-center gap-3 sm:grid-cols-[14rem_1fr_auto]" title={`${label(k)}: ${n}`}>

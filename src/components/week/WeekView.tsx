@@ -44,7 +44,8 @@ export function WeekView({ date }: { date: ISODate }) {
   const days = weekDates(date)
   const first = days[0]
   const last = days[6]
-  const goWeek = (d: ISODate) => {
+  /** The week arrows (counted as arrow taps; another way to change week should track its own). */
+  const arrowWeek = (d: ISODate) => {
     track('nav_arrow')
     store.go({ kind: 'week', date: d })
   }
@@ -70,10 +71,10 @@ export function WeekView({ date }: { date: ISODate }) {
         title={range}
         right={
           <div className="flex gap-2">
-            <BigButton onClick={() => goWeek(addDays(date, -7))} aria-label="Week before">
+            <BigButton onClick={() => arrowWeek(addDays(date, -7))} aria-label="Week before">
               <ChevronLeft size={40} strokeWidth={3} />
             </BigButton>
-            <BigButton onClick={() => goWeek(addDays(date, 7))} aria-label="Week after">
+            <BigButton onClick={() => arrowWeek(addDays(date, 7))} aria-label="Week after">
               <ChevronRight size={40} strokeWidth={3} />
             </BigButton>
           </div>

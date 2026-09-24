@@ -1,4 +1,5 @@
 import type { LibraryItem } from '../types'
+import { ACTIVITY_WORDS, FOOD_WORDS, LEFT_OUT_IDS } from './ideaWords'
 import { preferMulberry, type MulberryEntry } from './symbolImages'
 
 /**
@@ -31,22 +32,36 @@ export const MAX_MORE = 24
  */
 export const MORE_MIN_LETTERS = 3
 /**
- * Mulberry words never offered as a new food or activity: anatomy and
- * personal care, illness, harm and death, and a few that aren't hers to add.
+ * Mulberry words never offered as a new food or activity, a second guard under
+ * the per-kind lists in `ideaWords.ts`: anatomy and personal care, illness and
+ * medicine, harm and death, hard feelings, and a few that aren't hers to add.
  * Matched against whole words of the label ("dead plant" is left out too).
  */
 const BLOCKED = new Set([
-  'penis', 'vagina', 'breast', 'bottom', 'bra', 'knickers', 'pants', 'nappy', 'tampon', 'sanitary', 'toilet', 'toilets',
+  'penis', 'vagina', 'breast', 'bottom', 'bra', 'knickers', 'pants', 'nappy', 'tampon', 'sanitary', 'toilet', 'toilets', 'potty',
+  'body', 'bladder', 'kidneys', 'intestine', 'lungs', 'brain', 'trachea', 'windpipe', 'throat', 'stomach', 'spine',
+  'nostril', 'underarm', 'thigh', 'hip', 'hips', 'skin', 'muscles', 'stubble',
+  'shave', 'razor', 'deodorant', 'aftershave', 'undress',
   'vomit', 'sick', 'blood', 'scar', 'skull', 'skeleton', 'ghost', 'scary',
-  'kill', 'killer', 'dead', 'die', 'fight', 'hit', 'punch', 'kick', 'shoot', 'steal', 'arrest', 'angry', 'sad',
+  'ache', 'headache', 'toothache', 'rash', 'acne', 'sneeze', 'itch', 'seizure', 'choke', 'broken',
+  'operation', 'operating', 'syringe', 'inhaler', 'oxygen', 'xray', 'medicine', 'tablets', 'blister', 'drops', 'dropper', 'crutches',
+  'kill', 'killer', 'dead', 'die', 'fight', 'hit', 'punch', 'kick', 'shoot', 'steal', 'arrest', 'burn', 'drown',
+  'crucifixion', 'thorns', 'tomb', 'handcuffs', 'rifle', 'pistol', 'tank',
+  'angry', 'sad', 'afraid', 'worried', 'disgusted', 'sneering', 'jealous', 'desiring', 'confused', 'ugly', 'cheat',
   'drunk', 'cigarette', 'smoke', 'smoking',
 ])
-/** Letters, numbers and shapes: school words, not things to eat or do. */
+/** Body labels matched as whole phrases, so "chest of drawers" isn't caught. */
+const BLOCKED_PHRASES = ['chest female', 'chest male']
+/** Letters, numbers, shapes and sums: school words, not things to eat or do. */
 const NOT_IDEAS = new Set([
   'lower', 'upper', 'case', 'letter', 'alphabet',
   'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
-  'twenty', 'thirty', 'forty', 'fifty', 'hundred', 'thousand', 'half', 'third', 'thirds', 'quarter', 'quarters', 'percent', 'dot', 'dots',
-  'circle', 'square', 'triangle', 'oval', 'pentagon', 'hexagon', 'hexagonal', 'octagon', 'rectangle', 'diamond', 'prism', 'pyramid', 'shape', 'shapes',
+  'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen',
+  'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety', 'hundred', 'thousand',
+  'first', 'second', 'eighth', 'half', 'third', 'thirds', 'quarter', 'quarters', 'percent', 'dot', 'dots',
+  'circle', 'square', 'triangle', 'oval', 'pentagon', 'hexagon', 'hexagonal', 'heptagon', 'octagon', 'rectangle',
+  'rhombus', 'parallelogram', 'trapezium', 'quadrilateral', 'diamond', 'prism', 'pyramid', 'shape', 'shapes',
+  'add', 'subtract', 'divide', 'multiply', 'sum', 'algebra',
 ])
 
 const shelf = (kind: IdeaKind, category: string, list: [string, string][]): Idea[] =>
@@ -182,12 +197,24 @@ export const IDEAS: Idea[] = [
 const nameKey = (s: string) => s.toLowerCase().replace(/\s+/g, '')
 const labelWords = (label: string) => label.toLowerCase().split(/[\s_-]+/).filter(Boolean)
 
+/** A Mulberry label as its `ideaWords.ts` entry: the cleaned word, lower case, single spaces. */
+export const ideaWord = (label: string) => labelWords(cleanLabel(label)).join(' ')
+
+const wordSet = (list: string) => new Set(list.split(',').map(w => ideaWord(w)).filter(Boolean))
+const KIND_WORDS: Record<IdeaKind, Set<string>> = { food: wordSet(FOOD_WORDS), activity: wordSet(ACTIVITY_WORDS) }
+
 /** A Mulberry picture fit to offer as a new idea: a real word (3+ letters), not a letter, number, shape or blocked word. */
 export function suitable(label: string): boolean {
   const words = labelWords(label)
-  if (cleanLabel(label).length < 3 || /\d/.test(cleanLabel(label))) return false
+  const clean = cleanLabel(label)
+  if (clean.length < 3 || /\d/.test(clean)) return false
+  if (BLOCKED_PHRASES.some(p => ideaWord(label).includes(p))) return false
   return !words.some(w => BLOCKED.has(w) || NOT_IDEAS.has(w))
 }
+
+/** A Mulberry picture offered in "More pictures" for this kind: on its hand-checked list and suitable. */
+export const moreFor = (kind: IdeaKind, m: MulberryEntry) =>
+  KIND_WORDS[kind].has(ideaWord(m.label)) && !LEFT_OUT_IDS.has(m.id) && suitable(m.label)
 
 /**
  * What she already has of a kind, INCLUDING removed words (what the family
@@ -222,7 +249,7 @@ export function cleanLabel(label: string): string {
   return w.charAt(0).toUpperCase() + w.slice(1)
 }
 
-/** Find: matching ideas first, then any other Mulberry picture she doesn't have ("More pictures"). */
+/** Find: matching ideas first, then other Mulberry foods or activities she doesn't have ("More pictures"). */
 export function findIdeas(
   kind: IdeaKind,
   items: LibraryItem[],
@@ -244,7 +271,7 @@ export function findIdeas(
   const seenWords = new Set(ideas.map(i => nameKey(i.name)))
   const more: Idea[] = []
   const scored = mulberry
-    .filter(m => matches(m.label) && suitable(m.label))
+    .filter(m => matches(m.label) && (bySymbol.has(`mb:${m.id}`) || moreFor(kind, m)))
     // Whole-word matches first, then the shortest names (the plainest pictures).
     .map(m => ({ m, score: (words.every(w => labelWords(m.label).includes(w)) ? 0 : 1000) + m.label.length }))
     .sort((a, b) => a.score - b.score)

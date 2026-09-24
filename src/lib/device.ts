@@ -29,11 +29,18 @@ export function setFrankiesTablet(on: boolean) {
   tabletListeners.forEach(fn => fn())
 }
 
-/** isFrankiesTablet() that re-renders when This device changes it (the stats' toggle, the web box). */
+/** isFrankiesTablet() that re-renders when This device changes it (the stats' toggle, the web box), in any tab. */
 export function useFrankiesTablet(): boolean {
   return useSyncExternalStore(fn => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === KEY || e.key === null) fn()
+    }
     tabletListeners.add(fn)
-    return () => void tabletListeners.delete(fn)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      tabletListeners.delete(fn)
+      window.removeEventListener('storage', onStorage)
+    }
   }, isFrankiesTablet)
 }
 

@@ -32,8 +32,15 @@ export function NewItemForm({ kind, mealSlot, category, extra, onCreated, onBack
   const save = async () => {
     if (!canSave) return
     setSaving(true)
-    const item = await saveDraft(store, kind, draft, { mealSlot, extra })
-    setSaving(false)
+    let item: LibraryItem
+    try {
+      item = await saveDraft(store, kind, draft, { mealSlot, extra })
+    } catch {
+      store.toast("Couldn't add that")
+      return
+    } finally {
+      setSaving(false)
+    }
     onCreated(item)
   }
 

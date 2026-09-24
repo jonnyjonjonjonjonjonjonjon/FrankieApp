@@ -272,11 +272,16 @@ export function TryNew({ kind, shelf, query, mealSlot, onAdded, onBack }: SheetP
               disabled={busy}
               onClick={async () => {
                 setBusy(true)
+                let item: LibraryItem
                 try {
-                  onAdded(await addIdea(store, chosen, mealSlot))
+                  item = await addIdea(store, chosen, mealSlot)
+                } catch {
+                  store.toast("Couldn't add that")
+                  return
                 } finally {
                   setBusy(false)
                 }
+                onAdded(item)
               }}
             />
           )}

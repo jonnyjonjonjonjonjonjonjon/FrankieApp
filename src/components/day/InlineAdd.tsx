@@ -200,6 +200,9 @@ export function InlineAdd({ date, index, onClose }: Props) {
     let item: LibraryItem
     try {
       item = await saveDraft(store, kind, draft, { mealSlot })
+    } catch {
+      store.toast("Couldn't add that")
+      return
     } finally {
       setBusy(false)
     }
@@ -227,6 +230,9 @@ export function InlineAdd({ date, index, onClose }: Props) {
     let item: LibraryItem
     try {
       item = await addIdea(store, idea, mealSlot)
+    } catch {
+      store.toast("Couldn't add that")
+      return
     } finally {
       setBusy(false)
     }

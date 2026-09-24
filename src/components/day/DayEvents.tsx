@@ -92,6 +92,13 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
     }
   }, [interactive])
 
+  // A row just added comes into view (the add card above it may have left the day scrolled past it).
+  useEffect(() => {
+    if (!freshId) return
+    const raf = requestAnimationFrame(() => wrappers.current.get(freshId)?.firstElementChild?.scrollIntoView({ block: 'nearest' }))
+    return () => cancelAnimationFrame(raf)
+  }, [freshId])
+
   useEffect(
     () => () => {
       holding.current?.()
@@ -321,7 +328,7 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
             style={style}
           >
             {/* The hold is on the row only, not on the + (or the add card) below it. */}
-            <div className={`row-hold ${e.id === freshId ? 'open-in' : ''}`} onPointerDown={press(e.id)} onContextMenu={ev => ev.preventDefault()}>
+            <div className={`row-hold scroll-my-3 ${e.id === freshId ? 'open-in' : ''}`} onPointerDown={press(e.id)} onContextMenu={ev => ev.preventDefault()}>
               <EventRow
                 event={e}
                 dragging={isDragged}

@@ -1299,6 +1299,9 @@ export async function fetchImageBlob(img: WebImage): Promise<Blob>   // CORS fet
 - **Wikimedia Commons** is **not** included: it has no safe-search filter. See Q2.
 - Keep results in memory per query for the session, so re-opening doesn't hit
   the network. Openverse's anonymous limits are low, so debounce and cache.
+- **Privacy**: wherever the web box shows (any family phone, in or out of
+  Family mode), each typed word goes to Openverse once typing pauses (700 ms),
+  plus its thumbnail requests. Noted in the README's sync section.
 
 **Who sees it**: family phones always get the web box. On the device marked as
 **Frankie's tablet** it shows only while **Family mode** is on (Family → Words,
@@ -1521,9 +1524,14 @@ day's add card too:
     and that she doesn't have. They are labelled with a cleaned-up word:
     underscores become spaces, `-to` and `_1a`-style suffixes are dropped, and
     the first letter is capitalised. Only from **3 letters** (`MORE_MIN_LETTERS`;
-    one or two letters match hundreds of words), and never letters, numbers,
-    shapes or blocked words (anatomy, illness, harm, death: `suitable()` in
-    `ideas.ts`), whole-word matches first.
+    one or two letters match hundreds of words), whole-word matches first.
+    **Built differently**: a blocklist kept letting through body, illness and
+    harm words ("Burn" for "bur", "Choke" for "cho"), so "More pictures" only
+    offers Mulberry labels on hand-checked per-kind lists (`FOOD_WORDS`,
+    `ACTIVITY_WORDS` in `ideaWords.ts`, one pass over every label, plus
+    `LEFT_OUT_IDS` for pictures with the wrong meaning). `suitable()` (letters,
+    numbers, shapes, blocked words) stays as a second guard. Alcohol is left
+    out pending the owner.
 - **The grid**: ideas for the current shelf (the shelf tabs are reused), shown
   as Tiles. It opens on a shelf, not All, so the landscape tablet shows a row
   of ideas.
