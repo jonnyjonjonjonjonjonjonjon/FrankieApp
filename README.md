@@ -28,6 +28,7 @@ Installable as a PWA (Android tablet, Chrome/Edge on Windows). Everything is sto
 | 4.6 "+ Add" everywhere; add-to-day with no typing; pickers on shelves (tabs for People: Family / Staff / Friends, Food by meal plus Fruit / Treats / Drinks, Activities: Home / Out / Active / Fun / Friends / Relax; "All" shows every shelf); new word = Word → Shelf → Picture (symbol grid with search and/or photo) → Yes; question screens answer with thumbs-up Yes / thumbs-down No (and Clear to take a value away) | `components/day/InlineAdd.tsx`, `components/pickers/` (`ChoiceGrid`, `NewItemFields`, `PictureChooser`), `lib/categories.ts` |
 | 4.9 Birthdays: Family settings → Birthdays (soonest first; month, then day; optional year born shows the age on the day band) | `components/settings/Birthdays.tsx`, `components/pickers/MonthDayPicker.tsx`; day / week / month views |
 | Words: Family settings → Words, by kind and shelf: rename, change picture or shelf, stay / doctor-or-dentist for places, reorder with arrows, remove and restore | `components/settings/WordsManager.tsx`, `WordEditor.tsx` |
+| Festive days: Christmas (25 Dec), Easter Sunday (worked out each year) and Halloween (31 Oct) show as a band with symbol + word on the day, the symbol beside the date and a word band in the week, and the symbol at the top right of the month cell in the day's colours (green, lilac, pale orange; today's orange and "staying away" sky blue come first) | `lib/festive.ts` (one line per day); day / week / month views |
 | 4.10 Gallery grouped by day, newest first, tap to jump to the day | `components/photos/GalleryView.tsx` |
 | 4.11 Starting lists | `lib/seed.ts` |
 | No pinch zoom; a crash shows the diary book and reloads once (after an update check) instead of a white screen | `index.html`, `lib/noZoom.ts`, `components/ui/ErrorBoundary.tsx` |
@@ -65,6 +66,7 @@ src/
     symbols.ts          event types, rating faces, symbol grid for new words
     categories.ts       shelves per kind; categoryOf() places older records at read time
     dates.ts, time.ts   date helpers; 12-hour / half-hour time helpers
+    festive.ts          Christmas / Easter / Halloween: festiveOn(date), easterSunday(year)
     images.ts           image shrinking + object-URL cache
     sync.ts             Firebase sync adapter (auth, members, Firestore, Storage outbox)
     firebaseConfig.ts   paste the Firebase web config here to switch sync on

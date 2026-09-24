@@ -1192,6 +1192,48 @@ line each.
 4. Stay away (Eastbourne) over 24-26 Dec: the 25 Dec month cell keeps the sky
    background and shows the tree.
 
+### 7.4 Batch 4 as built (deviations from the design above)
+
+- **`festive.ts`** holds the colours too: each `Festive` carries `bg` / `border`
+  Tailwind classes, so the views never branch on the key. The table is one line
+  per day with an `on(year)` function (a fixed date or `easterSunday`), so a new
+  day (Boxing Day, Easter Monday = Easter + 1) is one line. Imports only
+  `dates.ts` and types; `easterSunday` checked for 2019, 2024-2030, 2038 and
+  2285 (the earliest possible, 22 March).
+- **Lilac tokens** added to `index.css`: `--color-lilac: #7a4cc2`,
+  `--color-lilac-light: #f1e8fb`.
+- **Day**: as designed (under Staying at, before the birthday bands, the band's
+  own edge colour).
+- **Week**: the symbol sits beside the date number in the sticky header (with the
+  word for screen readers); the column's first line is the word band, a bottom
+  edge in the festive colour, before the birthdays band.
+- **Month**: the cell also takes the festive edge (green / lilac; Halloween
+  keeps ink) as well as the background, in the same precedence (today, then
+  away, then festive; away keeps the ink edge). On phones there is no room for a
+  24px number and a 26px symbol in a 52px square, so the symbol is a size down
+  (`text-xl`, desktop `text-3xl`) and reaches into the cell's padding. On the
+  narrowest phones (360px) it drops under the number, still at the right, and
+  the cell may grow taller than square (phones only: `min-h-auto`, overflow
+  visible; tablets keep `min-h-0` and now clip with `overflow-hidden`) rather
+  than clip the birthday cake. The birthday cake and faces are also a size down
+  on phones (`text-xl`), so the cake and a face fit side by side in a 412px
+  phone's cell (they were cut off by a few pixels before).
+- **Seen, not changed** (older than this batch): `button { color: inherit }` in
+  `index.css` beats Tailwind's `text-white` on buttons, so "today" in the month
+  and week (and the active tab) is ink on orange, not white. Readable (about
+  6:1), but not what the classes say.
+- **Tests**: `gauntlet/b4/unit.mjs` (Easter dates, `festiveOn`), `b4.mjs`
+  (tests 2-4 at tablet, portrait, phone and a 360×780 phone: Christmas band /
+  header tree / month tree top-right; Mum's 25 December birthday with both bands
+  in the right order, week both bands, month tree + cake + face with nothing
+  outside the cell; Eastbourne 24-26 Dec on 25 Dec as today and on a 20 Dec
+  clock (sky wins, tree stays); Halloween by clock; Easter 2027 reached by
+  month arrows, tapping the 28th, and week arrows). Regressions in
+  `b4/regress/`: batch 3's scripts (`views.mjs` changed to change day by the
+  tabs, as the arrows are disabled while adding since batch 3's fixes), the
+  fix2 scripts, batch 1/2 scripts (same results as the build before this
+  batch), and `time.mjs` (time picker on a festive day).
+
 ---
 
 ## 8. Batch 5 — Web pictures, usage stats, Try something new (items 2, 5, 16)

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { addMonths, DAY_SHORT, dayNumber, monthGrid, monthName, today, year } from '../../lib/dates'
+import { festiveOn } from '../../lib/festive'
 import { useStore } from '../../lib/store'
 import type { ISODate, LibraryItem } from '../../types'
 import { BigButton } from '../ui/BigButton'
@@ -19,7 +20,8 @@ function Face({ item, size = 'text-2xl' }: { item: LibraryItem; size?: string })
 /**
  * Month grid, cells as large as the screen allows. Each day shows the things
  * that matter ahead of time: staying somewhere other than home, a doctor or
- * dentist visit, and anyone coming to see her. Months slide like days (the
+ * dentist visit, anyone coming to see her, birthdays, and a festive day's
+ * symbol at the top right (beside the number). Months slide like days (the
  * same carousel), with the arrows either side of the centred title.
  */
 export function MonthView({ date }: { date: ISODate }) {
@@ -82,16 +84,34 @@ function MonthGrid({ date }: { date: ISODate }) {
           const medical = events.some(e => e.placeId && items[e.placeId]?.placeType === 'medical')
           const people = [...new Set(events.flatMap(e => e.personIds))].map(id => items[id]).filter(Boolean)
           const birthdays = store.birthdaysOn(d)
+          const festive = festiveOn(d)
+          // Today's orange wins, then away (sky: where she sleeps stays clear); then the festive colours.
+          const look = isToday
+            ? 'border-orange-dark bg-orange text-white'
+            : away
+              ? 'border-ink bg-sky'
+              : festive
+                ? `${festive.border} ${festive.bg}`
+                : 'border-ink bg-paper'
           return (
             <button
               key={d}
               type="button"
               onClick={() => store.go({ kind: 'day', date: d, from: 'month' })}
-              className={`flex aspect-square min-h-0 flex-col rounded-2xl border-4 p-1 text-left active:scale-95 sm:aspect-auto ${
-                isToday ? 'border-orange-dark bg-orange text-white' : away ? 'border-ink bg-sky' : 'border-ink bg-paper'
-              }`}
+              className={`flex aspect-square min-h-0 flex-col overflow-hidden rounded-2xl border-4 p-1 text-left max-sm:min-h-auto max-sm:overflow-visible active:scale-95 sm:aspect-auto ${look}`}
             >
-              <span className="text-xl font-extrabold leading-none sm:text-2xl">{dayNumber(d)}</span>
+              {/* On phones the symbol reaches into the cell's padding to fit beside the number; on the
+                  narrowest it drops under it (still at the right), and a square too small for what it
+                  shows grows taller (phones have natural rows) rather than clip a birthday */}
+              <span className="flex flex-wrap items-start justify-between">
+                <span className="text-xl font-extrabold leading-none sm:text-2xl">{dayNumber(d)}</span>
+                {festive && (
+                  <>
+                    <Symbol symbol={festive.symbol} size="text-xl sm:text-3xl" className="ml-auto max-sm:-mt-0.5 max-sm:-mr-1" />
+                    <span className="sr-only">{festive.word}</span>
+                  </>
+                )}
+              </span>
               <span className="mt-auto flex flex-wrap items-end gap-x-1 gap-y-0.5 overflow-hidden">
                 {away && (
                   <span className="inline-flex max-w-full items-center gap-1 text-sm font-bold sm:text-base">
@@ -106,9 +126,10 @@ function MonthGrid({ date }: { date: ISODate }) {
                 {/* Cake and whose birthday it is (two faces fit a cell; more shows as +N) */}
                 {birthdays.length > 0 && (
                   <span className="inline-flex items-center gap-0.5" aria-label={`${birthdays.map(p => p.name).join(' and ')} birthday`}>
-                    <Symbol symbol="🎂" size="text-2xl" />
+                    {/* A size down on phones, so the cake and a face fit side by side */}
+                    <Symbol symbol="🎂" size="text-xl sm:text-2xl" />
                     {birthdays.slice(0, 2).map(p => (
-                      <Face key={p.id} item={p} />
+                      <Face key={p.id} item={p} size="text-xl sm:text-2xl" />
                     ))}
                     {birthdays.length > 2 && <span className="text-base font-extrabold">+{birthdays.length - 2}</span>}
                   </span>

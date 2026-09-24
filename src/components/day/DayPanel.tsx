@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { useStore } from '../../lib/store'
 import { today } from '../../lib/dates'
+import { festiveOn } from '../../lib/festive'
 import { minutesOf, nowHHMM } from '../../lib/time'
 import { useNow } from '../ui/useNow'
 import type { Id, ISODate } from '../../types'
@@ -23,11 +24,12 @@ interface Props {
   freshId?: Id | null
 }
 
-/** Everything that slides when you swipe between days: staying-at, birthdays, the list, photos. */
+/** Everything that slides when you swipe between days: staying-at, a festive day, birthdays, the list, photos. */
 export function DayPanel({ date, onOpen, onTime, onPickStay, interactive = true, composeAt, composer, onCompose, freshId }: Props) {
   const store = useStore()
   const events = store.eventsFor(date)
   const staying = store.stayingAt(date)
+  const festive = festiveOn(date)
   const birthdays = store.birthdaysOn(date)
   const now = useNow()
   // A day that has just arrived always starts at the top (before paint, so no jump).
@@ -64,6 +66,13 @@ export function DayPanel({ date, onOpen, onTime, onPickStay, interactive = true,
             <span className="text-3xl font-extrabold">{staying?.name ?? 'Rochester Road'}</span>
           </div>
         </button>
+
+        {festive && (
+          <div className={`flex min-h-20 items-center gap-4 rounded-3xl border-4 px-4 py-2 ${festive.border} ${festive.bg}`}>
+            <Symbol symbol={festive.symbol} size="text-6xl" />
+            <span className="min-w-0 break-words text-3xl font-extrabold">{festive.word}</span>
+          </div>
+        )}
 
         {birthdays.map(p => (
           <div key={p.id} className="flex min-h-20 items-center gap-4 rounded-3xl border-4 border-orange bg-orange-light px-4 py-2">

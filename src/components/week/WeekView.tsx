@@ -1,6 +1,7 @@
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { addDays, DAY_SHORT, dayNumber, monthName, today, weekDates, weekdayIndex, year } from '../../lib/dates'
 import { eventFace, travelDestination } from '../../lib/eventFace'
+import { festiveOn } from '../../lib/festive'
 import { useStore } from '../../lib/store'
 import { eventTypeInfo, RATING_FACES } from '../../lib/symbols'
 import { isDaytime, to12 } from '../../lib/time'
@@ -71,6 +72,7 @@ export function WeekView({ date }: { date: ISODate }) {
           <div className="sticky top-0 z-10 grid grid-cols-7 gap-2 bg-paper pt-3">
             {days.map(d => {
               const isToday = d === today()
+              const festive = festiveOn(d)
               return (
                 <button
                   key={d}
@@ -81,7 +83,12 @@ export function WeekView({ date }: { date: ISODate }) {
                   }`}
                 >
                   <span className="text-xl font-extrabold">{DAY_SHORT[weekdayIndex(d)]}</span>
-                  <span className="text-3xl font-extrabold leading-none">{dayNumber(d)}</span>
+                  {/* A festive day's symbol beside the date, so it shows while scrolling too */}
+                  <span className="flex items-center gap-1">
+                    <span className="text-3xl font-extrabold leading-none">{dayNumber(d)}</span>
+                    {festive && <Symbol symbol={festive.symbol} size="text-3xl" />}
+                    {festive && <span className="sr-only">{festive.word}</span>}
+                  </span>
                 </button>
               )
             })}
@@ -93,10 +100,18 @@ export function WeekView({ date }: { date: ISODate }) {
               const meals = MEALS.map(m => events.find(e => e.type === m))
               const others = events.filter(e => !MEALS.includes(e.type))
               const staying = store.stayingAt(d)
+              const festive = festiveOn(d)
               const birthdays = store.birthdaysOn(d)
               const photos = store.photosFor(d)
               return (
                 <div key={d} className={`flex flex-col rounded-b-3xl border-4 border-t-0 ${isToday ? 'border-orange' : 'border-ink'} bg-paper`}>
+                  {/* Festive band: the word, in the day's colours */}
+                  {festive && (
+                    <div className={`flex items-center justify-center border-b-2 px-1 py-1 text-center text-lg font-bold ${festive.bg} ${festive.border}`}>
+                      <span className="min-w-0 break-words">{festive.word}</span>
+                    </div>
+                  )}
+
                   {/* Birthdays band */}
                   {birthdays.length > 0 && (
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t-2 border-line bg-orange-light px-1 py-1 text-lg font-bold">
