@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type TouchEvent, type TransitionEvent } from 'react'
+import { gesturesLocked } from './gestureLock'
 
 interface Props {
   /** Identifies the centre panel (a day, a month…); when it changes the track is rebuilt at rest. */
@@ -50,6 +51,13 @@ export function SlideCarousel({ centre, render, onSettle, request, locked = fals
   const onTouchMove = (e: TouchEvent) => {
     const s = start.current
     if (!s) return
+    // A row was lifted (hold to drag): the finger belongs to it now, so drop any swipe begun.
+    if (gesturesLocked()) {
+      start.current = null
+      setDragging(false)
+      setDx(0)
+      return
+    }
     const t = e.touches[0]
     const mx = t.clientX - s.x
     const my = t.clientY - s.y
@@ -85,7 +93,9 @@ export function SlideCarousel({ centre, render, onSettle, request, locked = fals
   const transition = animTo === null && dragging ? 'none' : 'transform 260ms ease-out'
 
   return (
-    <div className="h-full overflow-hidden" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
+    // overflow: clip, not hidden: a hidden box can still be scrolled by the browser (focusing the add
+    // card's text box scrolled the track sideways, leaving the day half off screen); a clipped one can't.
+    <div className="h-full overflow-clip" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
       <div
         key={centre}
         ref={track}
@@ -99,7 +109,7 @@ export function SlideCarousel({ centre, render, onSettle, request, locked = fals
         onTransitionEnd={onTransitionEnd}
       >
         {([-1, 0, 1] as const).map(o => (
-          <div key={o} className="h-full w-full shrink-0 overflow-hidden">
+          <div key={o} className="h-full w-full shrink-0 overflow-clip">
             {render(o)}
           </div>
         ))}

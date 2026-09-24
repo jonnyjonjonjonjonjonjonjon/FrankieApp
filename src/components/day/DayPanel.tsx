@@ -1,9 +1,9 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { useStore } from '../../lib/store'
 import { today } from '../../lib/dates'
 import { minutesOf, nowHHMM } from '../../lib/time'
 import { useNow } from '../ui/useNow'
-import type { ISODate } from '../../types'
+import type { Id, ISODate } from '../../types'
 import { Photo } from '../ui/Photo'
 import { Symbol } from '../ui/Symbol'
 import { DayEvents } from './DayEvents'
@@ -14,10 +14,17 @@ interface Props {
   onOpen: (id: string) => void
   onTime: (id: string) => void
   onPickStay: () => void
+  /** The centre panel (the + buttons and dragging work); neighbours only look the same. */
+  interactive?: boolean
+  /** The add card and where in the list it is open. */
+  composeAt?: number | null
+  composer?: ReactNode
+  onCompose?: (index: number) => void
+  freshId?: Id | null
 }
 
 /** Everything that slides when you swipe between days: staying-at, birthdays, the list, photos. */
-export function DayPanel({ date, onOpen, onTime, onPickStay }: Props) {
+export function DayPanel({ date, onOpen, onTime, onPickStay, interactive = true, composeAt, composer, onCompose, freshId }: Props) {
   const store = useStore()
   const events = store.eventsFor(date)
   const staying = store.stayingAt(date)
@@ -36,7 +43,9 @@ export function DayPanel({ date, onOpen, onTime, onPickStay }: Props) {
   }
 
   return (
-    <div ref={scroller} className="h-full overflow-y-auto px-3 py-3">
+    // The add card's sticky header and footer stick to this scroller: nothing between them may set overflow.
+    // (Positioned, so the card can measure its place in it with offsetTop.)
+    <div ref={scroller} data-day-scroller className="relative h-full overflow-y-auto px-3 py-3">
       <div className="mx-auto flex max-w-4xl flex-col gap-4">
         <button
           type="button"
@@ -73,7 +82,18 @@ export function DayPanel({ date, onOpen, onTime, onPickStay }: Props) {
           </div>
         ))}
 
-        <DayEvents date={date} events={events} currentId={currentId} onOpen={onOpen} onTime={onTime} />
+        <DayEvents
+          date={date}
+          events={events}
+          currentId={currentId}
+          onOpen={onOpen}
+          onTime={onTime}
+          interactive={interactive}
+          composeAt={composeAt}
+          composer={composer}
+          onCompose={onCompose}
+          freshId={freshId}
+        />
 
         <PhotoStrip date={date} />
       </div>

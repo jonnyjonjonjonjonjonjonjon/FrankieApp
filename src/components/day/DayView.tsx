@@ -1,16 +1,19 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Settings as SettingsIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Settings as SettingsIcon } from 'lucide-react'
 import { addDays, longDate, today } from '../../lib/dates'
 import { useStore } from '../../lib/store'
-import type { ISODate, Tab } from '../../types'
+import type { Id, ISODate, Tab } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { SlideCarousel } from '../ui/SlideCarousel'
 import { TopBar } from '../ui/TopBar'
 import { ItemPicker } from '../pickers/ItemPicker'
 import { TimePicker } from '../pickers/TimePicker'
-import { AddEventFlow } from './AddEventFlow'
 import { DayPanel } from './DayPanel'
 import { EventSheet } from './EventSheet'
+import { InlineAdd } from './InlineAdd'
+
+/** How long a newly added row keeps its arrival animation class. */
+const FRESH_MS = 600
 
 interface Props {
   date: ISODate
@@ -21,7 +24,13 @@ export function DayView({ date, from }: Props) {
   const store = useStore()
   const [openId, setOpenId] = useState<string | null>(null)
   const [timeId, setTimeId] = useState<string | null>(null)
-  const [adding, setAdding] = useState(false)
+  // The add card: open at a place in this day's list (a new day closes it).
+  const [compose, setCompose] = useState<{ date: ISODate; index: number } | null>(null)
+  // Changing day (arrow, swipe or tab) closes it, so coming back never finds it still open.
+  if (compose && compose.date !== date) setCompose(null)
+  const composeAt = compose?.date === date ? compose.index : null
+  // The row just added, so it arrives with a short rise.
+  const [fresh, setFresh] = useState<Id | null>(null)
   const [pickStay, setPickStay] = useState(false)
   const [slide, setSlide] = useState<{ dir: -1 | 1; n: number } | null>(null)
   const isToday = date === today()
@@ -80,19 +89,39 @@ export function DayView({ date, from }: Props) {
         <SlideCarousel
           centre={date}
           request={slide}
+          locked={composeAt !== null}
           onSettle={dir => goDay(addDays(date, dir))}
           render={o => (
-            <DayPanel date={addDays(date, o)} onOpen={id => void open(id)} onTime={id => void openTime(id)} onPickStay={() => setPickStay(true)} />
+            <DayPanel
+              date={addDays(date, o)}
+              onOpen={id => void open(id)}
+              onTime={id => void openTime(id)}
+              onPickStay={() => setPickStay(true)}
+              interactive={o === 0}
+              composeAt={o === 0 ? composeAt : null}
+              composer={
+                o === 0 &&
+                composeAt !== null && (
+                  <InlineAdd
+                    date={date}
+                    index={composeAt}
+                    onClose={id => {
+                      setCompose(null)
+                      setFresh(id ?? null)
+                      // Only its arrival animates: gone again before the row could remount (a swipe back).
+                      if (id) setTimeout(() => setFresh(f => (f === id ? null : f)), FRESH_MS)
+                    }}
+                  />
+                )
+              }
+              onCompose={index => {
+                setFresh(null)
+                setCompose({ date, index })
+              }}
+              freshId={o === 0 ? fresh : null}
+            />
           )}
         />
-      </div>
-
-      {/* Primary action bottom-right for her right index finger */}
-      <div className="flex justify-end border-t-4 border-line bg-paper px-3 py-2">
-        <BigButton variant="primary" size="md" className="min-w-48" onClick={() => setAdding(true)}>
-          <Plus size={44} strokeWidth={4} />
-          Add
-        </BigButton>
       </div>
 
       {openId && <EventSheet eventId={openId} date={date} onClose={() => setOpenId(null)} />}
@@ -107,7 +136,6 @@ export function DayView({ date, from }: Props) {
           }}
         />
       )}
-      {adding && <AddEventFlow date={date} onClose={() => setAdding(false)} />}
       {pickStay && (
         <ItemPicker
           kind="place"

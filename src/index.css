@@ -120,6 +120,23 @@ button,
   animation: rise 180ms ease-out;
 }
 
+/* The day's add card and a newly added row arrive (opacity and a short rise only;
+   no fill-mode, so nothing keeps a transform once it has landed). */
+@keyframes open-in {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.open-in {
+  animation: open-in 180ms ease-out;
+}
+
+/* Day rows are held to lift them: no Android callout or text selection on a long press. */
+.row-hold {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }

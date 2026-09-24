@@ -497,16 +497,19 @@ class Store {
     foodIds?: Id[]
     placeId?: Id | null
     personIds?: Id[]
+    /** Where in the day's list it goes (a + between rows); at the end if not given. */
+    index?: number
   }): Promise<DiaryEvent> {
     await this.materializeDay(input.date)
     const now = stamp()
     const existing = this.eventsFor(input.date)
+    const at = input.index === undefined ? existing.length : Math.max(0, Math.min(input.index, existing.length))
     const ev: DiaryEvent = {
       id: db.newId(),
       date: input.date,
       type: input.type,
       time: input.time ?? null,
-      order: existing.length ? Math.max(...existing.map(e => e.order ?? 0)) + 10 : 0,
+      order: at < existing.length ? at * 10 : existing.length ? Math.max(...existing.map(e => e.order ?? 0)) + 10 : 0,
       activityId: input.activityId ?? null,
       travelId: input.travelId ?? null,
       foodIds: input.foodIds ?? [],
@@ -521,6 +524,8 @@ class Store {
     }
     await db.putEvent(ev)
     this.set({ events: { ...this.state.events, [ev.id]: ev } })
+    // Inserted mid-list: it already holds its slot's number, so this renumbers only the rows after it.
+    if (at < existing.length) await this.writeOrder([...existing.slice(0, at), ev, ...existing.slice(at)])
     return ev
   }
 

@@ -1,7 +1,25 @@
-import { useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { Plus } from 'lucide-react'
+import { buzz } from '../../lib/haptics'
 import { useStore } from '../../lib/store'
-import type { DiaryEvent, ISODate } from '../../types'
+import type { DiaryEvent, Id, ISODate } from '../../types'
+import { lockGestures, unlockGestures } from '../ui/gestureLock'
 import { EventRow } from './EventRow'
+
+/** Height of the space for a + between rows (the list's gap-3 sits either side of it). */
+const SLOT_REM = 2.25
+/** The + circle: spills 0.5rem into the gaps above and below, still 0.25rem clear of the rows. */
+const PLUS_REM = 3.25
+/** Press and hold a row this long to lift it. */
+const HOLD_MS = 450
+/** Moving further than this (px) before the hold completes means it was a scroll or a swipe. */
+const HOLD_SLOP = 10
+/** The pressed row's border turns orange after this long (a colour change only: no transform on taps). */
+const PRESS_MS = 120
+/** While lifted, a finger this close (px) to the day's top or bottom edge scrolls it… */
+const EDGE_PX = 64
+/** …by up to this many px a frame, faster nearer the edge. */
+const EDGE_SPEED = 14
 
 interface Props {
   date: ISODate
@@ -10,6 +28,15 @@ interface Props {
   currentId?: string | null
   onOpen: (id: string) => void
   onTime: (id: string) => void
+  /** The centre panel. Neighbour panels draw the same + slots (so nothing jumps when a slide lands) but inert. */
+  interactive?: boolean
+  /** Where the add card is open (index in the list), if it is. */
+  composeAt?: number | null
+  /** The add card, drawn in place of the + at `composeAt`. */
+  composer?: ReactNode
+  onCompose?: (index: number) => void
+  /** A row just added: it arrives with a short rise. */
+  freshId?: Id | null
 }
 
 interface Drag {
@@ -18,57 +45,182 @@ interface Drag {
   /** Index among the other rows where it would land. */
   to: number
   dy: number
-  /** Dragged row height + gap: how far others shift to make room. */
+  /** Dragged row's wrapper (row + the + below it) + gap: how far others shift to make room. */
   gap: number
 }
 
-const ROW_GAP = 12 // matches gap-3
-
 /**
- * The day's list. Drag a row by its grip: it lifts and follows the finger while
- * the rows it passes slide out of the way, so the whole list stays readable.
- * On release the store applies the ordering rule.
+ * The day's list, with a + between every pair of rows (and above the first,
+ * below the last) that opens the add card right there. Press and hold a row
+ * (or grab its grip) to drag it: it lifts and follows the finger while the rows
+ * it passes slide out of the way, so the whole list stays readable. On release
+ * the store applies the ordering rule.
  */
-export function DayEvents({ date, events, currentId = null, onOpen, onTime }: Props) {
+export function DayEvents({ date, events, currentId = null, onOpen, onTime, interactive = true, composeAt = null, composer, onCompose, freshId = null }: Props) {
   const store = useStore()
-  const rows = useRef<Map<string, HTMLDivElement>>(new Map())
+  const root = useRef<HTMLDivElement>(null)
+  /** Row wrappers (the row and the + slot below it). */
+  const wrappers = useRef<Map<string, HTMLDivElement>>(new Map())
   const [drag, setDrag] = useState<Drag | null>(null)
+  const [pressing, setPressing] = useState<Id | null>(null)
+  /** A row is lifted: touchmoves on the list are cancelled so the day doesn't scroll under it. */
+  const lifted = useRef(false)
+  /** Swallow the click that can follow a drop. */
+  const suppressClick = useRef(false)
+  /** Cancels a pending hold. */
+  const holding = useRef<(() => void) | null>(null)
+  /** Ends a live drag in place (used on unmount). */
+  const dropping = useRef<(() => void) | null>(null)
+  const composing = composeAt !== null
 
-  const start = (id: string) => (e: PointerEvent<HTMLButtonElement>) => {
-    e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
+  // Chrome decides at touchstart whether a touch may be held back by script, from the areas that
+  // have non-passive listeners. Registered from the start, the list stays one, so once a row lifts
+  // its touchmoves can still be cancelled. Keep the handler trivial: scrolls starting here wait for it.
+  useEffect(() => {
+    const el = root.current
+    if (!el || !interactive) return
+    const block = (e: TouchEvent) => {
+      if (lifted.current) e.preventDefault()
+    }
+    el.addEventListener('touchstart', block, { passive: false })
+    el.addEventListener('touchmove', block, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', block)
+      el.removeEventListener('touchmove', block)
+    }
+  }, [interactive])
+
+  useEffect(
+    () => () => {
+      holding.current?.()
+      dropping.current?.()
+    },
+    [],
+  )
+
+  /** Lift a row and follow the pointer until it is released (or the browser takes the touch back). */
+  const beginDrag = (id: string, pointerId: number, y0: number) => {
+    const list = root.current
     const from = events.findIndex(x => x.id === id)
-    const startY = e.clientY
-    const me = rows.current.get(id)
-    const gap = (me?.getBoundingClientRect().height ?? 0) + ROW_GAP
-    // Midpoints of the other rows, measured once: only transforms change during the drag.
+    if (!list || from < 0) return
+    const scroller = list.closest<HTMLElement>('[data-day-scroller]')
+    const scroll0 = scroller?.scrollTop ?? 0
+    // Measured before the lift: the lifted row's transform must not stretch how far the day can scroll.
+    const maxScroll = scroller ? scroller.scrollHeight - scroller.clientHeight : 0
+    const rowGap = parseFloat(getComputedStyle(list).rowGap) || 0
+    const gap = (wrappers.current.get(id)?.getBoundingClientRect().height ?? 0) + rowGap
+    // Midpoints of the other rows (the row itself, not its + slot), measured once in content
+    // coordinates: only transforms and the scroll position change during the drag.
     const mids = events
       .filter(x => x.id !== id)
       .map(x => {
-        const r = rows.current.get(x.id)?.getBoundingClientRect()
-        return r ? r.top + r.height / 2 : Infinity
+        const r = wrappers.current.get(x.id)?.firstElementChild?.getBoundingClientRect()
+        return r ? r.top + r.height / 2 + scroll0 : Infinity
       })
-    const target = (y: number) => mids.filter(m => m < y).length
+    const scrolled = () => (scroller?.scrollTop ?? 0) - scroll0
+    let y = y0
+    const target = () => mids.filter(m => m < y + scroll0 + scrolled()).length
+    const update = () => setDrag(d => (d ? { ...d, dy: y - y0 + scrolled(), to: target() } : d))
+
+    lifted.current = true
+    suppressClick.current = true
+    lockGestures()
     setDrag({ id, from, to: from, dy: 0, gap })
 
-    const move = (ev: globalThis.PointerEvent) => {
-      setDrag(d => (d ? { ...d, dy: ev.clientY - startY, to: target(ev.clientY) } : d))
+    // Near the top or bottom edge, scroll the day so a row can be taken anywhere in a long list.
+    let frame = 0
+    const edge = () => {
+      frame = requestAnimationFrame(edge)
+      if (!scroller) return
+      const r = scroller.getBoundingClientRect()
+      let v = 0
+      if (y < r.top + EDGE_PX) v = -EDGE_SPEED * Math.min(1, (r.top + EDGE_PX - y) / EDGE_PX)
+      else if (y > r.bottom - EDGE_PX) v = EDGE_SPEED * Math.min(1, (y - r.bottom + EDGE_PX) / EDGE_PX)
+      if (!v) return
+      const next = Math.max(0, Math.min(maxScroll, scroller.scrollTop + v))
+      if (next === scroller.scrollTop) return
+      scroller.scrollTop = next
+      update()
     }
-    // While dragging, the page must not scroll under the finger.
-    const block = (ev: Event) => ev.preventDefault()
-    window.addEventListener('touchmove', block, { passive: false })
-    const end = (ev: globalThis.PointerEvent) => {
-      window.removeEventListener('touchmove', block)
+    frame = requestAnimationFrame(edge)
+
+    const move = (ev: globalThis.PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      y = ev.clientY
+      update()
+    }
+    const finish = (to: number) => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', end)
       window.removeEventListener('pointercancel', end)
-      const to = ev.type === 'pointercancel' ? from : target(ev.clientY)
+      cancelAnimationFrame(frame)
+      lifted.current = false
+      unlockGestures()
+      dropping.current = null
       setDrag(null)
       if (to !== from) void store.moveEvent(date, id, to)
     }
+    // The browser taking the touch back (pointercancel) drops the row where it started.
+    const end = (ev: globalThis.PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      if (ev.type === 'pointerup') y = ev.clientY
+      finish(ev.type === 'pointercancel' ? from : target())
+    }
+    dropping.current = () => finish(from)
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', end)
     window.addEventListener('pointercancel', end)
+  }
+
+  /** The grip: an instant drag handle (touch-action: none), for the family. */
+  const grip = (id: string) => (e: PointerEvent<HTMLButtonElement>) => {
+    if (!interactive || composing) return
+    e.preventDefault()
+    holding.current?.()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    beginDrag(id, e.pointerId, e.clientY)
+  }
+
+  /** Press and hold anywhere on a row to lift it; a short tap still opens it. */
+  const press = (id: string) => (e: PointerEvent<HTMLDivElement>) => {
+    if (!interactive || composing || drag || !e.isPrimary || e.button !== 0) return
+    if ((e.target as HTMLElement).closest('[data-grip]')) return
+    holding.current?.()
+    const el = e.currentTarget
+    const { pointerId, clientX: x0, clientY: y0 } = e
+    let y = y0
+    const move = (ev: globalThis.PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      y = ev.clientY
+      if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > HOLD_SLOP) cancel() // a scroll or a swipe: let it be
+    }
+    const up = (ev: globalThis.PointerEvent) => {
+      if (ev.pointerId === pointerId) cancel() // a tap: its click opens the row as usual
+    }
+    const pressTimer = setTimeout(() => setPressing(id), PRESS_MS)
+    const holdTimer = setTimeout(() => {
+      cancel()
+      buzz(30)
+      try {
+        el.setPointerCapture(pointerId)
+      } catch {
+        // the pointer has already gone
+      }
+      beginDrag(id, pointerId, y)
+    }, HOLD_MS)
+    const cancel = () => {
+      clearTimeout(pressTimer)
+      clearTimeout(holdTimer)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      holding.current = null
+      setPressing(null)
+    }
+    holding.current = cancel
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
   }
 
   /** How far a non-dragged row (index k among the others) shifts. */
@@ -78,10 +230,51 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime }: Pr
     return 0
   }
 
+  /** The + at a position in the list, or the add card if it is open there. */
+  const slot = (index: number) =>
+    composeAt === index ? (
+      <div key="composer">{composer}</div>
+    ) : (
+      <AddSlot key="slot" hidden={Boolean(drag) || composing} inert={!interactive || composing} onClick={() => onCompose?.(index)} />
+    )
+
   let k = 0
   return (
-    <div className="flex flex-col gap-3">
-      {events.map(e => {
+    <div
+      ref={root}
+      className="flex flex-col gap-3"
+      onPointerDownCapture={() => {
+        suppressClick.current = false
+      }}
+      onClickCapture={e => {
+        if (!suppressClick.current) return
+        suppressClick.current = false
+        e.preventDefault()
+        e.stopPropagation()
+      }}
+    >
+      {events.length === 0 ? (
+        composeAt === 0 ? (
+          composer
+        ) : (
+          // An empty day: one big Add where the list would be (same in every panel).
+          <button
+            type="button"
+            aria-label="Add here"
+            inert={!interactive}
+            onClick={() => onCompose?.(0)}
+            className="flex min-h-24 items-center justify-center rounded-3xl border-4 border-orange-dark bg-orange active:scale-[0.98]"
+          >
+            <span className="flex items-center gap-3 text-3xl font-extrabold text-white">
+              <Plus size={44} strokeWidth={4} />
+              Add
+            </span>
+          </button>
+        )
+      ) : (
+        slot(0)
+      )}
+      {events.map((e, i) => {
         const isDragged = drag?.id === e.id
         let style: React.CSSProperties | undefined
         if (drag) {
@@ -96,15 +289,54 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime }: Pr
           <div
             key={e.id}
             ref={el => {
-              if (el) rows.current.set(e.id, el)
-              else rows.current.delete(e.id)
+              if (el) wrappers.current.set(e.id, el)
+              else wrappers.current.delete(e.id)
             }}
+            className="flex flex-col gap-3"
             style={style}
           >
-            <EventRow event={e} dragging={isDragged} current={e.id === currentId} onOpen={() => onOpen(e.id)} onTime={() => onTime(e.id)} onGrip={start(e.id)} />
+            {/* The hold is on the row only, not on the + (or the add card) below it. */}
+            <div className={`row-hold ${e.id === freshId ? 'open-in' : ''}`} onPointerDown={press(e.id)} onContextMenu={ev => ev.preventDefault()}>
+              <EventRow
+                event={e}
+                dragging={isDragged}
+                pressing={pressing === e.id}
+                current={e.id === currentId}
+                onOpen={() => onOpen(e.id)}
+                onTime={() => onTime(e.id)}
+                onGrip={grip(e.id)}
+              />
+            </div>
+            {slot(i + 1)}
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/** The small round + between rows: opens the add card at that spot. */
+function AddSlot({ hidden, inert, onClick }: { hidden: boolean; inert: boolean; onClick: () => void }) {
+  return (
+    // Hidden by opacity only (while dragging or adding), so it keeps its space and nothing moves.
+    <div
+      className={`relative shrink-0 transition-opacity ${hidden ? 'opacity-0' : ''}`}
+      style={{ height: `${SLOT_REM}rem` }}
+      inert={inert}
+      aria-hidden={inert || undefined}
+    >
+      <button
+        type="button"
+        aria-label="Add here"
+        onClick={onClick}
+        className="absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-orange-dark bg-paper active:scale-90"
+        style={{ width: `${PLUS_REM}rem`, height: `${PLUS_REM}rem` }}
+      >
+        {/* Colour and size on the span: the global button rule beats them on the button (.lucide is 1.35em on phones). */}
+        <span className="flex text-2xl text-orange-dark">
+          <Plus size={34} strokeWidth={3.5} />
+        </span>
+      </button>
     </div>
   )
 }
