@@ -5,7 +5,6 @@ import { useStore } from '../../lib/store'
 import { mulberryIndex, type MulberryEntry } from '../../lib/symbolImages'
 import { track } from '../../lib/usage'
 import type { LibraryItem, MealSlot } from '../../types'
-import { BigButton } from '../ui/BigButton'
 import { Sheet } from '../ui/Sheet'
 import { Symbol } from '../ui/Symbol'
 import { Tile } from '../ui/Tile'
@@ -14,26 +13,7 @@ import { Mosaic, ShelfTab } from './ChoiceGrid'
 import { addIdea } from './newItemDraft'
 
 const FIND_SYMBOL = '🔍'
-/** The demo plays by itself the first few times Try is opened on a device, then waits for "Show me". */
-const DEMO_AUTOPLAYS = 3
-const DEMO_KEY = 'frankies-diary-try-demo'
 const GRID = 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4'
-
-/** Opens so far on this device (0 if storage is unavailable, so she always sees the demo). */
-function demoOpens(): number {
-  try {
-    return Number(localStorage.getItem(DEMO_KEY)) || 0
-  } catch {
-    return 0
-  }
-}
-function countDemoOpen(n: number) {
-  try {
-    localStorage.setItem(DEMO_KEY, String(n))
-  } catch {
-    // storage unavailable
-  }
-}
 
 interface Props {
   kind: IdeaKind
@@ -48,7 +28,7 @@ interface Props {
 
 /**
  * Try something new (backlog item 16): foods or activities she doesn't have
- * yet, and a picture demo of how to search for one. Tapping an idea asks
+ * yet, with a Find box for more. Tapping an idea asks
  * "Add?"; the caller's Yes adds it (and picks it), No goes back. Content
  * only: the TryNew sheet wraps it for the full-screen pickers, the day's add
  * card shows it inline.
@@ -58,10 +38,7 @@ export function TryNewPanel({ kind, shelf = null, query: initialQuery = '', chos
   const [query, setQuery] = useState(initialQuery)
   /** The shelf tab tapped (null: none yet). */
   const [tab, setTab] = useState<string | null>(shelf ?? null)
-  // Decided from the opens before this one; this open is counted once mounted (twice in development's StrictMode).
-  const [demoRun, setDemoRun] = useState(() => (demoOpens() < DEMO_AUTOPLAYS ? 1 : 0))
   useEffect(() => {
-    countDemoOpen(demoOpens() + 1)
     track('try_open')
   }, [])
 
@@ -106,34 +83,17 @@ export function TryNewPanel({ kind, shelf = null, query: initialQuery = '', chos
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* Demo, Find and Show me share one row on wide screens: the landscape tablet still shows a row of ideas. */}
-      <div className="flex flex-col gap-3 lg:flex-row">
-        {demoRun > 0 && <SearchDemo key={demoRun} />}
-        <div className="flex min-w-0 flex-1 gap-3">
-          <label className="flex min-h-20 min-w-0 flex-1 items-center gap-3 rounded-2xl lg:min-h-16 border-4 border-ink bg-paper px-3 focus-within:border-orange">
-            <Symbol symbol={FIND_SYMBOL} size="text-5xl" />
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Find"
-              aria-label="Find"
-              autoComplete="off"
-              className="min-w-0 flex-1 bg-transparent text-4xl font-extrabold outline-none"
-            />
-          </label>
-          <BigButton
-            size="sm"
-            className="shrink-0 flex-col py-1 lg:flex-row lg:py-0"
-            onClick={() => {
-              track('try_demo')
-              setDemoRun(n => n + 1)
-            }}
-          >
-            <Symbol symbol="mb:look-to" size="text-4xl" />
-            <span className="text-xl font-extrabold">Show me</span>
-          </BigButton>
-        </div>
-      </div>
+      <label className="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border-4 border-ink bg-paper px-3 focus-within:border-orange lg:min-h-16">
+        <Symbol symbol={FIND_SYMBOL} size="text-5xl" />
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Find"
+          aria-label="Find"
+          autoComplete="off"
+          className="min-w-0 flex-1 bg-transparent text-4xl font-extrabold outline-none"
+        />
+      </label>
 
       {q ? (
         <>
@@ -186,59 +146,6 @@ function Empty({ symbol, word }: { symbol: string; word: string }) {
       <Symbol symbol={symbol} size="text-6xl" />
       <span className="text-3xl font-extrabold text-ink-soft">{word}</span>
     </p>
-  )
-}
-
-/**
- * How to search, in pictures (she is deaf, so nothing is said): 1. letters
- * appear in the Find box, 2. pictures pop up, 3. thumbs up. A ring and a
- * pointing hand move from panel to panel. Three rounds, then it rests on the
- * thumbs up (CSS keyframes only; still and numbered with reduced motion).
- */
-function SearchDemo() {
-  return (
-    <div className="search-demo relative grid min-h-20 shrink-0 grid-cols-3 gap-3 lg:min-h-16 lg:w-[26rem]" role="img" aria-label="How to find: type the word, see the pictures, pick one">
-      <DemoPanel n={1}>
-        <span className="flex h-12 w-full items-center gap-1 rounded-xl border-4 border-ink bg-paper px-1.5">
-          <Symbol symbol={FIND_SYMBOL} size="text-2xl" />
-          <span className="text-2xl font-extrabold leading-none">
-            {['c', 'a', 'k', 'e'].map((ch, i) => (
-              <span key={i} className={`demo-l${i + 1}`}>
-                {ch}
-              </span>
-            ))}
-          </span>
-        </span>
-      </DemoPanel>
-      <DemoPanel n={2}>
-        <span className="flex gap-1">
-          {['mb:cake', 'mb:cake_cup_cake', 'mb:doughnut'].map((s, i) => (
-            <span key={s} className={`demo-t${i + 1} rounded-lg border-2 border-ink bg-paper p-0.5`}>
-              <Symbol symbol={s} size="text-3xl" />
-            </span>
-          ))}
-        </span>
-      </DemoPanel>
-      <DemoPanel n={3}>
-        <span className="demo-yes">
-          <Symbol symbol="mb:good" size="text-5xl" />
-        </span>
-      </DemoPanel>
-      <span className="demo-ring pointer-events-none absolute inset-y-0 left-0 rounded-2xl border-4 border-orange" aria-hidden>
-        <span className="absolute -right-2 -bottom-3">
-          <Symbol symbol="mb:touch_screen" size="text-4xl" />
-        </span>
-      </span>
-    </div>
-  )
-}
-
-function DemoPanel({ n, children }: { n: number; children: React.ReactNode }) {
-  return (
-    <div className="relative flex items-center justify-center overflow-hidden rounded-2xl border-4 border-line bg-soft px-2 pt-5 pb-0.5">
-      <span className="absolute top-0 left-1.5 text-base leading-5 font-extrabold text-ink-soft">{n}</span>
-      {children}
-    </div>
   )
 }
 
