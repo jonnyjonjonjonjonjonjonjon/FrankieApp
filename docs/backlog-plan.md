@@ -1211,7 +1211,7 @@ line each.
   keeps ink) as well as the background, in the same precedence (today, then
   away, then festive; away keeps the ink edge). On phones there is no room for a
   24px number and a 26px symbol in a 52px square, so the symbol is a size down
-  (`text-xl`, desktop `text-3xl`) and reaches into the cell's padding. On the
+  (`text-xl`; `text-2xl` from sm, see the review fixes below) and reaches into the cell's padding. On the
   narrowest phones (360px) it drops under the number, still at the right, and
   the cell may grow taller than square (phones only: `min-h-auto`, overflow
   visible; tablets keep `min-h-0` and now clip with `overflow-hidden`) rather
@@ -1233,6 +1233,33 @@ line each.
   tabs, as the arrows are disabled while adding since batch 3's fixes), the
   fix2 scripts, batch 1/2 scripts (same results as the build before this
   batch), and `time.mjs` (time picker on a festive day).
+- **Review fixes** (a birthday on a festive day she spends away was cut off on
+  the landscape tablet):
+  - Month, sm and up: the festive symbol is now the number's size
+    (`text-2xl`, not `text-3xl`). The top row may give up a few pixels (down
+    to `1.25rem`, the number's empty descent) so a 6-row month's 80px cell
+    still fits the bottom row.
+  - Month: when a birthday, a doctor visit or visitors share the bottom row,
+    the away place shows as its picture only (the name stays for screen
+    readers). Bottom-row order is now away, birthday, doctor, visitors, so the
+    least important come last. On a landscape tablet the row is one line
+    (`sm:landscape:flex-nowrap`) and anything that doesn't fit is cut at the
+    right. With away and three or more birthdays it shows one face and the +N.
+    Portrait and phones still wrap (phone cells grow), and a phone's second
+    birthday face now wraps under the cake instead of being cut off.
+  - Week: the column order is now the same as the day view: Staying at,
+    festive, birthdays. The festive band has no edge of its own (the colour
+    change is the edge), so there is no double line above the birthday band.
+    The header's festive symbol no longer lifts that day's weekday label.
+  - Week: on phones and portrait tablets the week now opens with today's
+    column scrolled into view (it opened at Monday before).
+  - Tests: `gauntlet/b4/fix2/cells.mjs` checks the month cell for festive +
+    away + birthday on a 5-row (December 2026) and a 6-row (December 2029)
+    month, both as today and not today, and a very full cell (away, a doctor
+    visit, 3 visitors, 3 birthdays). It runs at 1280×800, 800×1280, 412×915 and
+    360×780. Tree, house, cake and the whole birthday group are inside the cell
+    everywhere. In the very full cell on the landscape tablet, the doctor and
+    visitors are cut off at the right (known, by priority).
 
 ---
 

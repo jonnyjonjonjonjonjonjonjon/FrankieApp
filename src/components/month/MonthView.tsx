@@ -9,18 +9,18 @@ import { Photo } from '../ui/Photo'
 import { Symbol } from '../ui/Symbol'
 import { SlideCarousel } from '../ui/SlideCarousel'
 
-function Face({ item, size = 'text-2xl' }: { item: LibraryItem; size?: string }) {
+function Face({ item, size = 'text-2xl', className = '' }: { item: LibraryItem; size?: string; className?: string }) {
   return item.photoId && item.showPhoto ? (
-    <Photo id={item.photoId} alt={item.name} className="h-[1.6em] w-[1.6em] rounded-md" />
+    <Photo id={item.photoId} alt={item.name} className={`h-[1.6em] w-[1.6em] shrink-0 rounded-md ${className}`} />
   ) : (
-    <Symbol symbol={item.symbol} size={size} />
+    <Symbol symbol={item.symbol} size={size} className={className} />
   )
 }
 
 /**
  * Month grid, cells as large as the screen allows. Each day shows the things
  * that matter ahead of time: staying somewhere other than home, a doctor or
- * dentist visit, anyone coming to see her, birthdays, and a festive day's
+ * dentist visit, birthdays, anyone coming to see her, and a festive day's
  * symbol at the top right (beside the number). Months slide like days (the
  * same carousel), with the arrows either side of the centred title.
  */
@@ -85,6 +85,8 @@ function MonthGrid({ date }: { date: ISODate }) {
           const people = [...new Set(events.flatMap(e => e.personIds))].map(id => items[id]).filter(Boolean)
           const birthdays = store.birthdaysOn(d)
           const festive = festiveOn(d)
+          const crowded = birthdays.length > 0 || medical || people.length > 0
+          const squeeze = !!away && birthdays.length > 2
           // Today's orange wins, then away (sky: where she sleeps stays clear); then the festive colours.
           const look = isToday
             ? 'border-orange-dark bg-orange text-white'
@@ -103,37 +105,51 @@ function MonthGrid({ date }: { date: ISODate }) {
               {/* On phones the symbol reaches into the cell's padding to fit beside the number; on the
                   narrowest it drops under it (still at the right), and a square too small for what it
                   shows grows taller (phones have natural rows) rather than clip a birthday */}
-              <span className="flex flex-wrap items-start justify-between">
+              {/* Tablets: the symbol is the number's size, and this row may give up a few pixels (no
+                  more than the number's empty descent) in a short 6-row month, so the bottom row fits */}
+              <span className="flex flex-wrap items-start justify-between sm:min-h-[1.25rem] sm:shrink">
                 <span className="text-xl font-extrabold leading-none sm:text-2xl">{dayNumber(d)}</span>
                 {festive && (
                   <>
-                    <Symbol symbol={festive.symbol} size="text-xl sm:text-3xl" className="ml-auto max-sm:-mt-0.5 max-sm:-mr-1" />
+                    <Symbol symbol={festive.symbol} size="text-xl sm:text-2xl" className="ml-auto max-sm:-mt-0.5 max-sm:-mr-1" />
                     <span className="sr-only">{festive.word}</span>
                   </>
                 )}
               </span>
-              <span className="mt-auto flex flex-wrap items-end gap-x-1 gap-y-0.5 overflow-hidden">
+              {/* One line on a landscape tablet (its cells have room for no more): what doesn't fit is
+                  cut at the right, the least important last */}
+              <span className="mt-auto flex shrink-0 flex-wrap items-end gap-x-1 gap-y-0.5 overflow-hidden sm:landscape:flex-nowrap">
                 {away && (
-                  <span className="inline-flex max-w-full items-center gap-1 text-sm font-bold sm:text-base">
+                  <span className={`inline-flex max-w-full items-center gap-1 text-sm font-bold sm:text-base ${crowded ? 'shrink-0' : ''}`}>
                     <Face item={away} />
-                    <span className="hidden truncate sm:inline">{away.name}</span>
+                    {/* The place name only when nothing else shares the row: it would push a birthday
+                        onto a second line, below the bottom of a landscape tablet's cell */}
+                    <span className={crowded ? 'sr-only' : 'hidden truncate sm:inline'}>{away.name}</span>
+                  </span>
+                )}
+                {/* Cake and whose birthday it is, before visitors (two faces; more shows as +N; on a
+                    phone the second face wraps under the cake, the cell grows) */}
+                {birthdays.length > 0 && (
+                  <span className="inline-flex flex-wrap items-center gap-0.5 sm:landscape:shrink-0 sm:landscape:flex-nowrap" aria-label={`${birthdays.map(p => p.name).join(' and ')} birthday`}>
+                    {/* A size down on phones, so the cake and a face fit side by side */}
+                    <Symbol symbol="🎂" size="text-xl sm:text-2xl" />
+                    {/* Beside the house on a landscape tablet's one line, three or more birthdays show one
+                        face and the +N (two faces and a +N would be cut off) */}
+                    {birthdays.slice(0, 2).map((p, i) => (
+                      <Face key={p.id} item={p} size="text-xl sm:text-2xl" className={i === 1 && squeeze ? 'sm:landscape:hidden' : ''} />
+                    ))}
+                    {birthdays.length > 2 && (
+                      <span className="text-base font-extrabold">
+                        {squeeze && <span className="hidden sm:landscape:inline">+{birthdays.length - 1}</span>}
+                        <span className={squeeze ? 'sm:landscape:hidden' : ''}>+{birthdays.length - 2}</span>
+                      </span>
+                    )}
                   </span>
                 )}
                 {medical && <Symbol symbol="🩺" size="text-2xl" />}
                 {people.slice(0, 3).map(p => (
                   <Face key={p.id} item={p} />
                 ))}
-                {/* Cake and whose birthday it is (two faces fit a cell; more shows as +N) */}
-                {birthdays.length > 0 && (
-                  <span className="inline-flex items-center gap-0.5" aria-label={`${birthdays.map(p => p.name).join(' and ')} birthday`}>
-                    {/* A size down on phones, so the cake and a face fit side by side */}
-                    <Symbol symbol="🎂" size="text-xl sm:text-2xl" />
-                    {birthdays.slice(0, 2).map(p => (
-                      <Face key={p.id} item={p} size="text-xl sm:text-2xl" />
-                    ))}
-                    {birthdays.length > 2 && <span className="text-base font-extrabold">+{birthdays.length - 2}</span>}
-                  </span>
-                )}
               </span>
             </button>
           )

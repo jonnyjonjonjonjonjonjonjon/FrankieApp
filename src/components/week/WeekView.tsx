@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { addDays, DAY_SHORT, dayNumber, monthName, today, weekDates, weekdayIndex, year } from '../../lib/dates'
 import { eventFace, travelDestination } from '../../lib/eventFace'
@@ -44,6 +45,16 @@ export function WeekView({ date }: { date: ISODate }) {
   const last = days[6]
   const goWeek = (d: ISODate) => store.go({ kind: 'week', date: d })
   const items = store.state.items
+  const scroller = useRef<HTMLDivElement>(null)
+  // Phones and portrait tablets show only part of the week: open it with today's column in view
+  useEffect(() => {
+    const box = scroller.current
+    const col = box?.querySelector<HTMLElement>(`[data-day="${today()}"]`)
+    if (!box || !col) return
+    const b = box.getBoundingClientRect()
+    const c = col.getBoundingClientRect()
+    if (c.left < b.left || c.right > b.right) box.scrollLeft += c.left - b.left - (b.width - c.width) / 2
+  }, [first])
   const range =
     monthName(first) === monthName(last)
       ? `${dayNumber(first)} – ${dayNumber(last)} ${monthName(last)} ${year(last)}`
@@ -67,7 +78,7 @@ export function WeekView({ date }: { date: ISODate }) {
       {/* The day/date headers are their own row, sticky inside the same scroll
           area as the columns, so they stay at the top when scrolling down and
           stay lined up when scrolling sideways on phones. */}
-      <div className="flex-1 overflow-auto p-3 pt-0">
+      <div ref={scroller} className="flex-1 overflow-auto p-3 pt-0">
         <div className="min-w-[1080px]">
           <div className="sticky top-0 z-10 grid grid-cols-7 gap-2 bg-paper pt-3">
             {days.map(d => {
@@ -77,6 +88,7 @@ export function WeekView({ date }: { date: ISODate }) {
                 <button
                   key={d}
                   type="button"
+                  data-day={d}
                   onClick={() => store.go({ kind: 'day', date: d, from: 'week' })}
                   className={`flex min-h-20 flex-col items-center justify-center rounded-t-3xl border-4 border-b-0 px-1 py-1 ${
                     isToday ? 'border-orange bg-orange text-white' : 'border-ink bg-soft'
@@ -86,7 +98,8 @@ export function WeekView({ date }: { date: ISODate }) {
                   {/* A festive day's symbol beside the date, so it shows while scrolling too */}
                   <span className="flex items-center gap-1">
                     <span className="text-3xl font-extrabold leading-none">{dayNumber(d)}</span>
-                    {festive && <Symbol symbol={festive.symbol} size="text-3xl" />}
+                    {/* Its margin box is the number's height, so this day's label stays level with the others */}
+                    {festive && <Symbol symbol={festive.symbol} size="text-3xl" className="-my-[0.05em]" />}
                     {festive && <span className="sr-only">{festive.word}</span>}
                   </span>
                 </button>
@@ -105,9 +118,24 @@ export function WeekView({ date }: { date: ISODate }) {
               const photos = store.photosFor(d)
               return (
                 <div key={d} className={`flex flex-col rounded-b-3xl border-4 border-t-0 ${isToday ? 'border-orange' : 'border-ink'} bg-paper`}>
-                  {/* Festive band: the word, in the day's colours */}
+                  {/* Staying at — in a narrow column the picture sits above the name, so words are not split */}
+                  <div className="@container bg-sky">
+                    <div className="flex min-h-14 items-center gap-2 px-1 py-1 @max-[10rem]:flex-col @max-[10rem]:gap-1 @max-[10rem]:text-center">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-paper">
+                        {staying?.photoId && staying.showPhoto ? (
+                          <Photo id={staying.photoId} className="h-full w-full" />
+                        ) : (
+                          <Symbol symbol={staying?.symbol ?? '🏠'} size="text-4xl" />
+                        )}
+                      </div>
+                      <span className="min-w-0 text-sm font-bold leading-tight break-words">{staying?.name ?? 'Rochester Road'}</span>
+                    </div>
+                  </div>
+
+                  {/* Festive band: the word, in the day's colours (the colour change is its edge). Same
+                      order as the day view: Staying at, festive, birthdays */}
                   {festive && (
-                    <div className={`flex items-center justify-center border-b-2 px-1 py-1 text-center text-lg font-bold ${festive.bg} ${festive.border}`}>
+                    <div className={`flex items-center justify-center px-1 py-1 text-center text-lg font-bold ${festive.bg}`}>
                       <span className="min-w-0 break-words">{festive.word}</span>
                     </div>
                   )}
@@ -128,20 +156,6 @@ export function WeekView({ date }: { date: ISODate }) {
                       ))}
                     </div>
                   )}
-
-                  {/* Staying at — in a narrow column the picture sits above the name, so words are not split */}
-                  <div className="@container bg-sky">
-                    <div className="flex min-h-14 items-center gap-2 px-1 py-1 @max-[10rem]:flex-col @max-[10rem]:gap-1 @max-[10rem]:text-center">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-paper">
-                        {staying?.photoId && staying.showPhoto ? (
-                          <Photo id={staying.photoId} className="h-full w-full" />
-                        ) : (
-                          <Symbol symbol={staying?.symbol ?? '🏠'} size="text-4xl" />
-                        )}
-                      </div>
-                      <span className="min-w-0 text-sm font-bold leading-tight break-words">{staying?.name ?? 'Rochester Road'}</span>
-                    </div>
-                  </div>
 
                   {MEALS.map((m, i) => (
                     <MealCell key={m} type={m} ev={meals[i]} />
