@@ -418,6 +418,39 @@ Build `YesNo.tsx` and add `Sheet.hideBack` (§2.2). Replace in:
     shows, the page reloads once, and after a second crash within 60 s it stays
     on the book with "Again".
 
+
+### 3.7 Batch 1 as built (deviations from the design above)
+
+- **No goes back one step, like the Back it replaces.** In Add → Lunch, No
+  returns to the Add screen; No there closes it. (Test 2 checks exactly this.)
+- **Event-type lookups** go through one helper, `eventTypeInfo(type)` in
+  `symbols.ts`, rather than repeating `EVENT_TYPES[t] ?? EVENT_TYPES.activity`.
+- **Clear** uses a new `BigButton` variant `quiet` (white, `border-line`):
+  a `border-line` class on top of `secondary`'s `border-ink` is an
+  order-dependent Tailwind conflict.
+- NewItemForm's small **"No photo"** button became **"Clear"** (with
+  `mb:remove-to`), so no button other than No starts with "No" (Q9).
+- **Yes / No / Clear words** sit on inner spans with their own weight and
+  colour. The global `button { font: inherit; color: inherit }` rule in
+  `index.css` is unlayered, so it beats Tailwind's `font-*`, `text-*` and
+  `text-white` on any `<button>`. This is older than the backlog and affects
+  other buttons too (e.g. the orange "today" month cell and the selected tab
+  show black, not white, words). It was **left alone** in batch 1: fixing it
+  (moving the rule into `@layer base`) changes the look of every button, so it
+  should be a deliberate, screenshot-checked change of its own.
+- **Week headers** use `rounded-t-3xl` (not `1.25rem`): each header now has its
+  own border, so it takes the column card's outer radius. On phones,
+  `index.css` shrinks `.border-4` to 2px with an unlayered rule, which would
+  also re-open `border-t-0` / `border-b-0`; the phone block now keeps those at 0.
+- **Sync's first-snapshot check** listens with `includeMetadataChanges: true`.
+  Without it Firestore never reports a cached snapshot being confirmed by the
+  server when nothing changed, so `syncedOnce()` could wait forever.
+- **Migration flag**: `load({ migrate })` records whether migrations may
+  run; "Start again" reloads with the same setting.
+- `ErrorBoundary` also refuses to auto-reload when `sessionStorage` can't hold
+  the loop-guard stamp (private modes), so it can never reload in a loop.
+- `useSwipe.ts` was deleted: the month was its last user.
+
 ---
 
 ## 4. Proposed categories (item 3)

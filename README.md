@@ -21,14 +21,15 @@ Installable as a PWA (Android tablet, Chrome/Edge on Windows). Everything is sto
 | PRD | Where |
 |---|---|
 | 4.1 Home: now / next tiles, big 12-hour clock with am/pm + sun/moon and analogue face, tab bar | `components/today/`, `components/ui/Clock.tsx`, `components/ui/TabBar.tsx` |
-| 4.2 Week table Mon–Sun: staying-at, breakfast/lunch/dinner with food, events, photo previews; birthdays band | `components/week/WeekView.tsx` |
-| 4.3 Month grid, today in orange, per-day markers (staying away, doctor/dentist, visitors, birthdays), year picker (this year + next) | `components/month/` |
+| 4.2 Week table Mon–Sun: staying-at, breakfast/lunch/dinner with food, events, photo previews; birthdays band; the day/date row stays at the top when scrolling | `components/week/WeekView.tsx` |
+| 4.3 Month grid, today in orange, per-day markers (staying away, doctor/dentist, visitors, birthdays); centred title with arrows either side; months slide side to side like days | `components/month/` |
 | 4.4 Day view: date, staying-at, an ordered list (drag rows by the grip to reorder; times are optional via the clock button, and a timed row dragged out of sequence loses its time along with the rows it clashes with), routine template, meals → food picker, When/Where/Who pickers, ratings, photo strip; days slide side to side | `components/day/`, `components/pickers/` |
 | 4.5 Tiles: word + symbol, photo badge, tap the symbol to flip to the photo (remembered per tile) | `components/ui/Tile.tsx` |
-| 4.6 "+ Add" everywhere; add-to-day with no typing; new word = Word → Picture (symbol grid with search and/or photo) → Done | `components/day/AddEventFlow.tsx`, `components/pickers/NewItemForm.tsx` |
+| 4.6 "+ Add" everywhere; add-to-day with no typing; new word = Word → Picture (symbol grid with search and/or photo) → Yes; question screens answer with thumbs-up Yes / thumbs-down No (and Clear to take a value away) | `components/day/AddEventFlow.tsx`, `components/pickers/NewItemForm.tsx` |
 | 4.9 Birthdays (set on a person in family settings) | day / week / month views |
 | 4.10 Gallery grouped by day, newest first, tap to jump to the day | `components/photos/GalleryView.tsx` |
 | 4.11 Starting lists | `lib/seed.ts` |
+| No pinch zoom; a crash shows the diary book and reloads once (after an update check) instead of a white screen | `index.html`, `lib/noZoom.ts`, `components/ui/ErrorBoundary.tsx` |
 | §6 Undo instead of confirm dialogs; family mode behind a PIN (routine times, home, words, deletions, other minutes in the time picker, export, start again) | `components/ui/Toast.tsx`, `components/settings/SettingsView.tsx` |
 
 Symbols are **emoji placeholders** until Makaton licensing is confirmed (PRD §11.6); swapping in a licensed symbol set means replacing the `symbol` strings and `lib/symbols.ts`.
@@ -43,6 +44,7 @@ How it works (`src/lib/sync.ts`):
 - Photos are shrunk to stay under Firestore's 1 MB document limit, upload from an outbox that retries when the device comes online, and download on demand on other devices.
 - Access is by Google account: the signed-in email must be listed in the `members` collection. `firestore.rules` enforces it. Members are managed in Family settings → Family accounts; the very first member is added in the Firebase console.
 - Frankie's tablet signs in once (with a family account) and stays signed in.
+- Start-up never out-stamps the cloud: a fresh install writes its starting lists silently with old timestamps and runs no migrations, and on a device with sync configured, tidy-ups for older diaries wait until every collection's first snapshot from the server has been applied.
 
 The app is published to GitHub Pages by `.github/workflows/deploy.yml` on every push to `main` (served under `/FrankieApp/`, see `base` in `vite.config.ts`). Firestore rules are pasted into the Firebase console (or deployed with `firebase deploy --only firestore:rules`).
 
