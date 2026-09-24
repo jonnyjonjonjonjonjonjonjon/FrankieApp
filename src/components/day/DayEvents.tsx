@@ -16,6 +16,8 @@ const HOLD_MS = 450
 const HOLD_SLOP = 10
 /** The pressed row's border turns orange after this long (a colour change only: no transform on taps). */
 const PRESS_MS = 120
+/** After a slow tap opens something, the browser's own late click (ms) is kept off what just opened. */
+const GHOST_MS = 500
 /** While lifted, a finger this close (px) to the day's top or bottom edge scrolls it… */
 const EDGE_PX = 64
 /** …by up to this many px a frame, faster nearer the edge. */
@@ -98,8 +100,12 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
     [],
   )
 
-  /** Lift a row and follow the pointer until it is released (or the browser takes the touch back). */
-  const beginDrag = (id: string, pointerId: number, y0: number) => {
+  /**
+   * Lift a row and follow the pointer until it is released (or the browser takes the touch back).
+   * `tapped`: the button a hold began on. A lift that never moves was a slow tap (she may press
+   * slowly), so on release that button gets its click after all.
+   */
+  const beginDrag = (id: string, pointerId: number, y0: number, tapped: HTMLElement | null = null) => {
     const list = root.current
     const from = events.findIndex(x => x.id === id)
     if (!list || from < 0) return
@@ -119,6 +125,7 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
       })
     const scrolled = () => (scroller?.scrollTop ?? 0) - scroll0
     let y = y0
+    let still = true
     const target = () => mids.filter(m => m < y + scroll0 + scrolled()).length
     const update = () => setDrag(d => (d ? { ...d, dy: y - y0 + scrolled(), to: target() } : d))
 
@@ -131,7 +138,8 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
     let frame = 0
     const edge = () => {
       frame = requestAnimationFrame(edge)
-      if (!scroller) return
+      // Not until the row has been moved: a still finger on a row near the edge is a slow tap.
+      if (!scroller || still) return
       const r = scroller.getBoundingClientRect()
       let v = 0
       if (y < r.top + EDGE_PX) v = -EDGE_SPEED * Math.min(1, (r.top + EDGE_PX - y) / EDGE_PX)
@@ -147,9 +155,10 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
     const move = (ev: globalThis.PointerEvent) => {
       if (ev.pointerId !== pointerId) return
       y = ev.clientY
+      if (Math.abs(y - y0) > HOLD_SLOP) still = false
       update()
     }
-    const finish = (to: number) => {
+    const finish = (to: number, tap = false) => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', end)
       window.removeEventListener('pointercancel', end)
@@ -159,12 +168,27 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
       dropping.current = null
       setDrag(null)
       if (to !== from) void store.moveEvent(date, id, to)
+      else if (tap && tapped) {
+        suppressClick.current = false
+        tapped.click()
+        // The browser may still send a click of its own where the finger was, which would land on the
+        // sheet that just opened there: keep every click off the page for a moment.
+        const ghost = (ev: MouseEvent) => {
+          ev.preventDefault()
+          ev.stopPropagation()
+        }
+        window.addEventListener('click', ghost, true)
+        setTimeout(() => window.removeEventListener('click', ghost, true), GHOST_MS)
+      }
     }
     // The browser taking the touch back (pointercancel) drops the row where it started.
     const end = (ev: globalThis.PointerEvent) => {
       if (ev.pointerId !== pointerId) return
-      if (ev.type === 'pointerup') y = ev.clientY
-      finish(ev.type === 'pointercancel' ? from : target())
+      if (ev.type === 'pointercancel') return finish(from)
+      y = ev.clientY
+      if (Math.abs(y - y0) > HOLD_SLOP) still = false
+      if (still) finish(from, true)
+      else finish(target())
     }
     dropping.current = () => finish(from)
     window.addEventListener('pointermove', move)
@@ -181,13 +205,14 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
     beginDrag(id, e.pointerId, e.clientY)
   }
 
-  /** Press and hold anywhere on a row to lift it; a short tap still opens it. */
+  /** Press and hold anywhere on a row to lift it; a tap (even a slow one) still opens it. */
   const press = (id: string) => (e: PointerEvent<HTMLDivElement>) => {
     if (!interactive || composing || drag || !e.isPrimary || e.button !== 0) return
     if ((e.target as HTMLElement).closest('[data-grip]')) return
     holding.current?.()
     const el = e.currentTarget
     const { pointerId, clientX: x0, clientY: y0 } = e
+    const tapped = (e.target as HTMLElement).closest<HTMLElement>('button, [role="button"]')
     let y = y0
     const move = (ev: globalThis.PointerEvent) => {
       if (ev.pointerId !== pointerId) return
@@ -206,7 +231,7 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
       } catch {
         // the pointer has already gone
       }
-      beginDrag(id, pointerId, y)
+      beginDrag(id, pointerId, y, tapped)
     }, HOLD_MS)
     const cancel = () => {
       clearTimeout(pressTimer)

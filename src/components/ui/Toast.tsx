@@ -20,7 +20,8 @@ export function Toast() {
             }}
           >
             <Undo2 size={32} strokeWidth={3} />
-            Undo
+            {/* Size on the span: the global button rule beats it on the button. */}
+            <span className="text-2xl font-extrabold">Undo</span>
           </BigButton>
         )}
       </div>

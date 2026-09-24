@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Search, X } from 'lucide-react'
 import { useStore } from '../../lib/store'
 import { categoriesFor, categoryOf, defaultCategory, type Category } from '../../lib/categories'
 import type { Id, LibraryItem, LibraryKind, MealSlot } from '../../types'
@@ -24,6 +25,11 @@ interface Props {
   mealSlot?: MealSlot
   /** The New tile; called with the shelf the new word should go on. */
   onNew?: (category: string | null) => void
+  /**
+   * Find as a small button leading the shelf tabs' row, opening the box, instead of the box always
+   * showing (for short spaces). A list with no tabs keeps the box: it is lower than the button's row.
+   */
+  findButton?: boolean
 }
 
 /**
@@ -32,12 +38,15 @@ interface Props {
  * as its own section, so nothing is hidden behind a tab (a short list is one
  * grid in shelf order instead, so it still fits on one screen). Empty shelves are
  * left out, and a list with fewer than two shelves in use has no tabs at all.
+ * A meal's own shelf comes first with no heading (the meal is the question).
  * Content only: ItemPicker wraps it in a Sheet, the day's add card uses it inline.
  */
-export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, onNew }: Props) {
+export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, onNew, findButton = false }: Props) {
   const store = useStore()
   const [tab, setTab] = useState<string>('all')
   const [query, setQuery] = useState('')
+  /** The Find box is open (findButton only: otherwise it always shows). */
+  const [finding, setFinding] = useState(false)
 
   const all = subset ?? store.itemsOfKind(kind)
   const shelves = shelvesOf(kind, all, mealSlot)
@@ -45,6 +54,9 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
   // A shelf emptied while open (its last word moved away) falls back to All.
   const current = tabbed && shelves.some(s => s.category.id === tab) ? tab : 'all'
 
+  const findable = all.length > FIND_FROM
+  const findBehind = findButton && tabbed
+  const findOpen = findable && (!findBehind || finding)
   const q = query.trim().toLowerCase()
   const found = q ? all.filter(i => i.name.toLowerCase().includes(q)) : null
 
@@ -67,30 +79,57 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
     />
   )
 
+  const findBox = findOpen && (
+    <div className="flex gap-2">
+      <input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="Find"
+        autoComplete="off"
+        // Opened from its button: straight in to typing.
+        autoFocus={findBehind}
+        className="min-h-16 w-full min-w-0 rounded-2xl border-4 border-line px-4 text-2xl font-bold outline-none focus:border-orange"
+      />
+      {findBehind && (
+        <BigButton
+          variant="quiet"
+          aria-label="Close Find"
+          onClick={() => {
+            setQuery('')
+            setFinding(false)
+          }}
+          className="shrink-0"
+        >
+          <X size={36} strokeWidth={3} />
+        </BigButton>
+      )}
+    </div>
+  )
+  // Closed, the Find button leads the tabs' row, so it costs no height of its own.
+  const findTab = findable && findBehind && !finding && (
+    <ShelfTab word="Find" picture={<Search size={40} strokeWidth={3} aria-hidden />} on={false} onClick={() => setFinding(true)} quiet />
+  )
+  const firstHeadless = Boolean(mealSlot) && shelves[0]?.category.id === mealSlot
+
   return (
     <div className="flex flex-col gap-4">
-      {all.length > FIND_FROM && (
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Find"
-          autoComplete="off"
-          className="min-h-16 w-full rounded-2xl border-4 border-line px-4 text-2xl font-bold outline-none focus:border-orange"
-        />
-      )}
+      {findBox}
 
       {tabbed && !found && (
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" data-noswipe role="tablist" aria-label="Shelves">
-          <ShelfTab word="All" picture={<Mosaic symbols={shelves.slice(0, 4).map(s => s.category.symbol)} />} on={current === 'all'} onClick={() => setTab('all')} />
-          {shelves.map(({ category }) => (
-            <ShelfTab
-              key={category.id}
-              word={category.word}
-              picture={<Symbol symbol={category.symbol} size="text-4xl" />}
-              on={current === category.id}
-              onClick={() => setTab(category.id)}
-            />
-          ))}
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" data-noswipe>
+          {findTab}
+          <div className="flex gap-2" role="tablist" aria-label="Shelves">
+            <ShelfTab word="All" picture={<Mosaic symbols={shelves.slice(0, 4).map(s => s.category.symbol)} />} on={current === 'all'} onClick={() => setTab('all')} />
+            {shelves.map(({ category }) => (
+              <ShelfTab
+                key={category.id}
+                word={category.word}
+                picture={<Symbol symbol={category.symbol} size="text-4xl" />}
+                on={current === category.id}
+                onClick={() => setTab(category.id)}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -106,12 +145,14 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
         </div>
       ) : tabbed && current === 'all' ? (
         <>
-          {shelves.map(({ category, items }) => (
+          {shelves.map(({ category, items }, i) => (
             <section key={category.id} className="flex flex-col gap-3" aria-label={category.word}>
-              <h3 className="flex items-center gap-3 rounded-2xl bg-soft px-3 py-1">
-                <Symbol symbol={category.symbol} size="text-4xl" />
-                <span className="text-2xl font-extrabold">{category.word}</span>
-              </h3>
+              {!(i === 0 && firstHeadless) && (
+                <h3 className="flex items-center gap-3 rounded-2xl bg-soft px-3 py-1">
+                  <Symbol symbol={category.symbol} size="text-4xl" />
+                  <span className="text-2xl font-extrabold">{category.word}</span>
+                </h3>
+              )}
               <div className={GRID}>{items.map(tile)}</div>
             </section>
           ))}
@@ -143,10 +184,26 @@ function shelvesOf(kind: LibraryKind, items: LibraryItem[], mealSlot?: MealSlot)
     .filter(s => s.items.length > 0)
 }
 
-function ShelfTab({ word, picture, on, onClick }: { word: string; picture: React.ReactNode; on: boolean; onClick: () => void }) {
+interface ShelfTabProps {
+  word: string
+  picture: React.ReactNode
+  on: boolean
+  onClick: () => void
+  /** Not a shelf (Find): a plain button in the row, drawn lighter. */
+  quiet?: boolean
+}
+
+function ShelfTab({ word, picture, on, onClick, quiet = false }: ShelfTabProps) {
   return (
     // Picture above the word, like a small tile: narrow enough that a food list's seven tabs fit across the tablet.
-    <BigButton size="sm" variant={on ? 'primary' : 'secondary'} role="tab" aria-selected={on} onClick={onClick} className="shrink-0 flex-col py-1">
+    <BigButton
+      size="sm"
+      variant={on ? 'primary' : quiet ? 'quiet' : 'secondary'}
+      role={quiet ? undefined : 'tab'}
+      aria-selected={quiet ? undefined : on}
+      onClick={onClick}
+      className="shrink-0 flex-col py-1"
+    >
       {picture}
       {/* Word styles on the span: the global button rule beats them on the button itself. */}
       <span className={`text-lg font-extrabold ${on ? 'text-white' : ''}`}>{word}</span>

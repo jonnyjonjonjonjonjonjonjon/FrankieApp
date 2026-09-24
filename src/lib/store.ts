@@ -504,12 +504,19 @@ class Store {
     const now = stamp()
     const existing = this.eventsFor(input.date)
     const at = input.index === undefined ? existing.length : Math.max(0, Math.min(input.index, existing.length))
+    // Mid-list it takes a number between its neighbours, so no other row is rewritten (a concurrent
+    // edit to one of them on another device survives). Only if there is no room between them is the
+    // day renumbered, in the same write.
+    const before = existing[at - 1]?.order
+    const after = existing[at]?.order
+    const between = before === undefined ? (after ?? 10) - 10 : after === undefined ? before + 10 : (before + after) / 2
+    const fits = (before === undefined || between > before) && (after === undefined || between < after)
     const ev: DiaryEvent = {
       id: db.newId(),
       date: input.date,
       type: input.type,
       time: input.time ?? null,
-      order: at < existing.length ? at * 10 : existing.length ? Math.max(...existing.map(e => e.order ?? 0)) + 10 : 0,
+      order: between,
       activityId: input.activityId ?? null,
       travelId: input.travelId ?? null,
       foodIds: input.foodIds ?? [],
@@ -522,11 +529,12 @@ class Store {
       createdAt: now,
       updatedAt: now,
     }
-    await db.putEvent(ev)
-    this.set({ events: { ...this.state.events, [ev.id]: ev } })
-    // Inserted mid-list: it already holds its slot's number, so this renumbers only the rows after it.
-    if (at < existing.length) await this.writeOrder([...existing.slice(0, at), ev, ...existing.slice(at)])
-    return ev
+    const rows = fits
+      ? [ev]
+      : [...existing.slice(0, at), ev, ...existing.slice(at)].flatMap((e, i) => (e === ev || e.order !== i * 10 ? [{ ...e, order: i * 10, updatedAt: now }] : []))
+    await db.putEvents(rows)
+    this.set({ events: { ...this.state.events, ...byId(rows) } })
+    return rows.find(e => e.id === ev.id) ?? ev
   }
 
   async updateEvent(date: ISODate, id: Id, patch: Partial<DiaryEvent>) {
@@ -536,6 +544,19 @@ class Store {
     const next = { ...cur, ...patch, updatedAt: stamp() }
     await db.putEvent(next)
     this.set({ events: { ...this.state.events, [realId]: next } })
+  }
+
+  /** Put back rows' places and times as they were (a move's Undo); other fields keep any later changes. */
+  private async restoreOrder(rows: DiaryEvent[]) {
+    const now = stamp()
+    const changed: DiaryEvent[] = []
+    for (const r of rows) {
+      const cur = this.state.events[r.id]
+      if (cur && (cur.order !== r.order || cur.time !== r.time)) changed.push({ ...cur, order: r.order, time: r.time, updatedAt: now })
+    }
+    if (!changed.length) return
+    await db.putEvents(changed)
+    this.set({ events: { ...this.state.events, ...byId(changed) } })
   }
 
   /** Write positions for a day's list (index * 10), touching only rows that moved. */
@@ -561,6 +582,7 @@ class Store {
     // resolveEventId materialises the day if needed and maps a placeholder id to the real one.
     const realId = await this.resolveEventId(date, id)
     const list = this.eventsFor(date)
+    const was = [...list]
     const from = list.findIndex(e => e.id === realId)
     if (from < 0) return
     const [moved] = list.splice(from, 1)
@@ -577,6 +599,8 @@ class Store {
       if (cleared.size) cleared.add(moved.id)
     }
     await this.writeOrder(list, cleared)
+    // Times can't be got back by hand: a move that took them away can be undone.
+    if (cleared.size) this.toast('Times cleared', () => void this.restoreOrder(was))
   }
 
   /** Give an event a time (or remove it); it slides to where that time belongs in the list. */

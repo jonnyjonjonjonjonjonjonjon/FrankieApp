@@ -34,6 +34,7 @@ export function DayView({ date, from }: Props) {
   const [pickStay, setPickStay] = useState(false)
   const [slide, setSlide] = useState<{ dir: -1 | 1; n: number } | null>(null)
   const isToday = date === today()
+  const composing = composeAt !== null
 
   const goDay = (d: ISODate) => store.go({ kind: 'day', date: d, from })
 
@@ -64,10 +65,11 @@ export function DayView({ date, from }: Props) {
         title={<span className={isToday ? 'text-orange-dark' : ''}>{longDate(date)}</span>}
         right={
           <div className="flex items-center gap-2">
-            <BigButton onClick={() => setSlide(s => ({ dir: -1, n: (s?.n ?? 0) + 1 }))} aria-label="Day before">
+            {/* Off while the add card is open, like the swipe: changing day would throw away what she has picked. */}
+            <BigButton disabled={composing} onClick={() => setSlide(s => ({ dir: -1, n: (s?.n ?? 0) + 1 }))} aria-label="Day before">
               <ChevronLeft size={40} strokeWidth={3} />
             </BigButton>
-            <BigButton onClick={() => setSlide(s => ({ dir: 1, n: (s?.n ?? 0) + 1 }))} aria-label="Day after">
+            <BigButton disabled={composing} onClick={() => setSlide(s => ({ dir: 1, n: (s?.n ?? 0) + 1 }))} aria-label="Day after">
               <ChevronRight size={40} strokeWidth={3} />
             </BigButton>
             {from === 'today' && (
@@ -89,7 +91,7 @@ export function DayView({ date, from }: Props) {
         <SlideCarousel
           centre={date}
           request={slide}
-          locked={composeAt !== null}
+          locked={composing}
           onSettle={dir => goDay(addDays(date, dir))}
           render={o => (
             <DayPanel

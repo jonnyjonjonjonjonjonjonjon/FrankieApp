@@ -19,6 +19,8 @@ interface Props {
   onClick: () => void
   disabled?: boolean
   word?: string
+  /** Button height instead of the tall footer size: for a bar that shares its row with other controls. */
+  compact?: boolean
 }
 
 /**
@@ -26,27 +28,27 @@ interface Props {
  * (Word size, weight and colour go on inner spans: the global
  * `button { font: inherit; color: inherit }` rule beats them on the button.)
  */
-function Mark({ symbol }: { symbol: string }) {
+function Mark({ symbol, compact = false }: { symbol: string; compact?: boolean }) {
   return (
     <span className="rounded-xl bg-paper p-1">
-      <Symbol symbol={symbol} size="text-4xl sm:text-5xl" />
+      <Symbol symbol={symbol} size={compact ? 'text-4xl' : 'text-4xl sm:text-5xl'} />
     </span>
   )
 }
 
-export function YesButton({ onClick, disabled, word = 'Yes' }: Props) {
+export function YesButton({ onClick, disabled, word = 'Yes', compact }: Props) {
   return (
-    <BigButton variant="green" size="lg" className={PAD} disabled={disabled} onClick={onClick}>
-      <Mark symbol={YES_SYMBOL} />
+    <BigButton variant="green" size={compact ? 'sm' : 'lg'} className={PAD} disabled={disabled} onClick={onClick}>
+      <Mark symbol={YES_SYMBOL} compact={compact} />
       <span className="text-2xl font-extrabold text-white">{word}</span>
     </BigButton>
   )
 }
 
-export function NoButton({ onClick, disabled, word = 'No' }: Props) {
+export function NoButton({ onClick, disabled, word = 'No', compact }: Props) {
   return (
-    <BigButton variant="secondary" size="lg" className={PAD} disabled={disabled} onClick={onClick}>
-      <Mark symbol={NO_SYMBOL} />
+    <BigButton variant="secondary" size={compact ? 'sm' : 'lg'} className={PAD} disabled={disabled} onClick={onClick}>
+      <Mark symbol={NO_SYMBOL} compact={compact} />
       <span className="text-2xl font-extrabold">{word}</span>
     </BigButton>
   )

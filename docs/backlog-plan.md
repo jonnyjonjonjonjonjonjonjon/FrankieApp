@@ -1058,8 +1058,8 @@ has `touch-action: none` from the start.)
 - **The day scroller** is `relative` and carries `data-day-scroller`. The card
   finds it with `closest()`, and measures its place with `offsetTop` (the
   arrival animation's transform would skew a bounding box). Opening scrolls the
-  card to 8px below the top, smoothly; a step change that leaves the card's top
-  above the view (a long food list → back to Add) jumps it back into view.
+  card to 8px below the top, smoothly; every step change jumps it back there
+  (a long food list → back to Add; New's autofocus letting the browser scroll).
 - **A new row arrives with `.open-in`**, not `tick-pop`: tick-pop overshoots to
   125%, which would push a full-width row past both screen edges.
 - **Breadcrumb**: earlier steps are small bordered buttons (`aria-label="Back to
@@ -1077,7 +1077,7 @@ has `touch-action: none` from the start.)
   include the + below). Edge auto-scroll is clamped to the scroll range
   measured at lift, so the lifted row's transform can't stretch the day.
 - **Pressing** a row that is the current one (already orange) turns its border
-  dark orange. Holding and letting go without moving doesn't open the row.
+  dark orange.
 - **Clash test**: dragging the 5:30 pm Dinner above the 7:30 am Breakfast also
   clears Lunch's 11:30, which sits between them (the store's rule, unchanged).
 - **Tests**: `gauntlet/b3/b3.mjs` (tests 1-11 at tablet, portrait and phone,
@@ -1089,6 +1089,52 @@ has `touch-action: none` from the start.)
   (the breadcrumb's "Back to Add" matches). Batch 2's test 4 was already stale
   against its own fix commit (the birthday picker changed); `b2-fix2.mjs`
   covers that picker and passes.
+
+### 6.8 Batch 3 review fixes
+
+- **Landscape tablet: a whole row of tiles on every step.** Measured at
+  1280×800, the old sticky breadcrumb (94px) and No / Yes footer (144px) left
+  336px, and Lunch opened with no food in sight. Now, on a wide, short screen
+  (`FLAT_SCREEN = (min-width: 900px) and (max-height: 850px)`), No / Yes sit at
+  the end of the breadcrumb bar at button height (`compact` on `YesButton` /
+  `NoButton`: `size="sm"`, 70px) and there is no footer. In the card,
+  `ChoiceGrid findButton` puts Find behind a small button leading the shelf
+  tabs' row (it opens the box, focused, with an X to close); a list with no
+  tabs keeps the box, which is lower than a row of tabs. A meal's own shelf
+  comes first with no heading (the breadcrumb, or the sheet's title, already
+  says "Lunch"). First row of tiles in the 114-689px day: Add 246-471,
+  Activity / Lunch / Dinner 383-646, Travel 246-471, Bus → Where to? 395-658
+  (its breadcrumb wraps to two lines). Portrait and phone keep the footer.
+- **Typing with the keyboard up.** A ResizeObserver on the day scroller and
+  the bars measures the room between the bars; under `MIN_ROOM_REM = 14` they
+  stop sticking (`relative`) and scroll away with the card. The focused text
+  box (with its label's `section`, if that fits too) is scrolled into the
+  space between the bars on focus and after every resize. Simulated keyboards
+  (viewport made shorter): tablet 1280×470 unsticks, New word and Find stay in
+  view; portrait 800×880 and phone 412×585 keep sticky bars, and the box is
+  scrolled clear of them. Still to check on the Tab A8 itself.
+- **A slow tap opens.** A hold that lifts a row and is let go without moving
+  (under `HOLD_SLOP`) clicks the button it began on (the row, its symbol or
+  its clock), then keeps every click off the page for `GHOST_MS` (500ms): the
+  browser's own late click would otherwise land on the sheet that just opened
+  under the finger. Edge auto-scroll waits until the row has moved, so a slow
+  tap near the day's edge doesn't scroll it. The grip's still release does
+  nothing, as before.
+- **A move that clears times can be undone.** The toast says "Times cleared"
+  with Undo, which puts back every row's place and time as they were (other
+  fields keep later changes).
+- **Adding mid-list writes one row.** The new row takes an order between its
+  neighbours (a fraction if need be), so no other row is rewritten (and a
+  concurrent edit to one on another device survives). Only with no room between
+  them is the day renumbered, in the same single write.
+- **Smaller fixes.** The card's writes are in `try / finally` (a failed write
+  leaves it usable). Opening the card clears a plain toast ("Swimming added"
+  sat on the breadcrumb and took its taps), but not one with Undo. The day
+  arrows are disabled while the card is open, like the swipe. The toast's
+  Undo word is sized on a span (it was the phone's small base size).
+- **Tests**: `gauntlet/b3/fix2/` (`steps.mjs`, `find.mjs`, `keyboard.mjs`,
+  `drag.mjs`, `sheet.mjs`, `toast.mjs`, plus review 1's drag and empty-day
+  scripts, which give the same results as the build before these fixes).
 
 ---
 
