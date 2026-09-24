@@ -25,7 +25,7 @@ emoji, see §2.4).
 | # | Item | Feasible? | Notes |
 |---|------|-----------|-------|
 | 1 | Disable pinch zoom | **Yes** | Viewport meta + CSS `touch-action` (+ `gesturestart` / ctrl-wheel guards for iPad and laptops; no document-wide touch listener, which would slow scrolling on the Tab A8). Chrome's accessibility setting "Force enable zoom" overrides it, and Android's own Magnification gesture still works, so Frankie can still magnify if someone switches that on for her. |
-| 2 | Pictures from the web (Google safe search) | **Yes, but not from Google without a key** | Google's only official image search API (Custom Search JSON API) is closed to new customers and needs an API key, a search-engine id and billing. Scraping Google Images from a web app is blocked by CORS and by Google's terms. Google has also announced that the API will close for existing customers (around January 2027), and a key would sit in the synced settings where every family member can read it. We build the exact UX the owner asked for on a **pluggable provider** with one source, **Openverse** (free, no key, `mature=false` filters content flagged as adult, openly licensed pictures). Openverse's filter is flag-based and weaker than Google SafeSearch, so by default the web box shows **only in Family mode** (Q1). Its browser access (CORS) for thumbnails can't be tested from the build machine, so the box fails quietly and this is reported as untested. |
+| 2 | Pictures from the web (Google safe search) | **Yes, but not from Google without a key** | Google's only official image search API (Custom Search JSON API) is closed to new customers and needs an API key, a search-engine id and billing. Scraping Google Images from a web app is blocked by CORS and by Google's terms. Google has also announced that the API will close for existing customers (around January 2027), and a key would sit in the synced settings where every family member can read it. We build the exact UX the owner asked for on a **pluggable provider** with one source, **Openverse** (free, no key, `mature=false` filters content flagged as adult, openly licensed pictures). Openverse's filter is flag-based and weaker than Google SafeSearch, the owner chose to show the web box to everyone, Frankie included (Q1). Its browser access (CORS) for thumbnails can't be tested from the build machine, so the box fails quietly and this is reported as untested. |
 | 3 | Categories for people, food, activities | **Yes** | New optional `category` field, worked out at read time for older records (no data migration, so no sync conflicts, see §2.1). People: Family / Staff / Friends. Food and activities: see §4. |
 | 4 | Thumbs up Yes / thumbs down No | **Yes** | Mulberry has `good` (thumbs up) and `bad` (thumbs down). |
 | 5 | Usage stats in Family settings | **Yes** | Counted on each device (counts only, no content), synced as one small doc per device per day, and summarised in Family settings. |
@@ -1303,13 +1303,9 @@ export async function fetchImageBlob(img: WebImage): Promise<Blob>   // CORS fet
   Family mode), each typed word goes to Openverse once typing pauses (700 ms),
   plus its thumbnail requests. Noted in the README's sync section.
 
-**Who sees it**: family phones always get the web box. On the device marked as
-**Frankie's tablet** it shows only while **Family mode** is on (Family → Words,
-or New in the day's add card while a relative has Family mode on), so Frankie
-making a new word on her own gets Camera, Photos and the symbol search as
-today. Leaving Settings by any route (Back, Leave, a tab) ends Family mode, so
-it can't be left on for her. One constant, `WEB_PICTURES_FAMILY_ONLY = true`,
-at the top of `WebPictures.tsx` (Q1).
+**Who sees it**: everyone, Frankie included, on every device (owner's answer
+to Q1, Sept 2026). Openverse's adult filter (`mature=false`) is flag-based and
+weaker than Google SafeSearch; the owner accepted that.
 
 **UX**: new file `src/components/pickers/WebPictures.tsx`, placed inside
 batch 2's `PictureChooser`, so the new-word form and the word editor both get it:

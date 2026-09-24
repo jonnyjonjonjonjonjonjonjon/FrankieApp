@@ -1,6 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { useFrankiesTablet } from '../../lib/device'
 import { creditOf, fetchImageBlob, searchImages, type WebImage } from '../../lib/imageSearch'
 import { useStore } from '../../lib/store'
 import type { PhotoCredit } from '../../types'
@@ -8,13 +7,6 @@ import { BigButton } from '../ui/BigButton'
 import { Symbol } from '../ui/Symbol'
 import { NoButton } from '../ui/YesNo'
 
-/**
- * On Frankie's own tablet the web box shows only while Family mode is on:
- * Openverse's adult filter works on flags and is weaker than Google
- * SafeSearch (backlog plan Q1). Family phones always have it. Set false to
- * let Frankie see it too when she makes a word on her own.
- */
-const WEB_PICTURES_FAMILY_ONLY = true
 /** Wait this long after the last letter before searching (Openverse's anonymous limits are low). */
 const DEBOUNCE_MS = 700
 /** Search from this many letters. */
@@ -55,10 +47,7 @@ function subscribeOnline(fn: () => void) {
  * so nothing is shown that could confuse her.
  */
 export function WebPictures({ word, onPick, className = '' }: Props) {
-  const store = useStore()
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine)
-  const tablet = useFrankiesTablet()
-  const allowed = !WEB_PICTURES_FAMILY_ONLY || store.state.familyMode || !tablet
   const wanted = word.trim()
   const [term, setTerm] = useState('')
   const [found, setFound] = useState<Found | null>(null)
@@ -66,13 +55,12 @@ export function WebPictures({ word, onPick, className = '' }: Props) {
 
   // Search once typing pauses.
   useEffect(() => {
-    if (!allowed) return
     const t = setTimeout(() => setTerm(wanted), DEBOUNCE_MS)
     return () => clearTimeout(t)
-  }, [wanted, allowed])
+  }, [wanted])
 
   useEffect(() => {
-    if (!allowed || !online || term.length < MIN_LETTERS) return
+    if (!online || term.length < MIN_LETTERS) return
     const ctrl = new AbortController()
     searchImages(term, 1, ctrl.signal).then(
       r => setFound({ term, images: r.images, page: 1, more: r.more, failed: false }),
@@ -81,7 +69,7 @@ export function WebPictures({ word, onPick, className = '' }: Props) {
       },
     )
     return () => ctrl.abort()
-  }, [term, online, allowed])
+  }, [term, online])
 
   const loadMore = async () => {
     if (!found?.more) return
@@ -94,7 +82,7 @@ export function WebPictures({ word, onPick, className = '' }: Props) {
     }
   }
 
-  if (!allowed || !online || wanted.length < MIN_LETTERS) return null
+  if (!online || wanted.length < MIN_LETTERS) return null
   const current = found && found.term === wanted ? found : null
   if (current?.failed) return null
   const loading = !current
