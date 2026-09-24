@@ -273,12 +273,3 @@ button,
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* The web pictures box while it looks (opacity only: cheap on the Tab A8). */
-@keyframes web-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-.web-pulse {
-  animation: web-pulse 1.2s ease-in-out infinite;
-}
-

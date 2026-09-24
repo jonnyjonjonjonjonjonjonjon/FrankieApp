@@ -9,8 +9,8 @@ import type { PhotoCredit } from '../types'
  * Google Images from a web app is blocked by CORS and by Google's terms. So
  * the search is a pluggable provider. Today there is one, Openverse: free, no
  * key, CORS-enabled, openly licensed pictures, and `mature=false` leaves out
- * results their source flagged as adult (weaker than Google SafeSearch, hence
- * the Family-mode default in WebPictures.tsx). A keyed source (Pixabay, Google…)
+ * results their source flagged as adult (weaker than Google SafeSearch; the owner
+ * chose to show them to everyone). A keyed source (Pixabay, Google…)
  * is one new provider and one line in PROVIDERS.
  *
  * Wikimedia Commons is not included: it has no safe-search filter.
