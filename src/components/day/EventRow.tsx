@@ -1,5 +1,4 @@
-import type { PointerEvent } from 'react'
-import { ArrowRight, Clock, GripVertical } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { eventFace, isMeal, travelDestination } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
 import { RATING_FACES } from '../../lib/symbols'
@@ -11,9 +10,6 @@ import { TimeLabel } from '../ui/TimeLabel'
 interface Props {
   event: DiaryEvent
   onOpen: () => void
-  onTime: () => void
-  /** Pointer-down on the grip starts a drag (handled by the list). */
-  onGrip?: (e: PointerEvent<HTMLButtonElement>) => void
   dragging?: boolean
   /** Being pressed (a hold may lift it): the border turns orange. */
   pressing?: boolean
@@ -21,8 +17,11 @@ interface Props {
   current?: boolean
 }
 
-/** One row of the day: symbol (tap for photo), word, time or a clock to add one, place, who, grip to reorder (or hold the row). */
-export function EventRow({ event, onOpen, onTime, onGrip, dragging, pressing, current }: Props) {
+/**
+ * One row of the day, kept plain (owner, Sept 2026): symbol (tap for photo), word, time, place, who.
+ * Tap it to open it (its time is set there, under When?); hold it to drag it.
+ */
+export function EventRow({ event, onOpen, dragging, pressing, current }: Props) {
   const store = useStore()
   const { items } = store.state
   const face = eventFace(event, items)
@@ -51,7 +50,7 @@ export function EventRow({ event, onOpen, onTime, onGrip, dragging, pressing, cu
         type="button"
         aria-label={face.photoId ? 'Show photo' : face.word}
         onClick={() => (face.itemId && face.photoId ? store.toggleItemPhoto(face.itemId) : onOpen())}
-        className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-soft active:scale-95"
+        className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl active:scale-95"
       >
         {showPhoto && face.photoId ? (
           <Photo id={face.photoId} alt={face.word} className="h-full w-full" />
@@ -111,29 +110,6 @@ export function EventRow({ event, onOpen, onTime, onGrip, dragging, pressing, cu
         )}
       </button>
 
-      <div className="flex shrink-0 flex-col items-center justify-between gap-1">
-        <button
-          type="button"
-          onClick={onTime}
-          aria-label={event.time ? 'Change time' : 'Add a time'}
-          className={`flex h-11 w-11 items-center justify-center rounded-xl border-2 active:scale-95 ${
-            event.time ? 'border-line text-ink-soft' : 'border-ink text-ink'
-          }`}
-        >
-          <Clock size={26} strokeWidth={2.5} />
-        </button>
-        <button
-          type="button"
-          aria-label="Move"
-          onPointerDown={onGrip}
-          data-noswipe
-          data-grip
-          style={{ touchAction: 'none' }}
-          className="flex flex-1 cursor-grab items-center justify-center rounded-xl text-ink-soft active:cursor-grabbing"
-        >
-          <GripVertical size={34} strokeWidth={2.5} />
-        </button>
-      </div>
     </div>
   )
 }

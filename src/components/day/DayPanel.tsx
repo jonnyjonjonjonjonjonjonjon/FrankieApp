@@ -13,7 +13,6 @@ import { PhotoStrip } from './PhotoStrip'
 interface Props {
   date: ISODate
   onOpen: (id: string) => void
-  onTime: (id: string) => void
   onPickStay: () => void
   /** The centre panel (the + buttons and dragging work); neighbours only look the same. */
   interactive?: boolean
@@ -25,7 +24,7 @@ interface Props {
 }
 
 /** Everything that slides when you swipe between days: staying-at, a festive day, birthdays, the list, photos. */
-export function DayPanel({ date, onOpen, onTime, onPickStay, interactive = true, composeAt, composer, onCompose, freshId }: Props) {
+export function DayPanel({ date, onOpen, onPickStay, interactive = true, composeAt, composer, onCompose, freshId }: Props) {
   const store = useStore()
   const events = store.eventsFor(date)
   const staying = store.stayingAt(date)
@@ -96,7 +95,6 @@ export function DayPanel({ date, onOpen, onTime, onPickStay, interactive = true,
           events={events}
           currentId={currentId}
           onOpen={onOpen}
-          onTime={onTime}
           interactive={interactive}
           composeAt={composeAt}
           composer={composer}

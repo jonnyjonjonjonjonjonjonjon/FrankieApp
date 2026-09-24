@@ -8,7 +8,6 @@ import { BigButton } from '../ui/BigButton'
 import { SlideCarousel } from '../ui/SlideCarousel'
 import { TopBar } from '../ui/TopBar'
 import { ItemPicker } from '../pickers/ItemPicker'
-import { TimePicker } from '../pickers/TimePicker'
 import { DayPanel } from './DayPanel'
 import { EventSheet } from './EventSheet'
 import { InlineAdd } from './InlineAdd'
@@ -24,7 +23,6 @@ interface Props {
 export function DayView({ date, from }: Props) {
   const store = useStore()
   const [openId, setOpenId] = useState<string | null>(null)
-  const [timeId, setTimeId] = useState<string | null>(null)
   // The add card: open at a place in this day's list (a new day closes it).
   const [compose, setCompose] = useState<{ date: ISODate; index: number } | null>(null)
   // Changing day (arrow, swipe or tab) closes it, so coming back never finds it still open.
@@ -45,10 +43,6 @@ export function DayView({ date, from }: Props) {
     const map = await store.materializeDay(date)
     setOpenId(map[id] ?? id)
   }
-  const openTime = async (id: string) => {
-    const map = await store.materializeDay(date)
-    setTimeId(map[id] ?? id)
-  }
 
   const back = () => {
     if (from === 'today') store.go({ kind: 'today' })
@@ -56,8 +50,6 @@ export function DayView({ date, from }: Props) {
     else if (from === 'month') store.go({ kind: 'month', date })
     else store.go({ kind: 'photos' })
   }
-
-  const timeEvent = timeId ? store.state.events[timeId] : null
 
   return (
     <div className="flex h-full flex-col">
@@ -102,7 +94,6 @@ export function DayView({ date, from }: Props) {
             <DayPanel
               date={addDays(date, o)}
               onOpen={id => void open(id)}
-              onTime={id => void openTime(id)}
               onPickStay={() => setPickStay(true)}
               interactive={o === 0}
               composeAt={o === 0 ? composeAt : null}
@@ -132,17 +123,6 @@ export function DayView({ date, from }: Props) {
       </div>
 
       {openId && <EventSheet eventId={openId} date={date} onClose={() => setOpenId(null)} />}
-      {timeEvent && (
-        <TimePicker
-          value={timeEvent.time ?? '10:00'}
-          allowNone={Boolean(timeEvent.time)}
-          onBack={() => setTimeId(null)}
-          onDone={t => {
-            void store.setEventTime(date, timeEvent.id, t)
-            setTimeId(null)
-          }}
-        />
-      )}
       {pickStay && (
         <ItemPicker
           kind="place"

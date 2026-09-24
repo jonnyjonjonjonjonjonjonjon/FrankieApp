@@ -7,8 +7,8 @@ import { lockGestures, unlockGestures } from '../ui/gestureLock'
 import { EventRow } from './EventRow'
 
 /**
- * The day is a timeline (owner, Sept 2026): a line down the left joins the rows, each row has a dot
- * on it (today's current row a bigger orange one), and the + to add between two rows sits on the line.
+ * The day is a timeline (owner, Sept 2026): a line down the left joins the rows, the row where today
+ * has got to has an orange dot on it, and the + to add between two rows sits on the line.
  */
 /** Where the line runs, from the list's left edge; rows start at GUTTER_REM, clear of it. */
 const LINE_REM = 1.5
@@ -36,7 +36,6 @@ interface Props {
   /** The row the day has reached (today only). */
   currentId?: string | null
   onOpen: (id: string) => void
-  onTime: (id: string) => void
   /** The centre panel. Neighbour panels draw the same + slots (so nothing jumps when a slide lands) but inert. */
   interactive?: boolean
   /** Where the add card is open (index in the list), if it is. */
@@ -61,11 +60,11 @@ interface Drag {
 /**
  * The day's list, with a + between every pair of rows (and above the first,
  * below the last) that opens the add card right there. Press and hold a row
- * (or grab its grip) to drag it: it lifts and follows the finger while the rows
+ * to drag it: it lifts and follows the finger while the rows
  * it passes slide out of the way, so the whole list stays readable. On release
  * the store applies the ordering rule.
  */
-export function DayEvents({ date, events, currentId = null, onOpen, onTime, interactive = true, composeAt = null, composer, onCompose, freshId = null }: Props) {
+export function DayEvents({ date, events, currentId = null, onOpen, interactive = true, composeAt = null, composer, onCompose, freshId = null }: Props) {
   const store = useStore()
   const root = useRef<HTMLDivElement>(null)
   /** Row wrappers (the row and the + slot below it). */
@@ -234,19 +233,9 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
     window.addEventListener('pointercancel', end)
   }
 
-  /** The grip: an instant drag handle (touch-action: none), for the family. */
-  const grip = (id: string) => (e: PointerEvent<HTMLButtonElement>) => {
-    if (!interactive || composing) return
-    e.preventDefault()
-    holding.current?.()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    beginDrag(id, e.pointerId, e.clientY)
-  }
-
   /** Press and hold anywhere on a row to lift it; a tap (even a slow one) still opens it. */
   const press = (id: string) => (e: PointerEvent<HTMLDivElement>) => {
     if (!interactive || composing || drag || !e.isPrimary || e.button !== 0) return
-    if ((e.target as HTMLElement).closest('[data-grip]')) return
     holding.current?.()
     const el = e.currentTarget
     const { pointerId, clientX: x0, clientY: y0 } = e
@@ -382,22 +371,20 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
               onPointerDown={press(e.id)}
               onContextMenu={ev => ev.preventDefault()}
             >
-              {/* This row's dot on the timeline: where today has got to is bigger and orange. */}
-              <span
-                className={`pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-paper ${
-                  e.id === currentId ? 'h-7 w-7 bg-orange' : 'h-5 w-5 bg-ink'
-                }`}
-                style={{ left: `${LINE_REM}rem` }}
-                aria-hidden
-              />
+              {/* Only where today has got to has a dot on the timeline (orange), so it stands out. */}
+              {e.id === currentId && (
+                <span
+                  className="pointer-events-none absolute top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange ring-4 ring-paper"
+                  style={{ left: `${LINE_REM}rem` }}
+                  aria-hidden
+                />
+              )}
               <EventRow
                 event={e}
                 dragging={isDragged}
                 pressing={pressing === e.id}
                 current={e.id === currentId}
                 onOpen={() => onOpen(e.id)}
-                onTime={() => onTime(e.id)}
-                onGrip={grip(e.id)}
               />
             </div>
             {slot(i + 1)}
