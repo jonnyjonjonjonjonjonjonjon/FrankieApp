@@ -768,6 +768,47 @@ No new collections. Items and events carry the new fields through the existing
    Lunch picker shows Toasty. Remove → Undo. Remove → Removed list → Restore.
    Up/down arrows swap Toast/Cereal and the picker order follows.
 
+### 5.13 Batch 2 as built (deviations from the design above)
+
+- **Shelf tabs are small vertical tiles** (picture above the word, `BigButton
+  size="sm"`, `gap-2`). With the picture beside the word, a food list's seven
+  tabs (All + six shelves) overflowed 1280px and hid Drinks off-screen; stacked,
+  all seven fit across the tablet. Phones still scroll the row sideways.
+- **Tabs are not sticky.** The batch-3 composer has its own sticky header at
+  `top-0`, and "All" already shows every shelf, so the tabs scroll with the tiles.
+- **`ChoiceGrid` is controlled** (`selected`, `onPick`, `onNew(category)`); the
+  tab and Find text are its own state. `ItemPicker` keeps the selection and the
+  New form. `NewItemFields` is controlled too: the draft type and its helpers
+  (`newDraft`, `draftReady`, `saveDraft`) live in `pickers/newItemDraft.ts`, so
+  batch 3's composer can own the draft and put Yes / No in its own footer.
+- **New foods also get the old meal tag of their shelf** (`SHELF_MEAL`: Treats
+  → `treat`, Drinks → `drink`, …; Fruit has none, so it falls back to the meal
+  the picker was opened for). Older copies keep sorting their meal pickers.
+- **New words get the kind's first shelf** (people: Family) unless a shelf is
+  passed, from `addItem`; the New form shows the shelf as radio buttons
+  (Word → Shelf → Picture). `role` is no longer written.
+- **Where to?** shows the chosen mode through a new `Sheet` prop `before`
+  (`[bus] Bus ➜ [where] Where to?`), and `ItemPicker` gained `onSkip` (the Yes
+  on a single-choice picker). The EventSheet's big card also shows
+  "➜ destination" for travel.
+- **Week travel line**: arrow + destination symbol, then the name, wrapping as a
+  whole onto its own line in narrow columns (`break-words` alone split
+  "Swimming pool" into "Swim/ming").
+- **Words manager**: every shelf header has its own small **Add** (that shelf
+  preselected) instead of one Add with a "current shelf"; empty shelves say
+  "Nothing here yet". Rows have no category chip, as the shelf header already
+  says it. On phones the kind tabs wrap onto a second row, and the editor's
+  Remove shows just the bin (with an `aria-label`) so Remove, No and Yes stay
+  on one line at 412px.
+- **Birthdays**: taking a birthday away is **Clear** (not "No birthday", Q9).
+  The list says "Today" / "Tomorrow" / "in N days" and "turns N". Year born
+  accepts 1900 to this year and blocks Yes otherwise. The same date picker is
+  used from the word editor (held until the editor's Yes).
+- **`ensureSeeds()`** only adds missing `travel` seeds (the only seeds newer than
+  v3, which already restores missing stay places).
+- **Tests**: `gauntlet/b2/b2.mjs` (tests 1-5 at tablet, portrait and phone) and
+  batch 1's `ui.mjs`, `data.mjs`, `settings.mjs` re-run unchanged as regression.
+
 ---
 
 ## 6. Batch 3 — Day view: inline add and hold-to-drag (items 7, 8)
