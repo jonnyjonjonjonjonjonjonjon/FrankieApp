@@ -1,7 +1,7 @@
 import { useLayoutEffect, type RefObject } from 'react'
 
 /** Entrance classes a leaving copy must not replay. */
-const ENTER = ['screen-in', 'from-right', 'from-left', 'pop-in', 'fade-in', 'open-in', 'rise']
+const ENTER = ['screen-in', 'from-right', 'from-left', 'pop-in', 'fade-in', 'open-in', 'unroll', 'rise']
 /** Unmounts sooner than this after mounting are React's StrictMode check (development only), not a real close. */
 const STRICT_MS = 80
 /** Longest exit (see --move-slow in index.css) plus slack, in case animationend never comes. */

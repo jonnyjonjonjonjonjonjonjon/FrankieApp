@@ -24,7 +24,7 @@ interface Props {
 }
 
 /**
- * The symbol sits on a white square so the thumb reads clearly on green.
+ * The symbol sits on a white square so the thumb reads clearly on green (Yes) and red (No).
  * (Word size, weight and colour go on inner spans: the global
  * `button { font: inherit; color: inherit }` rule beats them on the button.)
  */
@@ -47,9 +47,9 @@ export function YesButton({ onClick, disabled, word = 'Yes', compact }: Props) {
 
 export function NoButton({ onClick, disabled, word = 'No', compact }: Props) {
   return (
-    <BigButton variant="secondary" size={compact ? 'sm' : 'lg'} className={PAD} disabled={disabled} onClick={onClick}>
+    <BigButton variant="red" size={compact ? 'sm' : 'lg'} className={PAD} disabled={disabled} onClick={onClick}>
       <Mark symbol={NO_SYMBOL} compact={compact} />
-      <span className="text-2xl font-extrabold">{word}</span>
+      <span className="text-2xl font-extrabold text-white">{word}</span>
     </BigButton>
   )
 }

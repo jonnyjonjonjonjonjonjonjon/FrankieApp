@@ -10,6 +10,8 @@
   --color-soft: #f3f3f3;
   --color-line: #cfcfcf;
   --color-green: #1e8e3e;
+  --color-red: #c62828;
+  --color-red-dark: #8e1c1c;
   --color-green-light: #e3f5e8;
   --color-sky: #e8f1fb;
   --color-lilac: #7a4cc2;
@@ -204,6 +206,15 @@ button,
 .pop-out {
   animation: pop-out var(--move) var(--move-ease);
 }
+/* The day's add card opens by unrolling downwards into the gap the rows below make for it
+   (they slide down together, see DayEvents), and closes by rolling back up. */
+@keyframes unroll {
+  from { clip-path: inset(0 0 100% 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+.unroll {
+  animation: unroll var(--move-slow) var(--move-ease);
+}
 /* The day's add card closes by rolling up into the + it came from: solid, so the rows under it
    are uncovered rather than blended with it. Keeps the day-scroller clip (the --clip-* edges). */
 @keyframes roll-up {
@@ -211,7 +222,7 @@ button,
   to { clip-path: inset(var(--clip-t, 0px) var(--clip-r, 0px) 100% var(--clip-l, 0px)); }
 }
 .roll-up {
-  animation: roll-up var(--move) var(--move-ease);
+  animation: roll-up var(--move-slow) var(--move-ease);
 }
 /* A leaving copy (useLeaveGhost): only the copy itself moves. */
 .leaving * {
@@ -244,6 +255,7 @@ button,
   .fade-in,
   .fade-out,
   .roll-up,
+  .unroll,
   .open-in,
   .rise {
     animation: none;

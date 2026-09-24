@@ -93,17 +93,24 @@ export function InlineAdd({ date, index, onClose }: Props) {
   const [resized, setResized] = useState(0)
 
   /** Bring the card's top to the top of the day's scroller. */
+  /**
+   * Keep her place in the day: the row just above the card sits at the top, so what comes before is
+   * in sight and the card plainly opens between two rows (the rows below slide down to make room).
+   * Adding at the very top shows the top of the day.
+   */
   const toTop = (behavior: ScrollBehavior) => {
     const el = card.current
     const scroller = el?.closest<HTMLElement>('[data-day-scroller]')
     if (!el || !scroller) return
-    // Offsets, not the bounding box: the arrival animation's transform must not skew it.
+    const rows = [...scroller.querySelectorAll<HTMLElement>('.row-hold')]
+    const above = rows.filter(r => r.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING).pop()
+    if (!above) return scroller.scrollTo({ top: 0, behavior })
+    // Offsets, not the bounding box: the rows' slide and the card's unroll must not skew it.
     let top = 0
-    for (let n: HTMLElement | null = el; n && n !== scroller; n = n.offsetParent as HTMLElement | null) top += n.offsetTop
-    top = Math.max(0, top - TOP_MARGIN)
-    scroller.scrollTo({ top, behavior })
+    for (let n: HTMLElement | null = above; n && n !== scroller; n = n.offsetParent as HTMLElement | null) top += n.offsetTop
+    scroller.scrollTo({ top: Math.max(0, top - TOP_MARGIN), behavior })
   }
-  // Opening: the card slides up to the top of the day, so the rows above make room for its tiles.
+  // Opening: glide the day so the row above the card is at the top.
   // A plain toast from the last add would sit on the breadcrumb: it has done its job (an Undo stays).
   useEffect(() => {
     toTop('smooth')
@@ -111,10 +118,14 @@ export function InlineAdd({ date, index, onClose }: Props) {
     if (store.state.toast && !store.state.toast.undo) store.clearToast()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  // Each step starts at the card's top. A new step can be much shorter than the last (a long food list →
-  // back to Add), and New's autofocus lets the browser scroll the box to wherever it likes.
+  // Each later step starts from the same place. A new step can be much shorter than the last (a long
+  // food list → back to Add), and New's autofocus lets the browser scroll the box to wherever it likes.
   const stepKey = step.at === 'pick' ? `pick:${step.type}` : step.at === 'try' ? `try:${idea ? 'chosen' : ''}` : step.at
-  useLayoutEffect(() => toTop('auto'), [stepKey])
+  const firstStep = useRef(stepKey)
+  useLayoutEffect(() => {
+    if (stepKey !== firstStep.current) toTop('auto')
+    firstStep.current = ''
+  }, [stepKey])
   // Which way the new step slides in: deeper steps from the right, going back from the left.
   const depth = STEP_DEPTH[step.at] + (step.at === 'try' && idea ? 1 : 0)
   const [shownStep, setShownStep] = useState({ key: stepKey, depth, slide: '' })
@@ -339,7 +350,7 @@ export function InlineAdd({ date, index, onClose }: Props) {
       role="group"
       aria-label="Add"
       // overflow: clip rounds off the header and footer corners without making a scroll box (that would unstick them).
-      className="open-in flex flex-col overflow-clip rounded-3xl border-4 border-orange bg-orange-light"
+      className="unroll flex flex-col overflow-clip rounded-3xl border-4 border-orange bg-orange-light"
       onFocus={e => {
         if (isTextField(e.target)) reveal(e.target)
       }}

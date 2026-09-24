@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { Plus } from 'lucide-react'
 import { buzz } from '../../lib/haptics'
 import { useStore } from '../../lib/store'
@@ -91,6 +91,30 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
       el.removeEventListener('touchmove', block)
     }
   }, [interactive])
+
+  // Rows glide to their new places when the add card opens (the rows below slide down to make way)
+  // or closes (they slide back up), instead of jumping. Positions are list offsets, which transforms
+  // don't change; each glide is a Web Animation with no fill, so nothing keeps a transform after it.
+  const placed = useRef<{ composeAt: number | null; tops: Map<string, number> }>({ composeAt, tops: new Map() })
+  useLayoutEffect(() => {
+    const list = root.current
+    if (!list) return
+    const tops = new Map<string, number>()
+    wrappers.current.forEach((el, id) => tops.set(id, el.offsetTop - (el.offsetParent === list ? 0 : list.offsetTop)))
+    const was = placed.current
+    placed.current = { composeAt, tops }
+    if (!interactive || was.composeAt === composeAt || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const css = getComputedStyle(document.documentElement)
+    // The browser may hand back "0.8s" for "800ms".
+    const raw = css.getPropertyValue('--move-slow').trim()
+    const duration = (raw.endsWith('ms') ? parseFloat(raw) : parseFloat(raw) * 1000) || 800
+    const easing = css.getPropertyValue('--move-ease').trim() || 'ease-in-out'
+    tops.forEach((top, id) => {
+      const before = was.tops.get(id)
+      if (before === undefined || before === top) return
+      wrappers.current.get(id)?.animate([{ transform: `translateY(${before - top}px)` }, { transform: 'translateY(0)' }], { duration, easing })
+    })
+  }, [composeAt, events, interactive])
 
   // A row just added comes into view (the add card above it may have left the day scrolled past it).
   useEffect(() => {
