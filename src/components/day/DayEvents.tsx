@@ -6,10 +6,17 @@ import type { DiaryEvent, Id, ISODate } from '../../types'
 import { lockGestures, unlockGestures } from '../ui/gestureLock'
 import { EventRow } from './EventRow'
 
-/** Height of the + slot between rows (the flex gaps on either side add 1.5rem more). */
+/**
+ * The day is a timeline (owner, Sept 2026): a line down the left joins the rows, each row has a dot
+ * on it (today's current row a bigger orange one), and the + to add between two rows sits on the line.
+ */
+/** Where the line runs, from the list's left edge; rows start at GUTTER_REM, clear of it. */
+const LINE_REM = 1.5
+const GUTTER_REM = 3
+/** Height of the + slot between rows (the flex gaps on either side add 1rem more). */
 const SLOT_REM = 0.5
-/** The solid orange + circle; its tap area is the whole gap, and wider. */
-const PLUS_REM = 2
+/** The + circle on the line; its tap area is the whole gap, the width of the gutter. */
+const PLUS_REM = 1.75
 /** Press and hold a row this long to lift it. */
 const HOLD_MS = 450
 /** Moving further than this (px) before the hold completes means it was a scroll or a swipe. */
@@ -286,10 +293,19 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
     return 0
   }
 
-  /** The + at a position in the list, or the add card if it is open there. */
+  /** The + at a position in the list, or the add card if it is open there (on the timeline, with a + dot). */
   const slot = (index: number) =>
     composeAt === index ? (
-      <div key="composer">{composer}</div>
+      <div key="composer" className="relative" style={{ paddingLeft: `${GUTTER_REM}rem` }}>
+        <span
+          className="pointer-events-none absolute top-9 flex -translate-x-1/2 items-center justify-center rounded-full bg-orange text-white ring-4 ring-paper"
+          style={{ left: `${LINE_REM}rem`, width: `${PLUS_REM}rem`, height: `${PLUS_REM}rem` }}
+          aria-hidden
+        >
+          <Plus size={18} strokeWidth={4} />
+        </span>
+        {composer}
+      </div>
     ) : (
       <AddSlot key="slot" hidden={Boolean(drag) || composing} inert={!interactive || composing} onClick={() => onCompose?.(index)} />
     )
@@ -298,7 +314,7 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
   return (
     <div
       ref={root}
-      className="flex flex-col gap-3"
+      className="relative flex flex-col gap-2"
       onPointerDownCapture={() => {
         suppressClick.current = false
       }}
@@ -309,6 +325,14 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
         e.stopPropagation()
       }}
     >
+      {/* The timeline: from the first + to the last, behind the dots. */}
+      {events.length > 0 && (
+        <div
+          className="pointer-events-none absolute w-1.5 -translate-x-1/2 rounded-full bg-line"
+          style={{ left: `${LINE_REM}rem`, top: `${SLOT_REM / 2}rem`, bottom: `${SLOT_REM / 2}rem` }}
+          aria-hidden
+        />
+      )}
       {events.length === 0 ? (
         composeAt === 0 ? (
           composer
@@ -348,11 +372,24 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
               if (el) wrappers.current.set(e.id, el)
               else wrappers.current.delete(e.id)
             }}
-            className="flex flex-col gap-3"
+            className="flex flex-col gap-2"
             style={style}
           >
             {/* The hold is on the row only, not on the + (or the add card) below it. */}
-            <div className={`row-hold scroll-my-3 ${e.id === freshId ? 'open-in' : ''}`} onPointerDown={press(e.id)} onContextMenu={ev => ev.preventDefault()}>
+            <div
+              className={`row-hold relative scroll-my-3 ${e.id === freshId ? 'open-in' : ''}`}
+              style={{ paddingLeft: `${GUTTER_REM}rem` }}
+              onPointerDown={press(e.id)}
+              onContextMenu={ev => ev.preventDefault()}
+            >
+              {/* This row's dot on the timeline: where today has got to is bigger and orange. */}
+              <span
+                className={`pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-paper ${
+                  e.id === currentId ? 'h-7 w-7 bg-orange' : 'h-5 w-5 bg-ink'
+                }`}
+                style={{ left: `${LINE_REM}rem` }}
+                aria-hidden
+              />
               <EventRow
                 event={e}
                 dragging={isDragged}
@@ -371,7 +408,7 @@ export function DayEvents({ date, events, currentId = null, onOpen, onTime, inte
   )
 }
 
-/** The small orange + on a faint line between rows: opens the add card at that spot. */
+/** The + on the timeline between two rows: opens the add card at that spot. */
 function AddSlot({ hidden, inert, onClick }: { hidden: boolean; inert: boolean; onClick: () => void }) {
   return (
     // Hidden by opacity only (while dragging or adding), so it keeps its space and nothing moves.
@@ -381,20 +418,20 @@ function AddSlot({ hidden, inert, onClick }: { hidden: boolean; inert: boolean; 
       inert={inert}
       aria-hidden={inert || undefined}
     >
-      <div className="absolute top-1/2 right-[20%] left-[20%] h-0.5 -translate-y-1/2 rounded bg-orange/40" />
-      {/* The tap area fills the gap between the rows (and is wider than the circle), so it is easy to hit. */}
+      {/* The tap area fills the gap between the rows across the gutter, so it is easy to hit. */}
       <button
         type="button"
         aria-label="Add here"
         onClick={onClick}
-        className="group absolute top-1/2 left-1/2 flex h-[2rem] w-[4.5rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+        className="group absolute top-1/2 left-0 flex h-[2rem] -translate-y-1/2 items-center justify-center"
+        style={{ width: `${GUTTER_REM}rem` }}
       >
         {/* Colour and size on the span: the global button rule beats them on the button (.lucide is 1.35em on phones). */}
         <span
-          className="flex items-center justify-center rounded-full bg-orange text-white group-active:scale-90"
+          className="flex items-center justify-center rounded-full border-[3px] border-orange bg-paper text-orange group-active:scale-90"
           style={{ width: `${PLUS_REM}rem`, height: `${PLUS_REM}rem` }}
         >
-          <Plus size={22} strokeWidth={4} />
+          <Plus size={18} strokeWidth={4} />
         </span>
       </button>
     </div>

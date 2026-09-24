@@ -35,14 +35,15 @@ export function EventRow({ event, onOpen, onTime, onGrip, dragging, pressing, cu
 
   return (
     <div
-      className={`flex items-stretch gap-3 rounded-3xl border-4 p-1.5 ${
+      // A light card on the day's timeline (the line and dots join the rows into one list).
+      className={`flex items-stretch gap-3 rounded-2xl border-[3px] p-1.5 ${
         pressing || dragging
           ? current
             ? 'border-orange-dark bg-orange-light'
             : 'border-orange bg-paper'
           : current
             ? 'border-orange bg-orange-light'
-            : 'border-ink bg-paper'
+            : 'border-line bg-paper'
       } ${dragging ? 'scale-[1.02] shadow-2xl ring-4 ring-orange-light' : ''}`}
       aria-current={current ? 'time' : undefined}
     >
