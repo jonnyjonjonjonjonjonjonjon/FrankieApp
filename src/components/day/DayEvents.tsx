@@ -5,6 +5,7 @@ import { useStore } from '../../lib/store'
 import type { DiaryEvent, Id, ISODate } from '../../types'
 import { lockGestures, unlockGestures } from '../ui/gestureLock'
 import { EventRow } from './EventRow'
+import type { Slot } from './RowEditor'
 
 /**
  * The day is a timeline (owner, Sept 2026): a line down the left joins the rows, the row where today
@@ -45,6 +46,12 @@ interface Props {
   onCompose?: (index: number) => void
   /** A row just added: it arrives with a short rise. */
   freshId?: Id | null
+  /** The open row (tapped): its empty slots show and `editor` slides open under it. */
+  selectedId?: Id | null
+  /** The part of the open row whose choices are showing. */
+  panel?: Slot | null
+  onSlot?: (id: Id, slot: Slot) => void
+  editor?: ReactNode
 }
 
 interface Drag {
@@ -64,7 +71,7 @@ interface Drag {
  * it passes slide out of the way, so the whole list stays readable. On release
  * the store applies the ordering rule.
  */
-export function DayEvents({ date, events, currentId = null, onOpen, interactive = true, composeAt = null, composer, onCompose, freshId = null }: Props) {
+export function DayEvents({ date, events, currentId = null, onOpen, interactive = true, composeAt = null, composer, onCompose, freshId = null, selectedId = null, panel = null, onSlot, editor }: Props) {
   const store = useStore()
   const root = useRef<HTMLDivElement>(null)
   /** Row wrappers (the row and the + slot below it). */
@@ -98,18 +105,19 @@ export function DayEvents({ date, events, currentId = null, onOpen, interactive 
     }
   }, [interactive])
 
-  // Rows glide to their new places when the add card opens (the rows below slide down to make way)
-  // or closes (they slide back up), instead of jumping. Positions are list offsets, which transforms
+  // Rows glide to their new places when the add card or a row's drawer opens (the rows below slide
+  // down to make way) or closes (they slide back up), instead of jumping. Positions are list offsets, which transforms
   // don't change; each glide is a Web Animation with no fill, so nothing keeps a transform after it.
-  const placed = useRef<{ composeAt: number | null; tops: Map<string, number> }>({ composeAt, tops: new Map() })
+  const opened = `${composeAt}|${selectedId}|${panel}`
+  const placed = useRef<{ opened: string; tops: Map<string, number> }>({ opened, tops: new Map() })
   useLayoutEffect(() => {
     const list = root.current
     if (!list) return
     const tops = new Map<string, number>()
     wrappers.current.forEach((el, id) => tops.set(id, el.offsetTop - (el.offsetParent === list ? 0 : list.offsetTop)))
     const was = placed.current
-    placed.current = { composeAt, tops }
-    if (!interactive || was.composeAt === composeAt || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    placed.current = { opened, tops }
+    if (!interactive || was.opened === opened || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const css = getComputedStyle(document.documentElement)
     // The browser may hand back "0.8s" for "800ms".
     const raw = css.getPropertyValue('--move-slow').trim()
@@ -120,7 +128,19 @@ export function DayEvents({ date, events, currentId = null, onOpen, interactive 
       if (before === undefined || before === top) return
       wrappers.current.get(id)?.animate([{ transform: `translateY(${before - top}px)` }, { transform: 'translateY(0)' }], { duration, easing })
     })
-  }, [composeAt, events, interactive])
+  }, [opened, events, interactive])
+
+  // An open row stays in sight: its choices bring the row to the top of the day (they are tall), its
+  // strip scrolls just enough to show. Waits a frame for the drawer to be laid out.
+  useEffect(() => {
+    if (!selectedId) return
+    const raf = requestAnimationFrame(() => {
+      const wrapper = wrappers.current.get(selectedId)
+      if (panel) wrapper?.firstElementChild?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      else wrapper?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [selectedId, panel])
 
   // A row just added comes into view (the add card above it may have left the day scrolled past it).
   useEffect(() => {
@@ -385,8 +405,13 @@ export function DayEvents({ date, events, currentId = null, onOpen, interactive 
                 pressing={pressing === e.id}
                 current={e.id === currentId}
                 onOpen={() => onOpen(e.id)}
+                selected={e.id === selectedId}
+                panel={e.id === selectedId ? panel : null}
+                onSlot={slot => onSlot?.(e.id, slot)}
               />
             </div>
+            {/* The open row's drawer, lined up under its card (clear of the timeline). */}
+            {e.id === selectedId && editor && <div style={{ paddingLeft: `${GUTTER_REM}rem` }}>{editor}</div>}
             {slot(i + 1)}
           </div>
         )

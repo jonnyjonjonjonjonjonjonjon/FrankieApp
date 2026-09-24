@@ -8,6 +8,7 @@ import type { Id, ISODate } from '../../types'
 import { Photo } from '../ui/Photo'
 import { Symbol } from '../ui/Symbol'
 import { DayEvents } from './DayEvents'
+import type { Slot } from './RowEditor'
 import { PhotoStrip } from './PhotoStrip'
 
 interface Props {
@@ -21,10 +22,15 @@ interface Props {
   composer?: ReactNode
   onCompose?: (index: number) => void
   freshId?: Id | null
+  /** The open row, the part whose choices are showing, and its drawer (see DayEvents). */
+  selectedId?: Id | null
+  panel?: Slot | null
+  onSlot?: (id: Id, slot: Slot) => void
+  editor?: ReactNode
 }
 
 /** Everything that slides when you swipe between days: staying-at, a festive day, birthdays, the list, photos. */
-export function DayPanel({ date, onOpen, onPickStay, interactive = true, composeAt, composer, onCompose, freshId }: Props) {
+export function DayPanel({ date, onOpen, onPickStay, interactive = true, composeAt, composer, onCompose, freshId, selectedId, panel, onSlot, editor }: Props) {
   const store = useStore()
   const events = store.eventsFor(date)
   const staying = store.stayingAt(date)
@@ -100,6 +106,10 @@ export function DayPanel({ date, onOpen, onPickStay, interactive = true, compose
           composer={composer}
           onCompose={onCompose}
           freshId={freshId}
+          selectedId={selectedId}
+          panel={panel}
+          onSlot={onSlot}
+          editor={editor}
         />
 
         <PhotoStrip date={date} />

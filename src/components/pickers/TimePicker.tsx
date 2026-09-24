@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { isDaytime, parseHHMM, to12, toHHMM } from '../../lib/time'
 import type { HHMM } from '../../types'
@@ -38,23 +38,7 @@ function HourItem({ h }: { h: number }) {
  * fives, beside a clock that follows them. Yes confirms, No leaves it as it was.
  */
 export function TimePicker({ title = 'When?', value, allowNone = false, onDone, onBack }: Props) {
-  const init = parseHHMM(value)
-  const [hour, setHour] = useState(init.h)
-  const [minuteIdx, setMinuteIdx] = useState(Math.min(11, Math.round(init.m / 5)))
-  const result = toHHMM(hour, MINUTES[minuteIdx])
-  const t12 = to12(result)
-  // Stable item lists so the wheels don't re-render their rows mid-scroll.
-  const hourItems = useMemo(() => HOURS.map(h => <HourItem key={h} h={h} />), [])
-  const minuteItems = useMemo(
-    () =>
-      MINUTES.map(m => (
-        <span key={m} className="text-4xl font-extrabold tabular-nums">
-          :{String(m).padStart(2, '0')}
-        </span>
-      )),
-    [],
-  )
-
+  const [result, setResult] = useState<HHMM>(value)
   return (
     <Sheet
       title={title}
@@ -69,33 +53,58 @@ export function TimePicker({ title = 'When?', value, allowNone = false, onDone, 
         </>
       }
     >
-      <div className="mx-auto flex max-w-xl flex-col items-center gap-4">
-        {/* The time being chosen, above the wheels. Portrait screens stack
-            the clock over the time and let it grow into the spare height. */}
-        <div className="flex items-center gap-5 portrait:flex-col portrait:gap-2">
-          <AnalogueFace
-            hour={t12.hour}
-            minute={t12.minute}
-            size={180}
-            className="h-36 w-36 sm:h-[9.5rem] sm:w-[9.5rem] portrait:h-[min(72vw,34vh)] portrait:w-[min(72vw,34vh)]"
-          />
-          {/* Sized to the widest time ("12:55 pm") so nothing shifts as digits change */}
-          <div className="grid">
-            <span className="invisible col-start-1 row-start-1" aria-hidden>
-              <TimeLabel time="12:55" size="xl" />
-            </span>
-            <span className="col-start-1 row-start-1 flex justify-center">
-              <TimeLabel time={result} size="xl" />
-            </span>
-          </div>
-        </div>
+      <TimeWheels value={value} onChange={setResult} />
+    </Sheet>
+  )
+}
 
-        {/* The wheels */}
-        <div className="grid w-full grid-cols-[3fr_2fr] gap-4">
-          <Wheel label="Hour" items={hourItems} index={hour} onChange={setHour} />
-          <Wheel label="Minutes" items={minuteItems} index={minuteIdx} onChange={setMinuteIdx} />
+/** The clock, the time being chosen and the two wheels: the time picker's body, also used inline on a day row. */
+export function TimeWheels({ value, onChange }: { value: HHMM; onChange: (t: HHMM) => void }) {
+  const init = parseHHMM(value)
+  const [hour, setHour] = useState(init.h)
+  const [minuteIdx, setMinuteIdx] = useState(Math.min(11, Math.round(init.m / 5)))
+  const result = toHHMM(hour, MINUTES[minuteIdx])
+  const t12 = to12(result)
+  useEffect(() => onChange(result), [result, onChange])
+  // Stable item lists so the wheels don't re-render their rows mid-scroll.
+  const hourItems = useMemo(() => HOURS.map(h => <HourItem key={h} h={h} />), [])
+  const minuteItems = useMemo(
+    () =>
+      MINUTES.map(m => (
+        <span key={m} className="text-4xl font-extrabold tabular-nums">
+          :{String(m).padStart(2, '0')}
+        </span>
+      )),
+    [],
+  )
+
+  return (
+    <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4">
+      {/* The time being chosen, above the wheels. Portrait screens stack
+          the clock over the time and let it grow into the spare height. */}
+      <div className="flex items-center gap-5 portrait:flex-col portrait:gap-2">
+        <AnalogueFace
+          hour={t12.hour}
+          minute={t12.minute}
+          size={180}
+          className="h-36 w-36 sm:h-[9.5rem] sm:w-[9.5rem] portrait:h-[min(72vw,34vh)] portrait:w-[min(72vw,34vh)]"
+        />
+        {/* Sized to the widest time ("12:55 pm") so nothing shifts as digits change */}
+        <div className="grid">
+          <span className="invisible col-start-1 row-start-1" aria-hidden>
+            <TimeLabel time="12:55" size="xl" />
+          </span>
+          <span className="col-start-1 row-start-1 flex justify-center">
+            <TimeLabel time={result} size="xl" />
+          </span>
         </div>
       </div>
-    </Sheet>
+
+      {/* The wheels */}
+      <div className="grid w-full grid-cols-[3fr_2fr] gap-4">
+        <Wheel label="Hour" items={hourItems} index={hour} onChange={setHour} />
+        <Wheel label="Minutes" items={minuteItems} index={minuteIdx} onChange={setMinuteIdx} />
+      </div>
+    </div>
   )
 }

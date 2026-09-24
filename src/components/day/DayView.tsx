@@ -9,7 +9,7 @@ import { SlideCarousel } from '../ui/SlideCarousel'
 import { TopBar } from '../ui/TopBar'
 import { ItemPicker } from '../pickers/ItemPicker'
 import { DayPanel } from './DayPanel'
-import { EventSheet } from './EventSheet'
+import { RowEditor, type Slot } from './RowEditor'
 import { InlineAdd } from './InlineAdd'
 
 /** How long a newly added row keeps its arrival animation class. */
@@ -22,7 +22,9 @@ interface Props {
 
 export function DayView({ date, from }: Props) {
   const store = useStore()
-  const [openId, setOpenId] = useState<string | null>(null)
+  // The open row (tapped) and which of its parts is being set, on this day only.
+  const [open, setOpen] = useState<{ date: ISODate; id: Id; panel: Slot | null } | null>(null)
+  if (open && open.date !== date) setOpen(null)
   // The add card: open at a place in this day's list (a new day closes it).
   const [compose, setCompose] = useState<{ date: ISODate; index: number } | null>(null)
   // Changing day (arrow, swipe or tab) closes it, so coming back never finds it still open.
@@ -37,12 +39,17 @@ export function DayView({ date, from }: Props) {
 
   const goDay = (d: ISODate) => store.go({ kind: 'day', date: d, from })
 
-  /** Template rows are virtual until first touched; write them before editing. */
-  const open = async (id: string) => {
+  /** Tap a row to open it (or close it again). Template rows are virtual until first touched: write them first. */
+  const toggle = async (id: string) => {
+    if (open?.id === id) return setOpen(null)
+    setCompose(null)
     track('event_open')
     const map = await store.materializeDay(date)
-    setOpenId(map[id] ?? id)
+    setOpen({ date, id: map[id] ?? id, panel: null })
   }
+  /** Tap a part of the open row: its choices open under it (tap it again to go back to the row's strip). */
+  const slot = (id: Id, panel: Slot) => setOpen(o => (o && o.id === id ? { ...o, panel: o.panel === panel ? null : panel } : o))
+  const openEvent = open ? store.state.events[open.id] : undefined
 
   const back = () => {
     if (from === 'today') store.go({ kind: 'today' })
@@ -93,7 +100,24 @@ export function DayView({ date, from }: Props) {
           render={o => (
             <DayPanel
               date={addDays(date, o)}
-              onOpen={id => void open(id)}
+              onOpen={id => void toggle(id)}
+              selectedId={o === 0 && openEvent ? open?.id : null}
+              panel={o === 0 ? (open?.panel ?? null) : null}
+              onSlot={slot}
+              editor={
+                o === 0 &&
+                open &&
+                openEvent && (
+                  <RowEditor
+                    key={open.id}
+                    date={date}
+                    event={openEvent}
+                    panel={open.panel}
+                    onPanel={panel => setOpen(x => (x ? { ...x, panel } : x))}
+                    onRemoved={() => setOpen(null)}
+                  />
+                )
+              }
               onPickStay={() => setPickStay(true)}
               interactive={o === 0}
               composeAt={o === 0 ? composeAt : null}
@@ -113,6 +137,7 @@ export function DayView({ date, from }: Props) {
                 )
               }
               onCompose={index => {
+                setOpen(null)
                 setFresh(null)
                 setCompose({ date, index })
               }}
@@ -122,7 +147,6 @@ export function DayView({ date, from }: Props) {
         />
       </div>
 
-      {openId && <EventSheet eventId={openId} date={date} onClose={() => setOpenId(null)} />}
       {pickStay && (
         <ItemPicker
           kind="place"
