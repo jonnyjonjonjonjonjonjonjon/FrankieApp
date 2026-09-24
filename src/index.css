@@ -142,3 +142,59 @@ button,
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* The web pictures box while it looks (opacity only: cheap on the Tab A8). */
+@keyframes web-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.web-pulse {
+  animation: web-pulse 1.2s ease-in-out infinite;
+}
+
+/* Try tile on a nearly empty shelf: one gentle outline pulse when it opens (no scaling, no loop). */
+@keyframes try-nudge {
+  0%, 100% { outline: 0 solid transparent; outline-offset: 0; }
+  50% { outline: 6px solid var(--color-orange); outline-offset: 4px; }
+}
+.try-nudge {
+  animation: try-nudge 2s ease-in-out 1;
+}
+
+/* Try's "how to search" demo: a ring and hand step across three panels
+   (type, pictures, thumbs up) while each panel's contents appear. One round
+   is 3.6s; three rounds, then it rests on panel 3 with everything showing. */
+.search-demo {
+  --demo-gap: 0.75rem;
+}
+.demo-ring {
+  width: calc((100% - 2 * var(--demo-gap)) / 3);
+  transform: translateX(calc(200% + 2 * var(--demo-gap)));
+  animation: demo-ring 3.6s linear 3 both;
+}
+@keyframes demo-ring {
+  0%, 30% { transform: translateX(0); }
+  33.3%, 63% { transform: translateX(calc(100% + var(--demo-gap))); }
+  66.6%, 100% { transform: translateX(calc(200% + 2 * var(--demo-gap))); }
+}
+.demo-l1 { animation: demo-l1 3.6s linear 3 both; }
+.demo-l2 { animation: demo-l2 3.6s linear 3 both; }
+.demo-l3 { animation: demo-l3 3.6s linear 3 both; }
+.demo-l4 { animation: demo-l4 3.6s linear 3 both; }
+@keyframes demo-l1 { 0%, 2.9% { opacity: 0; } 3%, 100% { opacity: 1; } }
+@keyframes demo-l2 { 0%, 8.9% { opacity: 0; } 9%, 100% { opacity: 1; } }
+@keyframes demo-l3 { 0%, 14.9% { opacity: 0; } 15%, 100% { opacity: 1; } }
+@keyframes demo-l4 { 0%, 20.9% { opacity: 0; } 21%, 100% { opacity: 1; } }
+.demo-t1 { animation: demo-t1 3.6s linear 3 both; }
+.demo-t2 { animation: demo-t2 3.6s linear 3 both; }
+.demo-t3 { animation: demo-t3 3.6s linear 3 both; }
+@keyframes demo-t1 { 0%, 36% { opacity: 0; transform: scale(0.6); } 40%, 100% { opacity: 1; transform: scale(1); } }
+@keyframes demo-t2 { 0%, 43% { opacity: 0; transform: scale(0.6); } 47%, 100% { opacity: 1; transform: scale(1); } }
+@keyframes demo-t3 { 0%, 50% { opacity: 0; transform: scale(0.6); } 54%, 100% { opacity: 1; transform: scale(1); } }
+.demo-yes { animation: demo-yes 3.6s linear 3 both; }
+@keyframes demo-yes { 0%, 69% { opacity: 0; transform: scale(0.6); } 73%, 100% { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .search-demo * {
+    animation: none !important;
+  }
+}

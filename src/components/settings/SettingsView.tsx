@@ -15,6 +15,7 @@ import { TimePicker } from '../pickers/TimePicker'
 import { Birthdays } from './Birthdays'
 import { FamilyAccounts } from './FamilyAccounts'
 import { ThisDevice } from './ThisDevice'
+import { UsageStats } from './UsageStats'
 import { WordsManager } from './WordsManager'
 
 function Section({ title, symbol, children }: { title: string; symbol: string; children: React.ReactNode }) {
@@ -28,7 +29,7 @@ function Section({ title, symbol, children }: { title: string; symbol: string; c
   )
 }
 
-/** Family/carer mode behind a PIN: birthdays, routine times, home, words, PIN, export, start again (PRD §6, §7). */
+/** Family/carer mode behind a PIN: birthdays, routine times, home, words, Frankie's use, PIN, export, start again (PRD §6, §7). */
 export function SettingsView() {
   const store = useStore()
   const { settings, familyMode } = store.state
@@ -91,8 +92,9 @@ export function SettingsView() {
         right={
           <BigButton
             onClick={() => {
-              store.setFamilyMode(false)
+              // Back first, while still in Family mode: the family handing back isn't counted as Frankie's use.
               back()
+              store.setFamilyMode(false)
             }}
           >
             <LogOut size={32} strokeWidth={2.5} />
@@ -134,6 +136,10 @@ export function SettingsView() {
 
           <Section title="Words" symbol="mb:pencil">
             <WordsManager />
+          </Section>
+
+          <Section title="Frankie's use" symbol="mb:graph_column">
+            <UsageStats />
           </Section>
 
           <Section title="PIN" symbol="🔒">

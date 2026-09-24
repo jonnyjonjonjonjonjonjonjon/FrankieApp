@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { addMonths, DAY_SHORT, dayNumber, monthGrid, monthName, today, year } from '../../lib/dates'
 import { festiveOn } from '../../lib/festive'
 import { useStore } from '../../lib/store'
+import { track } from '../../lib/usage'
 import type { ISODate, LibraryItem } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Photo } from '../ui/Photo'
@@ -48,7 +49,10 @@ export function MonthView({ date }: { date: ISODate }) {
         <SlideCarousel
           centre={date.slice(0, 7)}
           request={slide}
-          onSettle={dir => goMonth(addMonths(date, dir))}
+          onSettle={(dir, how) => {
+            track(how === 'swipe' ? 'nav_swipe' : 'nav_arrow')
+            goMonth(addMonths(date, dir))
+          }}
           render={o => <MonthGrid date={addMonths(date, o)} />}
         />
       </div>

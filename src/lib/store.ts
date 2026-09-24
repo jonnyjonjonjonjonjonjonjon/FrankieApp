@@ -8,6 +8,7 @@ import type {
   ISODate,
   LibraryItem,
   LibraryKind,
+  PhotoCredit,
   PhotoRecord,
   Rating,
   Settings,
@@ -19,6 +20,7 @@ import { seedItems, HOME_PLACE_ID, PREVIOUS_SEED_SYMBOLS } from './seed'
 import { shrinkImage, primeUrl, forgetUrl } from './images'
 import { categoryOf, defaultCategory } from './categories'
 import { minutesOf } from './time'
+import { clearUsage, localUsage, setUsagePaused, track, type UsageKey } from './usage'
 
 const timeKey = (e: DiaryEvent) => (e.time ? minutesOf(e.time) : 1e6)
 import { fromISO, isMonthDay, toISO, today } from './dates'
@@ -244,11 +246,15 @@ class Store {
   // ---------- navigation ----------
 
   go(view: View) {
+    const was = screenKey(this.state.view)
     this.set({ view })
     window.scrollTo(0, 0)
+    const now = screenKey(view)
+    if (now && now !== was) track(now)
   }
 
   setFamilyMode(on: boolean) {
+    setUsagePaused(on)
     this.set({ familyMode: on })
   }
 
@@ -312,7 +318,8 @@ class Store {
     this.set({ items: { ...this.state.items, [id]: next } })
   }
 
-  async setItemPhoto(id: Id, photo: Blob | null) {
+  /** `credit`: where a web picture came from; any other photo (or none) clears it. */
+  async setItemPhoto(id: Id, photo: Blob | null, credit: PhotoCredit | null = null) {
     const cur = this.state.items[id]
     if (!cur) return
     if (cur.photoId) {
@@ -326,12 +333,13 @@ class Store {
       await db.putBlob(photoId, small)
       primeUrl(photoId, small)
     }
-    await this.updateItem(id, { photoId, showPhoto: Boolean(photoId) })
+    await this.updateItem(id, { photoId, showPhoto: Boolean(photoId), photoCredit: photo ? credit : null })
   }
 
   toggleItemPhoto(id: Id) {
     const cur = this.state.items[id]
     if (!cur?.photoId) return
+    track('tile_flip')
     void this.updateItem(id, { showPhoto: !cur.showPhoto })
   }
 
@@ -404,6 +412,7 @@ class Store {
   }
 
   async setStayingAt(date: ISODate, placeId: Id | null) {
+    track('stay_change')
     const rec = { ...this.dayRecord(date), stayingAtId: placeId, updatedAt: stamp() }
     await db.putDay(rec)
     this.set({ days: { ...this.state.days, [date]: rec } })
@@ -579,6 +588,7 @@ class Store {
    * and the ones it clashes with lose their times.
    */
   async moveEvent(date: ISODate, id: Id, toIndex: number) {
+    track('event_move')
     // resolveEventId materialises the day if needed and maps a placeholder id to the real one.
     const realId = await this.resolveEventId(date, id)
     const list = this.eventsFor(date)
@@ -605,6 +615,7 @@ class Store {
 
   /** Give an event a time (or remove it); it slides to where that time belongs in the list. */
   async setEventTime(date: ISODate, id: Id, time: HHMM | null) {
+    track('event_time')
     const realId = await this.resolveEventId(date, id)
     const list = this.eventsFor(date)
     const cur = list.find(e => e.id === realId)
@@ -632,10 +643,12 @@ class Store {
   }
 
   async rateEvent(date: ISODate, id: Id, rating: Rating | null) {
+    track('event_rate')
     await this.updateEvent(date, id, { rating })
   }
 
   async deleteEvent(date: ISODate, id: Id, word: string) {
+    track('event_remove')
     const realId = await this.resolveEventId(date, id)
     await this.updateEvent(date, realId, { deleted: true })
     this.toast(`${word} removed`, () => void this.updateEvent(date, realId, { deleted: false }))
@@ -644,6 +657,7 @@ class Store {
   // ---------- photos ----------
 
   async addPhoto(date: ISODate, file: Blob, eventId: Id | null = null): Promise<PhotoRecord> {
+    track('photo_add')
     const id = db.newId()
     const small = await shrinkImage(file)
     await db.putBlob(id, small)
@@ -693,13 +707,26 @@ class Store {
 
   async resetEverything() {
     await db.clearAll()
+    await clearUsage()
     this.set({ ...initialState, loading: true, view: { kind: 'today' } })
     await this.load({ migrate: this.canMigrate })
   }
 
   exportJSON(): string {
     const { items, events, days, photos, settings } = this.state
-    return JSON.stringify({ exportedAt: stamp(), items, events, days, photos, settings }, null, 2)
+    // This device's usage counts too (other devices' live in the cloud).
+    const usage = localUsage().map(({ id, deviceId, deviceLabel, frankie, date, counts, sessions, minutes, updatedAt }) => ({
+      id,
+      deviceId,
+      deviceLabel,
+      frankie,
+      date,
+      counts,
+      sessions,
+      minutes,
+      updatedAt,
+    }))
+    return JSON.stringify({ exportedAt: stamp(), items, events, days, photos, settings, usage }, null, 2)
   }
 
   // ---------- sync ----------
@@ -793,6 +820,24 @@ function birthdayIn(md: string, y: number): ISODate {
   const [m, d] = md.split('-').map(Number)
   const day = m === 2 && d === 29 && !isLeap(y) ? 28 : d
   return toISO(new Date(y, m - 1, day))
+}
+
+/** The usage count for arriving on a screen: the Today tab's day (whatever day it shows) is Today; a day opened elsewhere is "a day". */
+function screenKey(view: View): UsageKey | null {
+  switch (view.kind) {
+    case 'today':
+      return 'view_today'
+    case 'day':
+      return view.from === 'today' ? 'view_today' : 'view_day'
+    case 'week':
+      return 'view_week'
+    case 'month':
+      return 'view_month'
+    case 'photos':
+      return 'view_photos'
+    default:
+      return null
+  }
 }
 
 const byOrder = (a: LibraryItem, b: LibraryItem) => (a.order ?? 1e6) - (b.order ?? 1e6) || a.name.localeCompare(b.name)

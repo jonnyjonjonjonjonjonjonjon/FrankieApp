@@ -19,7 +19,9 @@ import {
   onSnapshot,
   persistentLocalCache,
   persistentMultipleTabManager,
+  query,
   setDoc,
+  where,
   type Firestore,
   type Unsubscribe,
 } from 'firebase/firestore'
@@ -27,6 +29,8 @@ import * as db from './db'
 import { firebaseConfig } from './firebaseConfig'
 import { setRemoteBlobFetcher } from './images'
 import { store } from './store'
+import { setUsagePusher } from './usage'
+import type { ISODate, UsageDay } from '../types'
 
 /**
  * Cloud sync (PRD §4.12) on Firebase.
@@ -39,6 +43,9 @@ import { store } from './store'
  *   under the 1 MB doc limit because images.ts shrinks them), pushed from an
  *   outbox that retries when online. This avoids Cloud Storage, which needs a
  *   billing account on new projects.
+ * - Usage stats (collection `usage`, one doc per device per day) are pushed
+ *   by usage.ts through setUsagePusher and only read on request by the
+ *   stats screen (fetchUsage): no listener, so they never stream in.
  * - Access: Google sign-in, and the signed-in email must exist in the
  *   `members` collection (enforced by firestore.rules / storage.rules).
  */
@@ -175,6 +182,7 @@ class Sync {
       () => void this.flushOutbox(),
     )
     void this.flushOutbox()
+    setUsagePusher(u => this.pushUsage(u))
   }
 
   // ---------- inbound ----------
@@ -228,6 +236,7 @@ class Sync {
     this.unsubs = []
     db.setWriteHooks(null, null)
     setRemoteBlobFetcher(null)
+    setUsagePusher(null)
   }
 
   private async applyRemote(coll: db.Collection, record: db.Record_) {
@@ -295,6 +304,24 @@ class Sync {
       const blob = new Blob([Uint8Array.from(data.toUint8Array())], { type: type || 'image/jpeg' })
       await db.putBlob(id, blob, true)
       return blob
+    } catch {
+      return null
+    }
+  }
+
+  // ---------- usage stats ----------
+
+  private async pushUsage(u: UsageDay) {
+    if (!this.fs || this.status !== 'ready') throw new Error('sync not ready')
+    await setDoc(doc(this.fs, 'usage', u.id), u)
+  }
+
+  /** Every device's usage days from `from` on: a one-off read for the stats screen (null if it fails or sync is off). */
+  async fetchUsage(from: ISODate): Promise<UsageDay[] | null> {
+    if (!this.fs || this.status !== 'ready') return null
+    try {
+      const snap = await getDocs(query(collection(this.fs, 'usage'), where('date', '>=', from)))
+      return snap.docs.map(d => d.data() as UsageDay)
     } catch {
       return null
     }

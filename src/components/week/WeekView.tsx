@@ -4,6 +4,7 @@ import { addDays, DAY_SHORT, dayNumber, monthName, today, weekDates, weekdayInde
 import { eventFace, travelDestination } from '../../lib/eventFace'
 import { festiveOn } from '../../lib/festive'
 import { useStore } from '../../lib/store'
+import { track } from '../../lib/usage'
 import { eventTypeInfo, RATING_FACES } from '../../lib/symbols'
 import { isDaytime, to12 } from '../../lib/time'
 import type { DiaryEvent, EventType, ISODate } from '../../types'
@@ -43,7 +44,10 @@ export function WeekView({ date }: { date: ISODate }) {
   const days = weekDates(date)
   const first = days[0]
   const last = days[6]
-  const goWeek = (d: ISODate) => store.go({ kind: 'week', date: d })
+  const goWeek = (d: ISODate) => {
+    track('nav_arrow')
+    store.go({ kind: 'week', date: d })
+  }
   const items = store.state.items
   const scroller = useRef<HTMLDivElement>(null)
   // Phones and portrait tablets show only part of the week: open it with today's column in view

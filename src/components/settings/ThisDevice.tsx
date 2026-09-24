@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Tablet } from 'lucide-react'
-import { CHARGE_AT, CHARGER_PHOTO_ID, isFrankiesTablet, setFrankiesTablet } from '../../lib/device'
+import { CHARGE_AT, CHARGER_PHOTO_ID, defaultDeviceLabel, deviceLabel, isFrankiesTablet, setDeviceLabel, setFrankiesTablet } from '../../lib/device'
 import { putBlob, deleteBlob } from '../../lib/db'
 import { forgetUrl, primeUrl, shrinkImage } from '../../lib/images'
 import { useBattery } from '../../lib/useBattery'
@@ -11,6 +11,8 @@ import { PhotoInput } from '../pickers/PhotoInput'
 /** Settings that live on this device only (never synced). */
 export function ThisDevice() {
   const [tablet, setTablet] = useState(isFrankiesTablet())
+  // The family's own name for this device (blank = the guess, shown as the placeholder).
+  const [label, setLabel] = useState(() => (deviceLabel() === defaultDeviceLabel() ? '' : deviceLabel()))
   const [photoKey, setPhotoKey] = useState(0)
   const battery = useBattery()
   const photo = usePhotoUrl(photoKey >= 0 ? CHARGER_PHOTO_ID : null)
@@ -48,6 +50,20 @@ export function ThisDevice() {
           ? ` This device: ${Math.round(battery.level * 100)}%${battery.charging ? ', charging' : ''}.`
           : ' This browser cannot read the battery.'}
       </p>
+      <label className="flex flex-wrap items-center gap-3">
+        <span className="text-xl font-extrabold">Device name</span>
+        <input
+          value={label}
+          onChange={e => {
+            setLabel(e.target.value)
+            setDeviceLabel(e.target.value)
+          }}
+          placeholder={defaultDeviceLabel()}
+          autoComplete="off"
+          className="min-h-14 min-w-0 flex-1 rounded-2xl border-4 border-line px-3 text-xl font-bold outline-none focus:border-orange"
+        />
+      </label>
+      <p className="text-lg text-ink-soft">Names this device in Frankie's use.</p>
       <div className="flex flex-wrap items-center gap-3">
         {photo && <img src={photo} alt="Charger" className="h-24 w-24 rounded-2xl border-4 border-line object-cover" />}
         <PhotoInput size="sm" onPick={f => void pickPhoto(f)} />

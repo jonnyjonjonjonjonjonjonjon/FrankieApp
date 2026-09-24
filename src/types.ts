@@ -47,10 +47,21 @@ export interface LibraryItem {
   // food
   /** @deprecated for grouping (use category); still written by meal pickers so older copies keep their order. */
   meals?: MealSlot[]
+  /** Where a photo from the web came from (shown in the word editor); cleared when the photo changes. */
+  photoCredit?: PhotoCredit | null
   seeded: boolean
   deleted: boolean
   createdAt: string
   updatedAt: string
+}
+
+/** Credit for an openly licensed picture found on the web (backlog item 2). */
+export interface PhotoCredit {
+  title: string
+  creator?: string
+  license?: string
+  /** The picture's page at its source. */
+  url?: string
 }
 
 // ---------- Events ----------
@@ -143,6 +154,31 @@ export const DEFAULT_TEMPLATE: TemplateItem[] = [
   { type: 'lunch', time: '11:30' },
   { type: 'dinner', time: '17:30' },
 ]
+
+// ---------- Usage stats ----------
+
+/**
+ * What one device was used for on one day (backlog item 5): counts only,
+ * never content. One writer per doc (its own device), so last-write-wins is
+ * exact. Kept in its own local database and Firestore collection `usage`,
+ * never in the diary's state.
+ */
+export interface UsageDay {
+  /** `${deviceId}_${date}` */
+  id: string
+  deviceId: string
+  deviceLabel: string
+  /** This device was marked as Frankie's tablet when counted. */
+  frankie: boolean
+  date: ISODate
+  /** Per part of the app (keys in lib/usage.ts: underscores only, safe as Firestore field names). */
+  counts: Record<string, number>
+  /** Times the app was opened, or come back to after a while away. */
+  sessions: number
+  /** Minutes with at least one tap. */
+  minutes: number
+  updatedAt: string
+}
 
 // ---------- Navigation ----------
 

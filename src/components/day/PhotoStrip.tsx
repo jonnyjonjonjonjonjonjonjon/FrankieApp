@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useStore } from '../../lib/store'
+import { track } from '../../lib/usage'
 import { longDate } from '../../lib/dates'
 import type { ISODate, PhotoRecord } from '../../types'
 import { BigButton } from '../ui/BigButton'
@@ -29,7 +30,10 @@ export function PhotoStrip({ date }: { date: ISODate }) {
             <button
               key={p.id}
               type="button"
-              onClick={() => setOpen(p)}
+              onClick={() => {
+                track('photo_view')
+                setOpen(p)
+              }}
               className="h-36 w-36 shrink-0 overflow-hidden rounded-2xl border-4 border-ink active:scale-95"
             >
               <Photo id={p.id} className="h-full w-full" />

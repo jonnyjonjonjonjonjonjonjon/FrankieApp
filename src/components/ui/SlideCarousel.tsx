@@ -6,8 +6,8 @@ interface Props {
   centre: string
   /** Render the panel for an offset of -1, 0 or +1 from the current one. */
   render: (offset: -1 | 0 | 1) => ReactNode
-  /** Called once the slide has finished; the parent then changes the date. */
-  onSettle: (direction: -1 | 1) => void
+  /** Called once the slide has finished; the parent then changes the date. `how`: a swipe, or an arrow's request. */
+  onSettle: (direction: -1 | 1, how: 'swipe' | 'arrow') => void
   /** Bump this to trigger an arrow-driven slide from the parent. */
   request: { dir: -1 | 1; n: number } | null
   /** Ignore touches (the panel is busy with something else); arrow requests still slide. */
@@ -32,10 +32,13 @@ export function SlideCarousel({ centre, render, onSettle, request, locked = fals
   const start = useRef<{ x: number; y: number; horizontal: boolean | null } | null>(null)
   const track = useRef<HTMLDivElement>(null)
   const lastRequest = useRef(0)
+  /** The slide under way was asked for by an arrow (not a swipe). */
+  const byArrow = useRef(false)
 
   useEffect(() => {
     if (request && request.n !== lastRequest.current) {
       lastRequest.current = request.n
+      byArrow.current = true
       setWidth(track.current?.clientWidth ?? window.innerWidth)
       setAnimTo(request.dir)
     }
@@ -73,6 +76,7 @@ export function SlideCarousel({ centre, render, onSettle, request, locked = fals
     start.current = null
     setDragging(false)
     if (!s || !s.horizontal) return
+    byArrow.current = false
     if (dx <= -THRESHOLD) setAnimTo(1)
     else if (dx >= THRESHOLD) setAnimTo(-1)
     else setAnimTo(0)
@@ -85,7 +89,7 @@ export function SlideCarousel({ centre, render, onSettle, request, locked = fals
     setDx(0)
     setAnimTo(null)
     // Changing the date changes `centre`, which remounts the track at rest.
-    if (dir !== 0) onSettle(dir)
+    if (dir !== 0) onSettle(dir, byArrow.current ? 'arrow' : 'swipe')
   }
 
   const shift = animTo === null ? dx : animTo === 0 ? 0 : -animTo * width

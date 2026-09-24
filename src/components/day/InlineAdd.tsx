@@ -12,7 +12,10 @@ import { NoButton, YesButton } from '../ui/YesNo'
 import { useMediaQuery } from '../ui/useMediaQuery'
 import { ChoiceGrid } from '../pickers/ChoiceGrid'
 import { NewItemFields } from '../pickers/NewItemFields'
-import { draftReady, newDraft, saveDraft, type NewItemDraft } from '../pickers/newItemDraft'
+import { addIdea, draftReady, newDraft, saveDraft, type NewItemDraft } from '../pickers/newItemDraft'
+import { TryNewPanel } from '../pickers/TryNew'
+import { TRY_SYMBOL, type Idea, type IdeaKind } from '../../lib/ideas'
+import { track, type UsageKey } from '../../lib/usage'
 
 /** Space left above the card when it is scrolled to the top of the day (px). */
 const TOP_MARGIN = 8
@@ -45,6 +48,8 @@ type Step =
   | { at: 'where'; travelId: Id }
   /** Making a new word for the step it came from. */
   | { at: 'new'; kind: LibraryKind; from: Step & { at: 'pick' | 'where' } }
+  /** Try something new: ideas for an activity or a meal she doesn't have yet. */
+  | { at: 'try'; kind: IdeaKind; shelf: string | null; query: string; from: Step & { at: 'pick' } }
 
 interface Crumb {
   step: Step
@@ -69,6 +74,8 @@ export function InlineAdd({ date, index, onClose }: Props) {
   const [step, setStep] = useState<Step>({ at: 'type' })
   const [selected, setSelected] = useState<Id[]>([])
   const [draft, setDraft] = useState<NewItemDraft>(() => newDraft(null))
+  /** The Try idea tapped, waiting for Yes. */
+  const [idea, setIdea] = useState<Idea | null>(null)
   const [busy, setBusy] = useState(false)
   const card = useRef<HTMLDivElement>(null)
   const header = useRef<HTMLElement>(null)
@@ -94,12 +101,13 @@ export function InlineAdd({ date, index, onClose }: Props) {
   // A plain toast from the last add would sit on the breadcrumb: it has done its job (an Undo stays).
   useEffect(() => {
     toTop('smooth')
+    track('add_open')
     if (store.state.toast && !store.state.toast.undo) store.clearToast()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   // Each step starts at the card's top. A new step can be much shorter than the last (a long food list →
   // back to Add), and New's autofocus lets the browser scroll the box to wherever it likes.
-  const stepKey = step.at === 'pick' ? `pick:${step.type}` : step.at
+  const stepKey = step.at === 'pick' ? `pick:${step.type}` : step.at === 'try' ? `try:${idea ? 'chosen' : ''}` : step.at
   useLayoutEffect(() => toTop('auto'), [stepKey])
 
   // How much room the bars leave between them, whenever the day or the bars change size.
@@ -150,6 +158,7 @@ export function InlineAdd({ date, index, onClose }: Props) {
         foodIds: meal ? ids : [],
       })
       const word = type === 'activity' && ids[0] ? store.state.items[ids[0]]?.name : eventTypeInfo(type).word
+      track(addedKey(type))
       store.toast(`${word} added`)
       onClose(ev.id)
     } finally {
@@ -163,6 +172,7 @@ export function InlineAdd({ date, index, onClose }: Props) {
     setBusy(true)
     try {
       const ev = await store.addEvent({ date, index, type: 'travel', travelId, placeId })
+      track('add_travel')
       store.toast(`${store.state.items[travelId]?.name ?? eventTypeInfo('travel').word} added`)
       onClose(ev.id)
     } finally {
@@ -173,6 +183,7 @@ export function InlineAdd({ date, index, onClose }: Props) {
   const go = (next: Step) => {
     // Leaving a meal's list for the start: its ticks go with it.
     if (next.at === 'type') setSelected([])
+    setIdea(null)
     setStep(next)
   }
 
@@ -202,11 +213,39 @@ export function InlineAdd({ date, index, onClose }: Props) {
     }
   }
 
+  const startTry = (from: Step & { at: 'pick' }, kind: IdeaKind, at: { shelf: string | null; query: string }) => {
+    setIdea(null)
+    setStep({ at: 'try', kind, from, ...at })
+  }
+
+  /** Yes on a Try idea: it becomes a word, then is picked like any tile (an activity is added, a food ticked). */
+  const addTried = async () => {
+    if (step.at !== 'try' || !idea || busy) return
+    const { from } = step
+    const mealSlot = MEAL_TYPES.includes(from.type) ? (from.type as MealSlot) : undefined
+    setBusy(true)
+    let item: LibraryItem
+    try {
+      item = await addIdea(store, idea, mealSlot)
+    } finally {
+      setBusy(false)
+    }
+    setIdea(null)
+    if (from.type === 'activity') void finish('activity', [item.id])
+    else {
+      setSelected(s => [...s, item.id])
+      setStep(from)
+    }
+  }
+
   const crumbs = trail(step, store.state.items)
 
   let body: ReactNode
   let yes: ReactNode = null
-  let no = () => onClose()
+  let no = () => {
+    track('add_cancel')
+    onClose()
+  }
   if (step.at === 'type') {
     body = (
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -251,10 +290,17 @@ export function InlineAdd({ date, index, onClose }: Props) {
           else setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]))
         }}
         onNew={category => startNew(from, kind, category)}
+        onTry={kind === 'travel' ? undefined : at => startTry(from, kind, at)}
         findButton
       />
     )
     if (meal) yes = <YesButton compact={flat} disabled={busy} onClick={() => void finish(from.type, selected)} />
+  } else if (step.at === 'try') {
+    body = <TryNewPanel kind={step.kind} shelf={step.shelf} query={step.query} chosen={idea} onChoose={setIdea} />
+    if (idea) yes = <YesButton compact={flat} disabled={busy} onClick={() => void addTried()} />
+    // No steps back: from "Add?" to the ideas, from the ideas to the list she came from.
+    const from = step.from
+    no = () => (idea ? setIdea(null) : setStep(from))
   } else {
     body = <NewItemFields kind={step.kind} draft={draft} onChange={setDraft} />
     yes = <YesButton compact={flat} disabled={!draftReady(draft) || busy} onClick={() => void saveNew()} />
@@ -348,7 +394,15 @@ function trail(step: Step, items: Record<Id, LibraryItem>): Crumb[] {
       },
     ]
   }
+  if (step.at === 'try') return [...trail(step.from, items), { step, word: 'Try', symbol: TRY_SYMBOL }]
   return [...trail(step.from, items), { step, word: 'New', symbol: <PlusMark filled /> }]
+}
+
+/** The usage count for adding a row of this type. */
+function addedKey(type: EventType): UsageKey {
+  if (type === 'activity') return 'add_activity'
+  if (type === 'travel') return 'add_travel'
+  return MEAL_TYPES.includes(type) ? 'add_meal' : 'add_routine'
 }
 
 /** The + she tapped to get here (white, like the + between rows), or the orange New tile's. */

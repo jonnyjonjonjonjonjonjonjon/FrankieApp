@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { searchSymbols } from '../../lib/symbols'
 import { mulberryIndex, preferMulberry, type MulberryEntry } from '../../lib/symbolImages'
-import type { Id } from '../../types'
+import type { Id, PhotoCredit } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Photo } from '../ui/Photo'
 import { Symbol } from '../ui/Symbol'
 import { PhotoInput } from './PhotoInput'
+import { WebPictures } from './WebPictures'
 
 const MAX_MULBERRY = 24
 
@@ -16,7 +17,8 @@ interface Props {
   onSymbol: (symbol: string) => void
   /** A new photo, not saved yet. */
   photo: Blob | null
-  onPhoto: (photo: Blob) => void
+  /** A photo from the camera or gallery (no credit), or from the web (with its credit). */
+  onPhoto: (photo: Blob, credit: PhotoCredit | null) => void
   /** The word's saved photo, shown while no new one is chosen (the word editor). */
   keptPhotoId?: Id | null
   /** Take the photo away (the new one, or the saved one). */
@@ -24,9 +26,9 @@ interface Props {
 }
 
 /**
- * A word's picture: the chosen picture, Camera and Photos, then a searchable
- * symbol grid. Shared by the new-word form and the word editor, so both get
- * the same picture choices (and, later, the web pictures box beside Photos).
+ * A word's picture: the chosen picture, Camera and Photos, the web pictures
+ * box for the word (Family mode), then a searchable symbol grid. Shared by the
+ * new-word form and the word editor, so both get the same picture choices.
  */
 export function PictureChooser({ word, symbol, onSymbol, photo, onPhoto, keptPhotoId, onClearPhoto }: Props) {
   const [query, setQuery] = useState('')
@@ -62,8 +64,9 @@ export function PictureChooser({ word, symbol, onSymbol, photo, onPhoto, keptPho
             <span className="text-xl font-bold text-ink-soft">Symbol or photo</span>
           )}
         </div>
-        <div className="flex flex-col gap-3">
-          <PhotoInput onPick={onPhoto} />
+        {/* Phones: the picture and the web box share the first row, Camera / Photos go under them. */}
+        <div className="flex flex-col gap-3 max-sm:order-2">
+          <PhotoInput onPick={f => onPhoto(f, null)} />
           {hasPhoto && (
             // "Clear", not "No photo": only No itself starts with No (Q9).
             <BigButton size="sm" onClick={onClearPhoto} aria-label="Clear photo">
@@ -72,6 +75,7 @@ export function PictureChooser({ word, symbol, onSymbol, photo, onPhoto, keptPho
             </BigButton>
           )}
         </div>
+        <WebPictures word={word} onPick={onPhoto} className="max-sm:order-1" />
       </div>
       <input
         value={query}

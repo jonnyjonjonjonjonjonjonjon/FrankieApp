@@ -5,6 +5,7 @@ import { Sheet } from '../ui/Sheet'
 import { ClearButton, NoButton, YesButton } from '../ui/YesNo'
 import { ChoiceGrid } from './ChoiceGrid'
 import { NewItemForm } from './NewItemForm'
+import { TryNew } from './TryNew'
 
 interface Props {
   kind: LibraryKind
@@ -32,6 +33,10 @@ export function ItemPicker({ kind, title, symbol, before, multi = false, initial
   const [selected, setSelected] = useState<Id[]>(initial)
   // The shelf a new word starts on; undefined = not making one.
   const [adding, setAdding] = useState<string | null | undefined>(undefined)
+  // Try something new: where it was opened from; null = not open.
+  const [trying, setTrying] = useState<{ shelf: string | null; query: string } | null>(null)
+  // Foods and activities from the whole list offer ideas she doesn't have yet (backlog item 16).
+  const tryKind = !subset && (kind === 'food' || kind === 'activity') ? kind : null
 
   const pick = (id: Id) => {
     if (!multi) {
@@ -39,6 +44,23 @@ export function ItemPicker({ kind, title, symbol, before, multi = false, initial
       return
     }
     setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]))
+  }
+
+  if (trying && tryKind) {
+    return (
+      <TryNew
+        kind={tryKind}
+        shelf={trying.shelf}
+        query={trying.query}
+        mealSlot={mealSlot}
+        onBack={() => setTrying(null)}
+        onAdded={item => {
+          setTrying(null)
+          if (multi) setSelected(s => [...s, item.id])
+          else onDone([item.id])
+        }}
+      />
+    )
   }
 
   if (adding !== undefined) {
@@ -74,7 +96,7 @@ export function ItemPicker({ kind, title, symbol, before, multi = false, initial
         </>
       }
     >
-      <ChoiceGrid kind={kind} items={subset} selected={selected} onPick={pick} mealSlot={mealSlot} onNew={setAdding} />
+      <ChoiceGrid kind={kind} items={subset} selected={selected} onPick={pick} mealSlot={mealSlot} onNew={setAdding} onTry={tryKind ? setTrying : undefined} />
     </Sheet>
   )
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { useStore } from '../../lib/store'
 import { categoriesFor, categoryOf, defaultCategory, type Category } from '../../lib/categories'
+import { freshIdeas, TRY_SYMBOL } from '../../lib/ideas'
 import type { Id, LibraryItem, LibraryKind, MealSlot } from '../../types'
 import { AddTile } from '../ui/AddTile'
 import { BigButton } from '../ui/BigButton'
@@ -14,6 +15,8 @@ const FIND_FROM = 12
 const FLAT_UP_TO = 12
 
 const GRID = 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4'
+/** A shelf with fewer words than this gives the Try tile one gentle pulse when it opens. */
+const NUDGE_UNDER = 4
 
 interface Props {
   kind: LibraryKind
@@ -30,6 +33,12 @@ interface Props {
    * showing (for short spaces). A list with no tabs keeps the box: it is lower than the button's row.
    */
   findButton?: boolean
+  /**
+   * The Try tile (foods and activities only), first in the grid: ideas she
+   * doesn't have yet. Called with the shelf she was looking at and what she
+   * had typed in Find.
+   */
+  onTry?: (from: { shelf: string | null; query: string }) => void
 }
 
 /**
@@ -41,7 +50,7 @@ interface Props {
  * A meal's own shelf comes first with no heading (the meal is the question).
  * Content only: ItemPicker wraps it in a Sheet, the day's add card uses it inline.
  */
-export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, onNew, findButton = false }: Props) {
+export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, onNew, findButton = false, onTry }: Props) {
   const store = useStore()
   const [tab, setTab] = useState<string>('all')
   const [query, setQuery] = useState('')
@@ -111,6 +120,22 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
   )
   const firstHeadless = Boolean(mealSlot) && shelves[0]?.category.id === mealSlot
 
+  // Try: only while there is something new for the shelf in view (or anything, while finding).
+  const tryKind = kind === 'food' || kind === 'activity' ? kind : null
+  const tryShelf = current !== 'all' ? current : firstHeadless ? (mealSlot ?? null) : null
+  const tryable = Boolean(onTry) && tryKind !== null && (Boolean(q) || freshIdeas(tryKind, Object.values(store.state.items), tryShelf).length > 0)
+  const shelfCount = tryShelf ? (shelves.find(s => s.category.id === tryShelf)?.items.length ?? 0) : all.length
+  const tryTile = tryable && (
+    <Tile
+      key="try"
+      word="Try"
+      symbol={TRY_SYMBOL}
+      accent
+      className={shelfCount < NUDGE_UNDER ? 'try-nudge' : ''}
+      onSelect={() => onTry?.({ shelf: tryShelf, query: query.trim() })}
+    />
+  )
+
   return (
     <div className="flex flex-col gap-4">
       {findBox}
@@ -135,11 +160,13 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
 
       {found ? (
         <div className={GRID}>
+          {tryTile}
           {found.map(tile)}
           {newTile}
         </div>
       ) : tabbed && current === 'all' && all.length <= FLAT_UP_TO ? (
         <div className={GRID}>
+          {tryTile}
           {shelves.flatMap(s => s.items).map(tile)}
           {newTile}
         </div>
@@ -153,13 +180,17 @@ export function ChoiceGrid({ kind, items: subset, selected, onPick, mealSlot, on
                   <span className="text-2xl font-extrabold">{category.word}</span>
                 </h3>
               )}
-              <div className={GRID}>{items.map(tile)}</div>
+              <div className={GRID}>
+                {i === 0 && tryTile}
+                {items.map(tile)}
+              </div>
             </section>
           ))}
           {newTile && <div className={GRID}>{newTile}</div>}
         </>
       ) : (
         <div className={GRID}>
+          {tryTile}
           {(tabbed ? (shelves.find(s => s.category.id === current)?.items ?? []) : all).map(tile)}
           {newTile}
         </div>
@@ -193,7 +224,7 @@ interface ShelfTabProps {
   quiet?: boolean
 }
 
-function ShelfTab({ word, picture, on, onClick, quiet = false }: ShelfTabProps) {
+export function ShelfTab({ word, picture, on, onClick, quiet = false }: ShelfTabProps) {
   return (
     // Picture above the word, like a small tile: narrow enough that a food list's seven tabs fit across the tablet.
     <BigButton
@@ -212,7 +243,7 @@ function ShelfTab({ word, picture, on, onClick, quiet = false }: ShelfTabProps) 
 }
 
 /** "All": a 2×2 of the first shelves' symbols (Mulberry's own "all" pictures are too abstract for her). */
-function Mosaic({ symbols }: { symbols: string[] }) {
+export function Mosaic({ symbols }: { symbols: string[] }) {
   return (
     <span className="grid h-[1.1em] w-[1.1em] shrink-0 grid-cols-2 place-items-center rounded-lg bg-paper text-4xl leading-none" aria-hidden>
       {symbols.map(s => (

@@ -3,7 +3,8 @@ import { BedDouble, Stethoscope, Trash2 } from 'lucide-react'
 import { categoriesFor, categoryOf, SHELF_MEAL } from '../../lib/categories'
 import { monthDayLabel } from '../../lib/dates'
 import { useStore } from '../../lib/store'
-import type { Id, LibraryItem } from '../../types'
+import { track } from '../../lib/usage'
+import type { Id, LibraryItem, PhotoCredit } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Sheet } from '../ui/Sheet'
 import { Symbol } from '../ui/Symbol'
@@ -18,6 +19,25 @@ function Field({ title, children }: { title: string; children: React.ReactNode }
       <h3 className="text-2xl font-extrabold">{title}</h3>
       {children}
     </section>
+  )
+}
+
+/** Small print under a web picture: what it is, who made it and its licence (Creative Commons asks for this). */
+function Credit({ credit }: { credit: PhotoCredit | null }) {
+  if (!credit) return null
+  return (
+    <p className="text-lg text-ink-soft">
+      Picture:{' '}
+      {credit.url ? (
+        <a className="underline" href={credit.url} target="_blank" rel="noreferrer">
+          {credit.title}
+        </a>
+      ) : (
+        credit.title
+      )}
+      {credit.creator && ` by ${credit.creator}`}
+      {credit.license && `, ${credit.license}`}
+    </p>
   )
 }
 
@@ -44,6 +64,8 @@ export function WordEditor({ itemId, onClose }: { itemId: Id; onClose: () => voi
   const [name, setName] = useState(item?.name ?? '')
   const [symbol, setSymbol] = useState(item?.symbol ?? '')
   const [newPhoto, setNewPhoto] = useState<Blob | null>(null)
+  /** Where the new photo came from, if the web; the saved photo's credit shows while it is kept. */
+  const [newCredit, setNewCredit] = useState<PhotoCredit | null>(null)
   const [keptPhotoId, setKeptPhotoId] = useState<Id | null>(item?.photoId ?? null)
   const [showPhoto, setShowPhoto] = useState(item?.showPhoto ?? false)
   const [category, setCategory] = useState(item ? categoryOf(item) : null)
@@ -65,7 +87,10 @@ export function WordEditor({ itemId, onClose }: { itemId: Id; onClose: () => voi
     const was = initial ?? item
     const photoRemoved = Boolean(was.photoId && !keptPhotoId)
     const photoChanged = Boolean(newPhoto) || photoRemoved
-    if (newPhoto) await store.setItemPhoto(item.id, newPhoto)
+    if (newPhoto) {
+      if (newCredit) track('word_web')
+      await store.setItemPhoto(item.id, newPhoto, newCredit)
+    }
     else if (photoRemoved) await store.setItemPhoto(item.id, null)
     const patch: Partial<LibraryItem> = {}
     const trimmed = name.trim()
@@ -184,16 +209,19 @@ export function WordEditor({ itemId, onClose }: { itemId: Id; onClose: () => voi
             symbol={symbol}
             onSymbol={setSymbol}
             photo={newPhoto}
-            onPhoto={p => {
+            onPhoto={(p, credit) => {
               setNewPhoto(p)
+              setNewCredit(credit)
               setShowPhoto(true)
             }}
             keptPhotoId={keptPhotoId}
             onClearPhoto={() => {
               setNewPhoto(null)
+              setNewCredit(null)
               setKeptPhotoId(null)
             }}
           />
+          <Credit credit={newPhoto ? newCredit : keptPhotoId ? (item.photoCredit ?? null) : null} />
           {hasPhoto && (
             <Toggle on={showPhoto} onClick={() => setShowPhoto(v => !v)}>
               <span className={showPhoto ? 'text-white' : ''}>Show photo first</span>

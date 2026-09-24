@@ -49,8 +49,8 @@ export function NewItemFields({ kind, draft, onChange }: Props) {
           symbol={draft.symbol}
           onSymbol={symbol => set({ symbol })}
           photo={draft.photo}
-          onPhoto={photo => set({ photo })}
-          onClearPhoto={() => set({ photo: null })}
+          onPhoto={(photo, photoCredit) => set({ photo, photoCredit })}
+          onClearPhoto={() => set({ photo: null, photoCredit: null })}
         />
       </section>
     </div>

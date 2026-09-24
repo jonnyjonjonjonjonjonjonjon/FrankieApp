@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Settings as SettingsIcon } from 'lucide-react'
 import { addDays, longDate, today } from '../../lib/dates'
 import { useStore } from '../../lib/store'
+import { track } from '../../lib/usage'
 import type { Id, ISODate, Tab } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { SlideCarousel } from '../ui/SlideCarousel'
@@ -40,6 +41,7 @@ export function DayView({ date, from }: Props) {
 
   /** Template rows are virtual until first touched; write them before editing. */
   const open = async (id: string) => {
+    track('event_open')
     const map = await store.materializeDay(date)
     setOpenId(map[id] ?? id)
   }
@@ -92,7 +94,10 @@ export function DayView({ date, from }: Props) {
           centre={date}
           request={slide}
           locked={composing}
-          onSettle={dir => goDay(addDays(date, dir))}
+          onSettle={(dir, how) => {
+            track(how === 'swipe' ? 'nav_swipe' : 'nav_arrow')
+            goDay(addDays(date, dir))
+          }}
           render={o => (
             <DayPanel
               date={addDays(date, o)}
