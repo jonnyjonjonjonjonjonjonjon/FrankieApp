@@ -119,58 +119,66 @@ button,
   to { transform: translateY(0); opacity: 1; }
 }
 .rise {
-  animation: rise 180ms ease-out;
+  animation: rise 350ms var(--move-ease);
 }
 
-/* The day's add card and a newly added row arrive (opacity and a short rise only;
+/* The day's add card and a newly added row arrive (opacity and a rise only;
    no fill-mode, so nothing keeps a transform once it has landed). */
 @keyframes open-in {
-  from { transform: translateY(1.5rem); opacity: 0; }
+  from { transform: translateY(3rem); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
 .open-in {
-  animation: open-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: open-in var(--move-slow) var(--move-ease);
 }
 
 /* Everything new arrives rather than just appearing (owner, Sept 2026). Transform and opacity only,
    and no fill-mode: nothing keeps a transform once it has landed (the Tab A8 ghosts under resting
    transforms). Full-screen panels slide up from the bottom; tabs and add-card steps slide in from the side they
    are going to (right = onward, left = back); pop-ups grow in; a changed grid fades in. */
+/* How long things take to arrive: slow enough for Frankie to see where each new thing comes from
+   (owner: "a bit slower, more obvious"). A gentle ease keeps the movement visible to the end instead
+   of snapping into place in the first few frames. */
+:root {
+  --move: 450ms;
+  --move-slow: 550ms;
+  --move-ease: cubic-bezier(0.3, 0.1, 0.25, 1);
+}
 @keyframes screen-in {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
 /* Solid all the way (no fade), so the screen underneath never shows through it. */
 .screen-in {
-  animation: screen-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: screen-in var(--move-slow) var(--move-ease);
 }
 @keyframes from-right {
-  from { transform: translateX(3rem); opacity: 0; }
+  from { transform: translateX(6rem); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
 @keyframes from-left {
-  from { transform: translateX(-3rem); opacity: 0; }
+  from { transform: translateX(-6rem); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
 .from-right {
-  animation: from-right 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: from-right var(--move) var(--move-ease);
 }
 .from-left {
-  animation: from-left 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: from-left var(--move) var(--move-ease);
 }
 @keyframes pop-in {
-  from { transform: scale(0.9); opacity: 0; }
+  from { transform: scale(0.8); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
 .pop-in {
-  animation: pop-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: pop-in var(--move) var(--move-ease);
 }
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 .fade-in {
-  animation: fade-in 200ms ease-out;
+  animation: fade-in var(--move) ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
   .screen-in,
