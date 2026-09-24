@@ -99,9 +99,18 @@ export function WeekView({ date }: { date: ISODate }) {
                 <div key={d} className={`flex flex-col rounded-b-3xl border-4 border-t-0 ${isToday ? 'border-orange' : 'border-ink'} bg-paper`}>
                   {/* Birthdays band */}
                   {birthdays.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1 border-t-2 border-line bg-orange-light px-1 py-1 text-lg font-bold">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t-2 border-line bg-orange-light px-1 py-1 text-lg font-bold">
                       <Symbol symbol="🎂" size="text-3xl" />
-                      {birthdays.map(p => p.name).join(' · ')}
+                      {birthdays.map(p => (
+                        <span key={p.id} className="inline-flex items-center gap-1">
+                          {p.photoId ? (
+                            <Photo id={p.photoId} alt="" className="h-[1.9rem] w-[1.9rem] rounded-md" />
+                          ) : (
+                            <Symbol symbol={p.symbol} size="text-3xl" />
+                          )}
+                          {p.name}
+                        </span>
+                      ))}
                     </div>
                   )}
 

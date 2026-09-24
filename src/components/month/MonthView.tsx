@@ -81,7 +81,7 @@ function MonthGrid({ date }: { date: ISODate }) {
           const events = store.eventsFor(d)
           const medical = events.some(e => e.placeId && items[e.placeId]?.placeType === 'medical')
           const people = [...new Set(events.flatMap(e => e.personIds))].map(id => items[id]).filter(Boolean)
-          const birthday = store.birthdaysOn(d).length > 0
+          const birthday = store.birthdaysOn(d)[0]
           return (
             <button
               key={d}
@@ -103,7 +103,13 @@ function MonthGrid({ date }: { date: ISODate }) {
                 {people.slice(0, 3).map(p => (
                   <Face key={p.id} item={p} />
                 ))}
-                {birthday && <Symbol symbol="🎂" size="text-2xl" />}
+                {/* Cake and whose birthday it is */}
+                {birthday && (
+                  <span className="inline-flex items-center gap-0.5" aria-label={`${birthday.name} birthday`}>
+                    <Symbol symbol="🎂" size="text-2xl" />
+                    <Face item={birthday} />
+                  </span>
+                )}
               </span>
             </button>
           )

@@ -64,6 +64,11 @@ export function DayPanel({ date, onOpen, onTime, onPickStay }: Props) {
             </div>
             <span className="text-3xl font-extrabold">{p.name}</span>
             <span className="text-2xl font-bold text-ink-soft">Birthday</span>
+            {p.birthYear && Number(date.slice(0, 4)) > p.birthYear && (
+              <span className="ml-auto flex h-16 min-w-16 items-center justify-center rounded-full bg-orange px-3 text-3xl font-extrabold text-white" aria-label="Age">
+                {Number(date.slice(0, 4)) - p.birthYear}
+              </span>
+            )}
           </div>
         ))}
 

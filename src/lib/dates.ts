@@ -97,3 +97,9 @@ export function longDate(s: ISODate): string {
 export function monthDay(s: ISODate): string {
   return s.slice(5)
 }
+
+/** "3 March" for a "MM-DD" (a birthday). */
+export function monthDayLabel(md: string): string {
+  const [m, d] = md.split('-').map(Number)
+  return `${d} ${MONTH_NAMES[m - 1] ?? ''}`.trim()
+}

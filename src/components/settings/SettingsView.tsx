@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { BedDouble, Camera, Download, LogOut, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Download, LogOut, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useStore } from '../../lib/store'
-import { eventTypeInfo, EVENT_TYPE_ORDER, KIND_WORD } from '../../lib/symbols'
-import type { EventType, LibraryItem, LibraryKind, TemplateItem } from '../../types'
+import { eventTypeInfo, EVENT_TYPE_ORDER } from '../../lib/symbols'
+import type { EventType, TemplateItem } from '../../types'
 import { BigButton } from '../ui/BigButton'
-import { Photo } from '../ui/Photo'
 import { PinPad } from '../ui/PinPad'
 import { Sheet } from '../ui/Sheet'
 import { Symbol } from '../ui/Symbol'
@@ -12,13 +11,11 @@ import { Tile } from '../ui/Tile'
 import { TimeLabel } from '../ui/TimeLabel'
 import { TopBar } from '../ui/TopBar'
 import { ItemPicker } from '../pickers/ItemPicker'
-import { NewItemForm } from '../pickers/NewItemForm'
-import { PhotoInput } from '../pickers/PhotoInput'
 import { TimePicker } from '../pickers/TimePicker'
+import { Birthdays } from './Birthdays'
 import { FamilyAccounts } from './FamilyAccounts'
 import { ThisDevice } from './ThisDevice'
-
-const KINDS: LibraryKind[] = ['person', 'place', 'food', 'activity']
+import { WordsManager } from './WordsManager'
 
 function Section({ title, symbol, children }: { title: string; symbol: string; children: React.ReactNode }) {
   return (
@@ -31,61 +28,13 @@ function Section({ title, symbol, children }: { title: string; symbol: string; c
   )
 }
 
-function WordRow({ item }: { item: LibraryItem }) {
-  const store = useStore()
-  return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border-4 border-line p-2">
-      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-soft">
-        {item.photoId ? <Photo id={item.photoId} alt={item.name} className="h-full w-full" /> : <Symbol symbol={item.symbol} size="text-5xl" />}
-      </div>
-      <span className="min-w-0 flex-1 truncate text-2xl font-extrabold">
-        {item.name}
-      </span>
-      {item.kind === 'person' && (
-        <label className="flex items-center gap-2 text-lg font-bold">
-          🎂
-          <input
-            type="date"
-            value={item.birthday ? `2000-${item.birthday}` : ''}
-            onChange={e => void store.updateItem(item.id, { birthday: e.target.value ? e.target.value.slice(5) : null })}
-            className="min-h-14 rounded-xl border-4 border-line px-2 text-lg font-bold"
-          />
-        </label>
-      )}
-      {item.kind === 'place' && (
-        <BigButton
-          size="sm"
-          variant={item.stayable ? 'primary' : 'secondary'}
-          aria-pressed={Boolean(item.stayable)}
-          onClick={() => void store.updateItem(item.id, { stayable: !item.stayable })}
-          title="Frankie can stay here"
-        >
-          <BedDouble size={28} strokeWidth={2.5} />
-          Stay
-        </BigButton>
-      )}
-      <PhotoInput size="sm" cameraWord="" galleryWord="" onPick={f => void store.setItemPhoto(item.id, f)} />
-      {item.photoId && (
-        <BigButton size="sm" onClick={() => void store.setItemPhoto(item.id, null)} aria-label="Remove photo">
-          <Camera size={28} strokeWidth={2.5} />
-          <span>✕</span>
-        </BigButton>
-      )}
-      <BigButton size="sm" variant="danger" onClick={() => void store.deleteItem(item.id)} aria-label={`Remove ${item.name}`}>
-        <Trash2 size={28} strokeWidth={2.5} />
-      </BigButton>
-    </div>
-  )
-}
-
-/** Family/carer mode behind a PIN: routine times, home, words, PIN, export, start again (PRD §6, §7). */
+/** Family/carer mode behind a PIN: birthdays, routine times, home, words, PIN, export, start again (PRD §6, §7). */
 export function SettingsView() {
   const store = useStore()
   const { settings, familyMode } = store.state
   const [editTime, setEditTime] = useState<number | null>(null)
   const [addType, setAddType] = useState(false)
   const [pickHome, setPickHome] = useState(false)
-  const [addKind, setAddKind] = useState<LibraryKind | null>(null)
   const [changingPin, setChangingPin] = useState(false)
   const [resetArmed, setResetArmed] = useState(false)
 
@@ -153,6 +102,10 @@ export function SettingsView() {
       />
       <div className="flex-1 overflow-y-auto p-3">
         <div className="mx-auto flex max-w-4xl flex-col gap-5">
+          <Section title="Birthdays" symbol="🎂">
+            <Birthdays />
+          </Section>
+
           <Section title="Daily routine" symbol="🕒">
             {template.map((t, i) => (
               <div key={`${t.type}-${i}`} className="flex items-center gap-3 rounded-2xl border-4 border-line p-2">
@@ -179,16 +132,9 @@ export function SettingsView() {
             </BigButton>
           </Section>
 
-          {KINDS.map(kind => (
-            <Section key={kind} title={KIND_WORD[kind]} symbol={kind === 'person' ? '🧑' : kind === 'place' ? '📍' : kind === 'food' ? '🍽️' : '⭐'}>
-              {store.itemsOfKind(kind).map(item => (
-                <WordRow key={item.id} item={item} />
-              ))}
-              <BigButton variant="primary" className="self-start" onClick={() => setAddKind(kind)}>
-                <Plus size={36} strokeWidth={3} /> Add
-              </BigButton>
-            </Section>
-          ))}
+          <Section title="Words" symbol="mb:pencil">
+            <WordsManager />
+          </Section>
 
           <Section title="PIN" symbol="🔒">
             {changingPin ? (
@@ -273,7 +219,7 @@ export function SettingsView() {
       {addType && (
         <Sheet title="Add to routine" symbol="🕒" onBack={() => setAddType(false)}>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {EVENT_TYPE_ORDER.filter(t => t !== 'activity').map((type: EventType) => (
+            {EVENT_TYPE_ORDER.filter(t => t !== 'activity' && t !== 'travel').map((type: EventType) => (
               <Tile
                 key={type}
                 word={eventTypeInfo(type).word}
@@ -299,7 +245,6 @@ export function SettingsView() {
           }}
         />
       )}
-      {addKind && <NewItemForm kind={addKind} onBack={() => setAddKind(null)} onCreated={() => setAddKind(null)} />}
     </div>
   )
 }
