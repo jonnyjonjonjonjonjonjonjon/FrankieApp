@@ -43,9 +43,10 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
   const people = event.personIds.map(id => items[id]).filter(Boolean)
   const showPhoto = face.photoId && face.showPhoto
   const meal = isMeal(event)
-  // A new row (from a +) is an activity with nothing chosen yet: What? takes the picture's place.
+  // A new row (from a +) is an activity with nothing chosen yet: it shows What?, Where? and Who? side
+  // by side, all alike (none matters more), and the clock only once one of them is set.
   const noWhat = event.type === 'activity' && !event.activityId
-  const word = noWhat ? 'What?' : face.word
+  const word = face.word
   // What goes with it, as pictures on the right: the meal's foods, where, who.
   const extras = [...(meal ? foods : []), ...(place ? [place] : []), ...people]
 
@@ -64,9 +65,7 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
           </span>
         </span>
       ) : (
-        <span className={`line-clamp-2 text-3xl font-extrabold leading-tight ${noWhat ? 'text-orange-dark' : ''}`}>
-          {word}
-        </span>
+        <span className="line-clamp-2 text-3xl font-extrabold leading-tight">{word}</span>
       )}
     </>
   )
@@ -88,85 +87,76 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
       aria-current={current ? 'time' : undefined}
     >
       {noWhat ? (
-        <button
-          type="button"
-          aria-label="What?"
-          onClick={() => (selected && onSlot ? onSlot('what') : onOpen())}
-          className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border-[3px] border-dashed active:scale-95 ${
-            panel === 'what' ? 'border-orange bg-orange-light' : 'border-orange/70'
-          }`}
-        >
-          <span className="opacity-50">
-            <Symbol symbol={WHAT_SYMBOL} size="text-5xl" />
-          </span>
-        </button>
+        <NewRow event={event} place={place} people={people} selected={selected} panel={panel} onOpen={onOpen} onSlot={onSlot} />
       ) : (
-        <button
-          type="button"
-          aria-label={face.photoId ? 'Show photo' : face.word}
-          onClick={() => (face.itemId && face.photoId ? store.toggleItemPhoto(face.itemId) : onOpen())}
-          className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl active:scale-95"
-        >
-          {showPhoto && face.photoId ? (
-            <Photo id={face.photoId} alt={face.word} className="h-full w-full" />
-          ) : (
-            <Symbol symbol={face.symbol} size="text-6xl" />
-          )}
-        </button>
-      )}
+        <>
+          <button
+            type="button"
+            aria-label={face.photoId ? 'Show photo' : face.word}
+            onClick={() => (face.itemId && face.photoId ? store.toggleItemPhoto(face.itemId) : onOpen())}
+            className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl active:scale-95"
+          >
+            {showPhoto && face.photoId ? (
+              <Photo id={face.photoId} alt={face.word} className="h-full w-full" />
+            ) : (
+              <Symbol symbol={face.symbol} size="text-6xl" />
+            )}
+          </button>
 
-      {selected && onSlot ? (
-        // Open: the word closes it again (a new row's What? opens its choices); the time and every picture (or its empty slot) set that part.
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-1 pr-2">
-          <span className="flex min-w-[10rem] flex-1 flex-col items-start justify-center gap-1">
-            <button type="button" onClick={noWhat ? () => onSlot('what') : onOpen} aria-expanded className="text-left">
-              {wordLine}
-            </button>
-            {event.time ? (
-              <button type="button" onClick={() => onSlot('time')} aria-label="Change time" className={`rounded-xl px-1 ${panel === 'time' ? 'bg-orange-light ring-4 ring-orange' : ''}`}>
-                <TimeLabel time={event.time} />
+        {selected && onSlot ? (
+          // Open: the word closes it again; the time and every picture (or its empty slot) set that part.
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-1 pr-2">
+            <span className="flex min-w-[10rem] flex-1 flex-col items-start justify-center gap-1">
+              <button type="button" onClick={onOpen} aria-expanded className="text-left">
+                {wordLine}
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onSlot('time')}
-                aria-label="Add a time"
-                className={`inline-flex items-center rounded-full border-[3px] border-dashed px-3 py-0.5 text-orange-dark ${panel === 'time' ? 'border-orange bg-orange-light' : 'border-orange/70'}`}
-              >
-                <Clock size={30} strokeWidth={2.5} />
-              </button>
-            )}
-          </span>
-          <span className="ml-auto flex flex-wrap justify-end gap-x-3 gap-y-2">
-            {meal && (foods.length ? <Filled items={foods} on={panel === 'food'} onClick={() => onSlot('food')} /> : <Empty symbol={FOOD_SYMBOL} word="What?" on={panel === 'food'} onClick={() => onSlot('food')} />)}
-            {travel ? (
-              destination ? (
-                <Filled items={[{ id: 'to', name: destination.name, symbol: destination.symbol, photoId: null, showPhoto: false }]} on={panel === 'where'} onClick={() => onSlot('where')} />
+              {event.time ? (
+                <button type="button" onClick={() => onSlot('time')} aria-label="Change time" className={`rounded-xl px-1 ${panel === 'time' ? 'bg-orange-light ring-4 ring-orange' : ''}`}>
+                  <TimeLabel time={event.time} />
+                </button>
               ) : (
-                <Empty symbol={WHERE_TO_SYMBOL} word="Where to?" on={panel === 'where'} onClick={() => onSlot('where')} />
-              )
-            ) : place ? (
-              <Filled items={[place]} on={panel === 'where'} onClick={() => onSlot('where')} />
-            ) : (
-              <Empty symbol={WHERE_SYMBOL} word="Where?" on={panel === 'where'} onClick={() => onSlot('where')} />
-            )}
-            {people.length ? <Filled items={people} on={panel === 'who'} onClick={() => onSlot('who')} /> : <Empty symbol={WHO_SYMBOL} word="Who?" on={panel === 'who'} onClick={() => onSlot('who')} />}
-          </span>
-        </div>
-      ) : (
-        <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-1 pr-2 text-left">
-          <span className="flex min-w-[10rem] flex-1 flex-col justify-center gap-1">
-            {wordLine}
-            {event.time && <TimeLabel time={event.time} />}
-          </span>
-          {extras.length > 0 && (
-            <span className="ml-auto flex flex-wrap justify-end gap-x-3 gap-y-2">
-              {extras.map(x => (
-                <Picture key={x.id} item={x} />
-              ))}
+                <button
+                  type="button"
+                  onClick={() => onSlot('time')}
+                  aria-label="Add a time"
+                  className={`inline-flex items-center rounded-full border-[3px] border-dashed px-3 py-0.5 text-orange-dark ${panel === 'time' ? 'border-orange bg-orange-light' : 'border-orange/70'}`}
+                >
+                  <Clock size={30} strokeWidth={2.5} />
+                </button>
+              )}
             </span>
-          )}
-        </button>
+            <span className="ml-auto flex flex-wrap justify-end gap-x-3 gap-y-2">
+              {meal && (foods.length ? <Filled items={foods} on={panel === 'food'} onClick={() => onSlot('food')} /> : <Empty symbol={FOOD_SYMBOL} word="What?" on={panel === 'food'} onClick={() => onSlot('food')} />)}
+              {travel ? (
+                destination ? (
+                  <Filled items={[{ id: 'to', name: destination.name, symbol: destination.symbol, photoId: null, showPhoto: false }]} on={panel === 'where'} onClick={() => onSlot('where')} />
+                ) : (
+                  <Empty symbol={WHERE_TO_SYMBOL} word="Where to?" on={panel === 'where'} onClick={() => onSlot('where')} />
+                )
+              ) : place ? (
+                <Filled items={[place]} on={panel === 'where'} onClick={() => onSlot('where')} />
+              ) : (
+                <Empty symbol={WHERE_SYMBOL} word="Where?" on={panel === 'where'} onClick={() => onSlot('where')} />
+              )}
+              {people.length ? <Filled items={people} on={panel === 'who'} onClick={() => onSlot('who')} /> : <Empty symbol={WHO_SYMBOL} word="Who?" on={panel === 'who'} onClick={() => onSlot('who')} />}
+            </span>
+          </div>
+        ) : (
+          <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-1 pr-2 text-left">
+            <span className="flex min-w-[10rem] flex-1 flex-col justify-center gap-1">
+              {wordLine}
+              {event.time && <TimeLabel time={event.time} />}
+            </span>
+            {extras.length > 0 && (
+              <span className="ml-auto flex flex-wrap justify-end gap-x-3 gap-y-2">
+                {extras.map(x => (
+                  <Picture key={x.id} item={x} />
+                ))}
+              </span>
+            )}
+          </button>
+        )}
+        </>
       )}
     </div>
   )
@@ -196,15 +186,68 @@ function Filled({ items, on, onClick }: { items: Pictured[]; on: boolean; onClic
 }
 
 /** An empty slot on an open row: a faded picture in a dashed box, and its question. */
-function Empty({ symbol, word, on, onClick }: { symbol: string; word: string; on: boolean; onClick: () => void }) {
+function Empty({ symbol, word, on, onClick, big = false }: { symbol: string; word: string; on: boolean; onClick: () => void; big?: boolean }) {
   return (
-    <button type="button" onClick={onClick} className="flex w-24 flex-col items-center gap-1">
-      <span className={`flex h-16 w-16 items-center justify-center rounded-xl border-[3px] border-dashed ${on ? 'border-orange bg-orange-light' : 'border-orange/70'}`}>
+    <button type="button" onClick={onClick} className={`flex flex-col items-center gap-1 ${big ? 'w-full max-w-28' : 'w-24'}`}>
+      <span
+        className={`flex items-center justify-center rounded-xl border-[3px] border-dashed ${big ? 'h-20 w-20' : 'h-16 w-16'} ${on ? 'border-orange bg-orange-light' : 'border-orange/70'}`}
+      >
         <span className="opacity-50">
-          <Symbol symbol={symbol} size="text-4xl" />
+          <Symbol symbol={symbol} size={big ? 'text-5xl' : 'text-4xl'} />
         </span>
       </span>
       <span className="text-center text-lg font-bold leading-tight text-orange-dark">{word}</span>
     </button>
+  )
+}
+
+/**
+ * A new row, before its What? is chosen: What?, Where? and Who? side by side, the same size, each
+ * opening its choices under the row. The clock appears underneath once one is set. Closed (a place or person
+ * chosen but no What? yet), tapping anywhere opens it again.
+ */
+function NewRow({
+  event,
+  place,
+  people,
+  selected,
+  panel,
+  onOpen,
+  onSlot,
+}: {
+  event: DiaryEvent
+  place: LibraryItem | null | undefined
+  people: LibraryItem[]
+  selected: boolean
+  panel: Slot | null
+  onOpen: () => void
+  onSlot?: (slot: Slot) => void
+}) {
+  const tap = (slot: Slot) => () => (selected && onSlot ? onSlot(slot) : onOpen())
+  const started = Boolean(place || people.length || event.time)
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1 py-1">
+      {/* Three equal columns, never wrapping, so none looks more important than the others. */}
+      <div className="grid grid-cols-3 items-start justify-items-center gap-2">
+        <Empty big symbol={WHAT_SYMBOL} word="What?" on={panel === 'what'} onClick={tap('what')} />
+        {place ? <Filled items={[place]} on={panel === 'where'} onClick={tap('where')} /> : <Empty big symbol={WHERE_SYMBOL} word="Where?" on={panel === 'where'} onClick={tap('where')} />}
+        {people.length ? <Filled items={people} on={panel === 'who'} onClick={tap('who')} /> : <Empty big symbol={WHO_SYMBOL} word="Who?" on={panel === 'who'} onClick={tap('who')} />}
+      </div>
+      {started &&
+        (event.time ? (
+          <button type="button" onClick={tap('time')} aria-label="Change time" className={`self-start rounded-xl px-1 ${panel === 'time' ? 'bg-orange-light ring-4 ring-orange' : ''}`}>
+            <TimeLabel time={event.time} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={tap('time')}
+            aria-label="Add a time"
+            className={`inline-flex self-start items-center rounded-full border-[3px] border-dashed px-3 py-0.5 text-orange-dark ${panel === 'time' ? 'border-orange bg-orange-light' : 'border-orange/70'}`}
+          >
+            <Clock size={30} strokeWidth={2.5} />
+          </button>
+        ))}
+    </div>
   )
 }
