@@ -48,9 +48,13 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
   // A new row (from a +) is an activity with nothing chosen yet: it shows What?, Where? and Who? side
   // by side, all alike (none matters more), and the clock only once one of them is set.
   const noWhat = event.type === 'activity' && !event.activityId
-  const word = face.word
-  // What goes with it, as pictures on the right: the meal's foods, where, who.
-  const extras = [...(meal ? foods : []), ...(place ? [place] : []), ...people]
+  // Closed with no What? (owner, Sept 2026): the first thing chosen (the place, else the first person)
+  // takes the activity's spot, picture and name, as if it were the activity (going there, seeing them).
+  const lead = noWhat && !selected ? (place ?? people[0] ?? null) : null
+  const word = lead ? lead.name : face.word
+  // What goes with it, as pictures on the right: the meal's foods, where, who. After a lead, the rest
+  // follow straight on from it (same order), with no gap.
+  const extras = [...(meal ? foods : []), ...(place ? [place] : []), ...people].filter(x => x !== lead)
 
   const wordLine = (
     <>
@@ -92,8 +96,11 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
         <NewRow event={event} place={place} people={people} selected={selected} panel={panel} onOpen={onOpen} onSlot={onSlot} />
       ) : (
         <>
-          {/* Closed with no What? yet: just what is chosen (place, people, time), each in its usual place. */}
-          {noWhat ? (
+          {lead ? (
+            <button type="button" onClick={onOpen} aria-label={lead.name} className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl active:scale-95">
+              {lead.photoId && lead.showPhoto ? <Photo id={lead.photoId} alt={lead.name} className="h-full w-full" /> : <Symbol symbol={lead.symbol} size="text-6xl" />}
+            </button>
+          ) : noWhat ? (
             <span className="h-24 shrink-0" aria-hidden />
           ) : (
             <button
@@ -150,12 +157,12 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
           </div>
         ) : (
           <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-1 pr-2 text-left">
-            <span className="flex min-w-[10rem] flex-1 flex-col justify-center gap-1">
-              {!noWhat && wordLine}
+            <span className={`flex flex-col justify-center gap-1 ${lead ? 'min-w-0' : 'min-w-[10rem] flex-1'}`}>
+              {(!noWhat || lead) && wordLine}
               {event.time && <TimeLabel time={event.time} />}
             </span>
             {extras.length > 0 && (
-              <span className="ml-auto flex flex-wrap justify-end gap-x-3 gap-y-2">
+              <span className={`flex flex-wrap gap-x-3 gap-y-2 ${lead ? '' : 'ml-auto justify-end'}`}>
                 {extras.map(x => (
                   <Picture key={x.id} item={x} />
                 ))}
