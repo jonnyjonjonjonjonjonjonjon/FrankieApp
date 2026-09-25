@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
-import { eventFace, isMeal } from '../../lib/eventFace'
+import { eventFace, isEmptyRow, isMeal } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
 import { EAT_SYMBOL, EVENT_TYPE_ORDER, eventTypeInfo, WHERE_TO_SYMBOL } from '../../lib/symbols'
 import type { DiaryEvent, EventType, HHMM, Id, LibraryKind, MealSlot } from '../../types'
@@ -111,6 +111,8 @@ export function RowEditor({ date, event, panel, onPanel, onRemoved }: Props) {
     )
   }
 
+  // An empty row has nothing to change or remove (it goes by itself): just its slots.
+  if (!panel && isEmptyRow(event)) return null
   if (!panel) {
     return (
       <Drawer>
@@ -195,6 +197,15 @@ export function RowEditor({ date, event, panel, onPanel, onRemoved }: Props) {
   } else {
     answers = (
       <>
+        {/* Taking the What? away too can leave the row empty: then it goes once she moves on. */}
+        {panel === 'change' && !travel && event.activityId && (
+          <ClearButton
+            onClick={() => {
+              save({ activityId: null })
+              onPanel(null)
+            }}
+          />
+        )}
         {panel === 'where' && event.placeId && (
           <ClearButton
             onClick={() => {

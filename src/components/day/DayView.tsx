@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Settings as SettingsIcon } from 'lucide-react'
 import { addDays, longDate, today } from '../../lib/dates'
+import { isEmptyRow } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
 import { track } from '../../lib/usage'
 import type { Id, ISODate, Tab } from '../../types'
@@ -32,17 +33,26 @@ export function DayView({ date, from }: Props) {
   // Choosing something for a row: changing day would throw the choice away, so the swipe and arrows wait.
   const composing = Boolean(open?.panel)
 
-  // A new row (from a +) that is closed with nothing chosen is taken away again, quietly.
-  const blank = useRef<{ date: ISODate; id: Id } | null>(null)
+  // An empty row (a new one left as it came, or one with everything taken out) disappears, quietly,
+  // once she moves on: another row, another day, another screen.
+  const last = useRef<{ date: ISODate; id: Id } | null>(null)
+  const dropIfEmpty = ({ date: d, id }: { date: ISODate; id: Id }) => {
+    const ev = store.state.events[id]
+    if (ev && !ev.deleted && isEmptyRow(ev)) void store.updateEvent(d, id, { deleted: true })
+  }
   useEffect(() => {
-    const b = blank.current
-    if (!b || b.id === open?.id) return
-    blank.current = null
-    const ev = store.state.events[b.id]
-    if (ev && !ev.deleted && ev.type === 'activity' && !ev.activityId && !ev.placeId && !ev.personIds.length && !ev.time) {
-      void store.updateEvent(b.date, b.id, { deleted: true })
-    }
-  }, [open?.id, store])
+    const was = last.current
+    last.current = open ? { date: open.date, id: open.id } : null
+    if (was && was.id !== open?.id) dropIfEmpty(was)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open?.id])
+  useEffect(
+    () => () => {
+      if (last.current) dropIfEmpty(last.current)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
 
   const goDay = (d: ISODate) => store.go({ kind: 'day', date: d, from })
 
@@ -60,7 +70,6 @@ export function DayView({ date, from }: Props) {
   const addRow = async (index: number) => {
     track('add_open')
     const ev = await store.addEvent({ date, index, type: 'activity' })
-    blank.current = { date, id: ev.id }
     setFresh(ev.id)
     // Only its arrival animates: gone again before the row could remount (a swipe back).
     setTimeout(() => setFresh(f => (f === ev.id ? null : f)), FRESH_MS)

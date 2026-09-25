@@ -26,4 +26,10 @@ export function travelDestination(ev: DiaryEvent, items: Record<Id, LibraryItem>
   return ev.type === 'travel' && ev.placeId ? items[ev.placeId] ?? null : null
 }
 
+/**
+ * A row with nothing in it: an activity with no What?, Where? or Who? (a time alone doesn't count).
+ * It disappears once she moves on to anything else (owner, Sept 2026).
+ */
+export const isEmptyRow = (ev: DiaryEvent) => ev.type === 'activity' && !ev.activityId && !ev.placeId && ev.personIds.length === 0
+
 export const isMeal = (ev: DiaryEvent) => ev.type === 'breakfast' || ev.type === 'lunch' || ev.type === 'dinner'
