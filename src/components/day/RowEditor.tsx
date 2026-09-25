@@ -2,10 +2,12 @@ import { useState, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { eventFace, isMeal } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
-import { EAT_SYMBOL, eventTypeInfo, WHERE_TO_SYMBOL } from '../../lib/symbols'
-import type { DiaryEvent, HHMM, Id, LibraryKind, MealSlot } from '../../types'
+import { EAT_SYMBOL, EVENT_TYPE_ORDER, eventTypeInfo, WHERE_TO_SYMBOL } from '../../lib/symbols'
+import type { DiaryEvent, EventType, HHMM, Id, LibraryKind, MealSlot } from '../../types'
+import { MEAL_TYPES } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Symbol } from '../ui/Symbol'
+import { Tile } from '../ui/Tile'
 import { ClearButton, NoButton, YesButton } from '../ui/YesNo'
 import { ChoiceGrid } from '../pickers/ChoiceGrid'
 import { NewItemForm } from '../pickers/NewItemForm'
@@ -13,11 +15,15 @@ import { TimeWheels } from '../pickers/TimePicker'
 import { TryNew } from '../pickers/TryNew'
 
 /** A part of a day row that can be set from the row itself. */
-export type Slot = 'time' | 'food' | 'where' | 'who' | 'change'
+export type Slot = 'time' | 'what' | 'food' | 'where' | 'who' | 'change'
 
+export const WHAT_SYMBOL = 'mb:what'
 export const WHO_SYMBOL = 'mb:who'
 export const WHERE_SYMBOL = 'mb:where'
 export const FOOD_SYMBOL = EAT_SYMBOL
+/** The other kinds of row, offered after the activities under What? (a new row starts as an activity). */
+const OTHER_TYPES = EVENT_TYPE_ORDER.filter(t => t !== 'activity')
+const GRID = 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4'
 const CHANGE_SYMBOL = 'mb:change-to'
 
 interface Props {
@@ -64,10 +70,15 @@ export function RowEditor({ date, event, panel, onPanel, onRemoved }: Props) {
     else if (panel === 'where') {
       save({ placeId: id })
       onPanel(null)
-    } else if (panel === 'change') {
+    } else if (panel === 'change' || panel === 'what') {
       save(travel ? { travelId: id } : { activityId: id })
       onPanel(null)
     }
+  }
+  /** What? can also make the row another kind: travel then asks how, a meal asks what food. */
+  const pickType = async (type: EventType) => {
+    await store.updateEvent(date, event.id, { type, activityId: null })
+    onPanel(type === 'travel' ? 'change' : MEAL_TYPES.includes(type) ? 'food' : null)
   }
 
   if (adding) {
@@ -105,7 +116,8 @@ export function RowEditor({ date, event, panel, onPanel, onRemoved }: Props) {
       <Drawer>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <span className="ml-auto flex flex-wrap gap-3">
-            {(event.type === 'activity' || travel) && (
+            {/* A new row has nothing to change yet: its What? chooses it. */}
+            {((event.type === 'activity' && event.activityId) || travel) && (
               <BigButton onClick={() => onPanel('change')}>
                 <Symbol symbol={CHANGE_SYMBOL} size="text-4xl" />
                 <span className="text-xl font-extrabold">Change</span>
@@ -133,7 +145,9 @@ export function RowEditor({ date, event, panel, onPanel, onRemoved }: Props) {
   const heading: { word: string; symbol: string } =
     panel === 'time'
       ? { word: 'When?', symbol: '🕒' }
-      : panel === 'food'
+      : panel === 'what'
+        ? { word: 'What?', symbol: WHAT_SYMBOL }
+        : panel === 'food'
         ? { word: eventTypeInfo(event.type).word, symbol: eventTypeInfo(event.type).symbol }
         : panel === 'who'
           ? { word: 'Who?', symbol: WHO_SYMBOL }
@@ -194,7 +208,7 @@ export function RowEditor({ date, event, panel, onPanel, onRemoved }: Props) {
     )
   }
 
-  const current = panel === 'where' ? (event.placeId ? [event.placeId] : []) : panel === 'change' ? [travel ? event.travelId : event.activityId].filter((x): x is Id => Boolean(x)) : chosen
+  const current = panel === 'where' ? (event.placeId ? [event.placeId] : []) : panel === 'change' || panel === 'what' ? [travel ? event.travelId : event.activityId].filter((x): x is Id => Boolean(x)) : chosen
   return (
     <Drawer>
       <div className="flex flex-wrap items-center gap-3">
@@ -217,6 +231,13 @@ export function RowEditor({ date, event, panel, onPanel, onRemoved }: Props) {
             onTry={tryKind ? at => setTrying({ kind: tryKind, ...at }) : undefined}
             findButton
           />
+        )}
+        {panel === 'what' && (
+          <div className={`mt-4 ${GRID}`}>
+            {OTHER_TYPES.map(t => (
+              <Tile key={t} word={eventTypeInfo(t).word} symbol={eventTypeInfo(t).symbol} onSelect={() => void pickType(t)} />
+            ))}
+          </div>
         )}
       </div>
     </Drawer>

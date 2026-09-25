@@ -39,10 +39,7 @@ interface Props {
   onOpen: (id: string) => void
   /** The centre panel. Neighbour panels draw the same + slots (so nothing jumps when a slide lands) but inert. */
   interactive?: boolean
-  /** Where the add card is open (index in the list), if it is. */
-  composeAt?: number | null
-  /** The add card, drawn in place of the + at `composeAt`. */
-  composer?: ReactNode
+  /** A + tapped: a new row goes in at this index. */
   onCompose?: (index: number) => void
   /** A row just added: it arrives with a short rise. */
   freshId?: Id | null
@@ -71,7 +68,7 @@ interface Drag {
  * it passes slide out of the way, so the whole list stays readable. On release
  * the store applies the ordering rule.
  */
-export function DayEvents({ date, events, currentId = null, onOpen, interactive = true, composeAt = null, composer, onCompose, freshId = null, selectedId = null, panel = null, onSlot, editor }: Props) {
+export function DayEvents({ date, events, currentId = null, onOpen, interactive = true, onCompose, freshId = null, selectedId = null, panel = null, onSlot, editor }: Props) {
   const store = useStore()
   const root = useRef<HTMLDivElement>(null)
   /** Row wrappers (the row and the + slot below it). */
@@ -86,7 +83,6 @@ export function DayEvents({ date, events, currentId = null, onOpen, interactive 
   const holding = useRef<(() => void) | null>(null)
   /** Ends a live drag in place (used on unmount). */
   const dropping = useRef<(() => void) | null>(null)
-  const composing = composeAt !== null
 
   // Chrome decides at touchstart whether a touch may be held back by script, from the areas that
   // have non-passive listeners. Registered from the start, the list stays one, so once a row lifts
@@ -105,10 +101,10 @@ export function DayEvents({ date, events, currentId = null, onOpen, interactive 
     }
   }, [interactive])
 
-  // Rows glide to their new places when the add card or a row's drawer opens (the rows below slide
+  // Rows glide to their new places when a row's drawer opens (the rows below slide
   // down to make way) or closes (they slide back up), instead of jumping. Positions are list offsets, which transforms
   // don't change; each glide is a Web Animation with no fill, so nothing keeps a transform after it.
-  const opened = `${composeAt}|${selectedId}|${panel}`
+  const opened = `${selectedId}|${panel}`
   const placed = useRef<{ opened: string; tops: Map<string, number> }>({ opened, tops: new Map() })
   useLayoutEffect(() => {
     const list = root.current
@@ -255,7 +251,7 @@ export function DayEvents({ date, events, currentId = null, onOpen, interactive 
 
   /** Press and hold anywhere on a row to lift it; a tap (even a slow one) still opens it. */
   const press = (id: string) => (e: PointerEvent<HTMLDivElement>) => {
-    if (!interactive || composing || drag || !e.isPrimary || e.button !== 0) return
+    if (!interactive || drag || !e.isPrimary || e.button !== 0) return
     holding.current?.()
     const el = e.currentTarget
     const { pointerId, clientX: x0, clientY: y0 } = e
@@ -302,22 +298,8 @@ export function DayEvents({ date, events, currentId = null, onOpen, interactive 
     return 0
   }
 
-  /** The + at a position in the list, or the add card if it is open there (on the timeline, with a + dot). */
-  const slot = (index: number) =>
-    composeAt === index ? (
-      <div key="composer" className="relative" style={{ paddingLeft: `${GUTTER_REM}rem` }}>
-        <span
-          className="pointer-events-none absolute top-9 flex -translate-x-1/2 items-center justify-center rounded-full bg-orange text-white ring-4 ring-paper"
-          style={{ left: `${LINE_REM}rem`, width: `${PLUS_REM}rem`, height: `${PLUS_REM}rem` }}
-          aria-hidden
-        >
-          <Plus size={18} strokeWidth={4} />
-        </span>
-        {composer}
-      </div>
-    ) : (
-      <AddSlot key="slot" hidden={Boolean(drag) || composing} inert={!interactive || composing} onClick={() => onCompose?.(index)} />
-    )
+  /** The + at a position in the list (on the timeline). */
+  const slot = (index: number) => <AddSlot key="slot" hidden={Boolean(drag)} inert={!interactive} onClick={() => onCompose?.(index)} />
 
   let k = 0
   return (
@@ -343,10 +325,7 @@ export function DayEvents({ date, events, currentId = null, onOpen, interactive 
         />
       )}
       {events.length === 0 ? (
-        composeAt === 0 ? (
-          composer
-        ) : (
-          // An empty day: one big Add where the list would be (same in every panel).
+        // An empty day: one big Add where the list would be (same in every panel).
           <button
             type="button"
             aria-label="Add here"
@@ -359,7 +338,6 @@ export function DayEvents({ date, events, currentId = null, onOpen, interactive 
               Add
             </span>
           </button>
-        )
       ) : (
         slot(0)
       )}

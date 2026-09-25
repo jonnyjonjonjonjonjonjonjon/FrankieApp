@@ -18,8 +18,6 @@ interface Props {
   /** The centre panel (the + buttons and dragging work); neighbours only look the same. */
   interactive?: boolean
   /** The add card and where in the list it is open. */
-  composeAt?: number | null
-  composer?: ReactNode
   onCompose?: (index: number) => void
   freshId?: Id | null
   /** The open row, the part whose choices are showing, and its drawer (see DayEvents). */
@@ -30,7 +28,7 @@ interface Props {
 }
 
 /** Everything that slides when you swipe between days: staying-at, a festive day, birthdays, the list, photos. */
-export function DayPanel({ date, onOpen, onPickStay, interactive = true, composeAt, composer, onCompose, freshId, selectedId, panel, onSlot, editor }: Props) {
+export function DayPanel({ date, onOpen, onPickStay, interactive = true, onCompose, freshId, selectedId, panel, onSlot, editor }: Props) {
   const store = useStore()
   const events = store.eventsFor(date)
   const staying = store.stayingAt(date)
@@ -102,8 +100,6 @@ export function DayPanel({ date, onOpen, onPickStay, interactive = true, compose
           currentId={currentId}
           onOpen={onOpen}
           interactive={interactive}
-          composeAt={composeAt}
-          composer={composer}
           onCompose={onCompose}
           freshId={freshId}
           selectedId={selectedId}

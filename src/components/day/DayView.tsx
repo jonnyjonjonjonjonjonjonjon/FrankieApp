@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Settings as SettingsIcon } from 'lucide-react'
 import { addDays, longDate, today } from '../../lib/dates'
 import { useStore } from '../../lib/store'
@@ -10,7 +10,6 @@ import { TopBar } from '../ui/TopBar'
 import { ItemPicker } from '../pickers/ItemPicker'
 import { DayPanel } from './DayPanel'
 import { RowEditor, type Slot } from './RowEditor'
-import { InlineAdd } from './InlineAdd'
 
 /** How long a newly added row keeps its arrival animation class. */
 const FRESH_MS = 600
@@ -25,24 +24,31 @@ export function DayView({ date, from }: Props) {
   // The open row (tapped) and which of its parts is being set, on this day only.
   const [open, setOpen] = useState<{ date: ISODate; id: Id; panel: Slot | null } | null>(null)
   if (open && open.date !== date) setOpen(null)
-  // The add card: open at a place in this day's list (a new day closes it).
-  const [compose, setCompose] = useState<{ date: ISODate; index: number } | null>(null)
-  // Changing day (arrow, swipe or tab) closes it, so coming back never finds it still open.
-  if (compose && compose.date !== date) setCompose(null)
-  const composeAt = compose?.date === date ? compose.index : null
   // The row just added, so it arrives with a short rise.
   const [fresh, setFresh] = useState<Id | null>(null)
   const [pickStay, setPickStay] = useState(false)
   const [slide, setSlide] = useState<{ dir: -1 | 1; n: number } | null>(null)
   const isToday = date === today()
-  const composing = composeAt !== null
+  // Choosing something for a row: changing day would throw the choice away, so the swipe and arrows wait.
+  const composing = Boolean(open?.panel)
+
+  // A new row (from a +) that is closed with nothing chosen is taken away again, quietly.
+  const blank = useRef<{ date: ISODate; id: Id } | null>(null)
+  useEffect(() => {
+    const b = blank.current
+    if (!b || b.id === open?.id) return
+    blank.current = null
+    const ev = store.state.events[b.id]
+    if (ev && !ev.deleted && ev.type === 'activity' && !ev.activityId && !ev.placeId && !ev.personIds.length && !ev.time) {
+      void store.updateEvent(b.date, b.id, { deleted: true })
+    }
+  }, [open?.id, store])
 
   const goDay = (d: ISODate) => store.go({ kind: 'day', date: d, from })
 
   /** Tap a row to open it (or close it again). Template rows are virtual until first touched: write them first. */
   const toggle = async (id: string) => {
     if (open?.id === id) return setOpen(null)
-    setCompose(null)
     track('event_open')
     const map = await store.materializeDay(date)
     setOpen({ date, id: map[id] ?? id, panel: null })
@@ -50,6 +56,16 @@ export function DayView({ date, from }: Props) {
   /** Tap a part of the open row: its choices open under it (tap it again to go back to the row's strip). */
   const slot = (id: Id, panel: Slot) => setOpen(o => (o && o.id === id ? { ...o, panel: o.panel === panel ? null : panel } : o))
   const openEvent = open ? store.state.events[open.id] : undefined
+  /** A + between rows: a new, empty row there, open with its What? / Where? / Who? slots to fill. */
+  const addRow = async (index: number) => {
+    track('add_open')
+    const ev = await store.addEvent({ date, index, type: 'activity' })
+    blank.current = { date, id: ev.id }
+    setFresh(ev.id)
+    // Only its arrival animates: gone again before the row could remount (a swipe back).
+    setTimeout(() => setFresh(f => (f === ev.id ? null : f)), FRESH_MS)
+    setOpen({ date, id: ev.id, panel: null })
+  }
 
   const back = () => {
     if (from === 'today') store.go({ kind: 'today' })
@@ -66,7 +82,7 @@ export function DayView({ date, from }: Props) {
         title={<span className={isToday ? 'text-orange-dark' : ''}>{longDate(date)}</span>}
         right={
           <div className="flex items-center gap-2">
-            {/* Off while the add card is open, like the swipe: changing day would throw away what she has picked. */}
+            {/* Off while a row's choices are open, like the swipe: changing day would throw away what she has picked. */}
             <BigButton disabled={composing} onClick={() => setSlide(s => ({ dir: -1, n: (s?.n ?? 0) + 1 }))} aria-label="Day before">
               <ChevronLeft size={40} strokeWidth={3} />
             </BigButton>
@@ -120,27 +136,7 @@ export function DayView({ date, from }: Props) {
               }
               onPickStay={() => setPickStay(true)}
               interactive={o === 0}
-              composeAt={o === 0 ? composeAt : null}
-              composer={
-                o === 0 &&
-                composeAt !== null && (
-                  <InlineAdd
-                    date={date}
-                    index={composeAt}
-                    onClose={id => {
-                      setCompose(null)
-                      setFresh(id ?? null)
-                      // Only its arrival animates: gone again before the row could remount (a swipe back).
-                      if (id) setTimeout(() => setFresh(f => (f === id ? null : f)), FRESH_MS)
-                    }}
-                  />
-                )
-              }
-              onCompose={index => {
-                setOpen(null)
-                setFresh(null)
-                setCompose({ date, index })
-              }}
+              onCompose={index => void addRow(index)}
               freshId={o === 0 ? fresh : null}
             />
           )}

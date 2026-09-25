@@ -5,7 +5,7 @@ import type { DiaryEvent, LibraryItem } from '../../types'
 import { Photo } from '../ui/Photo'
 import { Symbol } from '../ui/Symbol'
 import { TimeLabel } from '../ui/TimeLabel'
-import { FOOD_SYMBOL, WHERE_SYMBOL, WHO_SYMBOL, type Slot } from './RowEditor'
+import { FOOD_SYMBOL, WHAT_SYMBOL, WHERE_SYMBOL, WHO_SYMBOL, type Slot } from './RowEditor'
 import { WHERE_TO_SYMBOL } from '../../lib/symbols'
 
 interface Props {
@@ -43,6 +43,9 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
   const people = event.personIds.map(id => items[id]).filter(Boolean)
   const showPhoto = face.photoId && face.showPhoto
   const meal = isMeal(event)
+  // A new row (from a +) is an activity with nothing chosen yet: What? takes the picture's place.
+  const noWhat = event.type === 'activity' && !event.activityId
+  const word = noWhat ? 'What?' : face.word
   // What goes with it, as pictures on the right: the meal's foods, where, who.
   const extras = [...(meal ? foods : []), ...(place ? [place] : []), ...people]
 
@@ -53,7 +56,7 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
         // wraps between its words beside the arrow. Where even its longest word will not fit beside
         // the arrow (basis = min-content), the name drops under the arrow: never split mid-word, never past the row.
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-3xl leading-tight" data-travel-line>
-          <span className="font-extrabold">{face.word}</span>
+          <span className="font-extrabold">{word}</span>
           <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2">
             <ArrowRight size={36} strokeWidth={3} aria-label="to" className="shrink-0" />
             <Symbol symbol={destination.symbol} size="text-3xl" />
@@ -61,8 +64,8 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
           </span>
         </span>
       ) : (
-        <span className="line-clamp-2 text-3xl font-extrabold leading-tight">
-          {face.word}
+        <span className={`line-clamp-2 text-3xl font-extrabold leading-tight ${noWhat ? 'text-orange-dark' : ''}`}>
+          {word}
         </span>
       )}
     </>
@@ -84,24 +87,39 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
       } ${dragging ? 'scale-[1.02] shadow-2xl ring-4 ring-orange-light' : ''}`}
       aria-current={current ? 'time' : undefined}
     >
-      <button
-        type="button"
-        aria-label={face.photoId ? 'Show photo' : face.word}
-        onClick={() => (face.itemId && face.photoId ? store.toggleItemPhoto(face.itemId) : onOpen())}
-        className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl active:scale-95"
-      >
-        {showPhoto && face.photoId ? (
-          <Photo id={face.photoId} alt={face.word} className="h-full w-full" />
-        ) : (
-          <Symbol symbol={face.symbol} size="text-6xl" />
-        )}
-      </button>
+      {noWhat ? (
+        <button
+          type="button"
+          aria-label="What?"
+          onClick={() => (selected && onSlot ? onSlot('what') : onOpen())}
+          className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border-[3px] border-dashed active:scale-95 ${
+            panel === 'what' ? 'border-orange bg-orange-light' : 'border-orange/70'
+          }`}
+        >
+          <span className="opacity-50">
+            <Symbol symbol={WHAT_SYMBOL} size="text-5xl" />
+          </span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-label={face.photoId ? 'Show photo' : face.word}
+          onClick={() => (face.itemId && face.photoId ? store.toggleItemPhoto(face.itemId) : onOpen())}
+          className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl active:scale-95"
+        >
+          {showPhoto && face.photoId ? (
+            <Photo id={face.photoId} alt={face.word} className="h-full w-full" />
+          ) : (
+            <Symbol symbol={face.symbol} size="text-6xl" />
+          )}
+        </button>
+      )}
 
       {selected && onSlot ? (
-        // Open: the word closes it again; the time and every picture (or its empty slot) set that part.
+        // Open: the word closes it again (a new row's What? opens its choices); the time and every picture (or its empty slot) set that part.
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-1 pr-2">
           <span className="flex min-w-[10rem] flex-1 flex-col items-start justify-center gap-1">
-            <button type="button" onClick={onOpen} aria-expanded className="text-left">
+            <button type="button" onClick={noWhat ? () => onSlot('what') : onOpen} aria-expanded className="text-left">
               {wordLine}
             </button>
             {event.time ? (
