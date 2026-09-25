@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Trash2 } from 'lucide-react'
-import { eventFace, isEmptyRow, isMeal } from '../../lib/eventFace'
+import { isEmptyRow, isMeal } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
 import { EAT_SYMBOL, EVENT_TYPE_ORDER, eventTypeInfo, WHERE_TO_SYMBOL } from '../../lib/symbols'
 import type { DiaryEvent, EventType, HHMM, Id, LibraryKind, MealSlot } from '../../types'
@@ -32,8 +31,6 @@ interface Props {
   /** The part being set, or null for the row's own strip (Change, Remove). */
   panel: Slot | null
   onPanel: (panel: Slot | null) => void
-  /** Removed: the row is gone. */
-  onRemoved: () => void
 }
 
 /**
@@ -42,10 +39,8 @@ interface Props {
  * something already set, opens its choices here instead, with No / Yes; New and Try (rare) still
  * open their full screens.
  */
-export function RowEditor({ date, event, panel, onPanel, onRemoved }: Props) {
+export function RowEditor({ date, event, panel, onPanel }: Props) {
   const store = useStore()
-  const { items } = store.state
-  const face = eventFace(event, items)
   const travel = event.type === 'travel'
   const meal = isMeal(event)
 
@@ -111,31 +106,17 @@ export function RowEditor({ date, event, panel, onPanel, onRemoved }: Props) {
     )
   }
 
-  // An empty row has nothing to change or remove (it goes by itself): just its slots.
-  if (!panel && isEmptyRow(event)) return null
   if (!panel) {
+    // Only an activity or a journey can be changed from here (a new row's What? chooses it; an empty
+    // row goes by itself). Removing is the bin on the row's corner.
+    if (isEmptyRow(event) || !((event.type === 'activity' && event.activityId) || travel)) return null
     return (
       <Drawer>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <span className="ml-auto flex flex-wrap gap-3">
-            {/* A new row has nothing to change yet: its What? chooses it. */}
-            {((event.type === 'activity' && event.activityId) || travel) && (
-              <BigButton onClick={() => onPanel('change')}>
-                <Symbol symbol={CHANGE_SYMBOL} size="text-4xl" />
-                <span className="text-xl font-extrabold">Change</span>
-              </BigButton>
-            )}
-            <BigButton
-              variant="danger"
-              onClick={() => {
-                void store.deleteEvent(date, event.id, face.word)
-                onRemoved()
-              }}
-            >
-              <Trash2 size={32} strokeWidth={2.5} />
-              <span className="text-xl font-extrabold">Remove</span>
-            </BigButton>
-          </span>
+        <div className="flex justify-end">
+          <BigButton onClick={() => onPanel('change')}>
+            <Symbol symbol={CHANGE_SYMBOL} size="text-4xl" />
+            <span className="text-xl font-extrabold">Change</span>
+          </BigButton>
         </div>
       </Drawer>
     )

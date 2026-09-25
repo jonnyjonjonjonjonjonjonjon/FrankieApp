@@ -48,6 +48,7 @@ interface Props {
   /** The part of the open row whose choices are showing. */
   panel?: Slot | null
   onSlot?: (id: Id, slot: Slot) => void
+  onRemove?: (id: Id) => void
   editor?: ReactNode
 }
 
@@ -68,7 +69,7 @@ interface Drag {
  * it passes slide out of the way, so the whole list stays readable. On release
  * the store applies the ordering rule.
  */
-export function DayEvents({ date, events, currentId = null, onOpen, interactive = true, onCompose, freshId = null, selectedId = null, panel = null, onSlot, editor }: Props) {
+export function DayEvents({ date, events, currentId = null, onOpen, interactive = true, onCompose, freshId = null, selectedId = null, panel = null, onSlot, onRemove, editor }: Props) {
   const store = useStore()
   const root = useRef<HTMLDivElement>(null)
   /** Row wrappers (the row and the + slot below it). */
@@ -386,6 +387,7 @@ export function DayEvents({ date, events, currentId = null, onOpen, interactive 
                 selected={e.id === selectedId}
                 panel={e.id === selectedId ? panel : null}
                 onSlot={slot => onSlot?.(e.id, slot)}
+                onRemove={onRemove ? () => onRemove(e.id) : undefined}
               />
             </div>
             {/* The open row's drawer, lined up under its card (clear of the timeline). */}

@@ -1,5 +1,5 @@
-import { ArrowRight, Clock } from 'lucide-react'
-import { eventFace, isMeal, travelDestination } from '../../lib/eventFace'
+import { ArrowRight, Clock, Trash2 } from 'lucide-react'
+import { eventFace, isEmptyRow, isMeal, travelDestination } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
 import type { DiaryEvent, LibraryItem } from '../../types'
 import { Photo } from '../ui/Photo'
@@ -22,6 +22,8 @@ interface Props {
   /** The part whose choices are open under the row. */
   panel?: Slot | null
   onSlot?: (slot: Slot) => void
+  /** The bin on an open row's corner: the row goes (with Undo). */
+  onRemove?: () => void
 }
 
 /**
@@ -31,7 +33,7 @@ interface Props {
  * dashed empty slots for what isn't set yet (a clock, What?, Where?, Who?), and tapping any part
  * opens its choices under the row (RowEditor). Hold it to drag it.
  */
-export function EventRow({ event, onOpen, dragging, pressing, current, selected = false, panel = null, onSlot }: Props) {
+export function EventRow({ event, onOpen, dragging, pressing, current, selected = false, panel = null, onSlot, onRemove }: Props) {
   const store = useStore()
   const { items } = store.state
   const face = eventFace(event, items)
@@ -73,7 +75,7 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
   return (
     <div
       // A light card on the day's timeline (the line and dots join the rows into one list).
-      className={`flex items-stretch gap-3 rounded-2xl border-[3px] p-1.5 ${
+      className={`relative flex items-stretch gap-3 rounded-2xl border-[3px] p-1.5 ${
         pressing || dragging
           ? current
             ? 'border-orange-dark bg-orange-light'
@@ -157,6 +159,17 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
           </button>
         )}
         </>
+      )}
+      {/* Open: a small bin on the corner removes it (owner, Sept 2026; an empty row needs none, it goes by itself). */}
+      {selected && onRemove && !isEmptyRow(event) && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="Remove"
+          className="absolute -top-5 -right-2 z-10 flex h-12 w-12 items-center justify-center rounded-full border-[3px] border-red bg-paper text-red shadow-md active:scale-95"
+        >
+          <Trash2 size={28} strokeWidth={2.5} />
+        </button>
       )}
     </div>
   )

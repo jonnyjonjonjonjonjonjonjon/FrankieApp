@@ -24,11 +24,12 @@ interface Props {
   selectedId?: Id | null
   panel?: Slot | null
   onSlot?: (id: Id, slot: Slot) => void
+  onRemove?: (id: Id) => void
   editor?: ReactNode
 }
 
 /** Everything that slides when you swipe between days: staying-at, a festive day, birthdays, the list, photos. */
-export function DayPanel({ date, onOpen, onPickStay, interactive = true, onCompose, freshId, selectedId, panel, onSlot, editor }: Props) {
+export function DayPanel({ date, onOpen, onPickStay, interactive = true, onCompose, freshId, selectedId, panel, onSlot, onRemove, editor }: Props) {
   const store = useStore()
   const events = store.eventsFor(date)
   const staying = store.stayingAt(date)
@@ -105,6 +106,7 @@ export function DayPanel({ date, onOpen, onPickStay, interactive = true, onCompo
           selectedId={selectedId}
           panel={panel}
           onSlot={onSlot}
+          onRemove={onRemove}
           editor={editor}
         />
 

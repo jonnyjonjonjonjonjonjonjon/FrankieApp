@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Settings as SettingsIcon } from 'lucide-react'
 import { addDays, longDate, today } from '../../lib/dates'
-import { isEmptyRow } from '../../lib/eventFace'
+import { eventFace, isEmptyRow } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
 import { track } from '../../lib/usage'
 import type { Id, ISODate, Tab } from '../../types'
@@ -129,6 +129,11 @@ export function DayView({ date, from }: Props) {
               selectedId={o === 0 && openEvent ? open?.id : null}
               panel={o === 0 ? (open?.panel ?? null) : null}
               onSlot={slot}
+              onRemove={id => {
+                const ev = store.state.events[id]
+                if (ev) void store.deleteEvent(date, id, eventFace(ev, store.state.items).word)
+                setOpen(null)
+              }}
               editor={
                 o === 0 &&
                 open &&
@@ -139,7 +144,6 @@ export function DayView({ date, from }: Props) {
                     event={openEvent}
                     panel={open.panel}
                     onPanel={panel => setOpen(x => (x ? { ...x, panel } : x))}
-                    onRemoved={() => setOpen(null)}
                   />
                 )
               }
