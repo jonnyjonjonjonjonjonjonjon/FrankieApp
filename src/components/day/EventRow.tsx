@@ -88,22 +88,27 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
       } ${dragging ? 'scale-[1.02] shadow-2xl ring-4 ring-orange-light' : ''}`}
       aria-current={current ? 'time' : undefined}
     >
-      {noWhat ? (
+      {noWhat && selected ? (
         <NewRow event={event} place={place} people={people} selected={selected} panel={panel} onOpen={onOpen} onSlot={onSlot} />
       ) : (
         <>
-          <button
-            type="button"
-            aria-label={face.photoId ? 'Show photo' : face.word}
-            onClick={() => (face.itemId && face.photoId ? store.toggleItemPhoto(face.itemId) : onOpen())}
-            className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl active:scale-95"
-          >
-            {showPhoto && face.photoId ? (
-              <Photo id={face.photoId} alt={face.word} className="h-full w-full" />
-            ) : (
-              <Symbol symbol={face.symbol} size="text-6xl" />
-            )}
-          </button>
+          {/* Closed with no What? yet: just what is chosen (place, people, time), each in its usual place. */}
+          {noWhat ? (
+            <span className="h-24 shrink-0" aria-hidden />
+          ) : (
+            <button
+              type="button"
+              aria-label={face.photoId ? 'Show photo' : face.word}
+              onClick={() => (face.itemId && face.photoId ? store.toggleItemPhoto(face.itemId) : onOpen())}
+              className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl active:scale-95"
+            >
+              {showPhoto && face.photoId ? (
+                <Photo id={face.photoId} alt={face.word} className="h-full w-full" />
+              ) : (
+                <Symbol symbol={face.symbol} size="text-6xl" />
+              )}
+            </button>
+          )}
 
         {selected && onSlot ? (
           // Open: the word closes it again; the time and every picture (or its empty slot) set that part.
@@ -146,7 +151,7 @@ export function EventRow({ event, onOpen, dragging, pressing, current, selected 
         ) : (
           <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-1 pr-2 text-left">
             <span className="flex min-w-[10rem] flex-1 flex-col justify-center gap-1">
-              {wordLine}
+              {!noWhat && wordLine}
               {event.time && <TimeLabel time={event.time} />}
             </span>
             {extras.length > 0 && (
@@ -215,9 +220,9 @@ function Empty({ symbol, word, on, onClick, big = false }: { symbol: string; wor
 }
 
 /**
- * A new row, before its What? is chosen: What?, Where? and Who? side by side, the same size, each
- * opening its choices under the row. The clock appears underneath once one is set. Closed (a place or person
- * chosen but no What? yet), tapping anywhere opens it again.
+ * An open row with no What? yet (a new one, or one whose What? was cleared): What?, Where? and Who?
+ * side by side, the same size, each opening its choices under the row. The clock appears
+ * underneath once one is set. Closed, the row shows only what is chosen, like any other row.
  */
 function NewRow({
   event,
