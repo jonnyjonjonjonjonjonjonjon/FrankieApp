@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { eventFace, isMeal } from '../../lib/eventFace'
 import { useStore } from '../../lib/store'
-import { eventTypeInfo, WHERE_TO_SYMBOL } from '../../lib/symbols'
+import { EAT_SYMBOL, eventTypeInfo, WHERE_TO_SYMBOL } from '../../lib/symbols'
 import type { DiaryEvent, HHMM, Id, LibraryKind, MealSlot } from '../../types'
 import { BigButton } from '../ui/BigButton'
 import { Symbol } from '../ui/Symbol'
@@ -17,7 +17,7 @@ export type Slot = 'time' | 'food' | 'where' | 'who' | 'change'
 
 export const WHO_SYMBOL = 'mb:who'
 export const WHERE_SYMBOL = 'mb:where'
-export const FOOD_SYMBOL = 'mb:dinner'
+export const FOOD_SYMBOL = EAT_SYMBOL
 const CHANGE_SYMBOL = 'mb:change-to'
 
 interface Props {

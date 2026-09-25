@@ -25,7 +25,8 @@ function MealCell({ type, ev }: { type: EventType; ev: DiaryEvent | undefined })
       <Symbol symbol={eventTypeInfo(type).symbol} size="text-3xl" className="shrink-0" />
       <span className="flex min-w-0 flex-col gap-0.5 text-lg font-bold leading-tight">
         {foods.length === 0 ? (
-          <span className="text-line">—</span>
+          // Every mealtime shows the same Eat picture, so an empty one says which meal it is.
+          <span className="text-sm font-bold text-ink-soft">{eventTypeInfo(type).word}</span>
         ) : (
           foods.map(f => (
             <span key={f.id} className="min-w-0">

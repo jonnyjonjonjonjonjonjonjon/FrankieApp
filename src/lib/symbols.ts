@@ -1,5 +1,8 @@
 import type { EventType, LibraryKind } from '../types'
 
+/** Eating (a spoon to the mouth): mealtimes and the empty What? slot, so no food is suggested. */
+export const EAT_SYMBOL = 'mb:eat_1-to'
+
 /**
  * Fixed event types (PRD §4.11). Symbols are drawn from Mulberry, falling back
  * to OpenMoji (see symbolImages.ts); emoji here are looked up, "mb:" names are direct.
@@ -8,9 +11,10 @@ export const EVENT_TYPES: Record<EventType, { word: string; symbol: string }> = 
   wake: { word: 'Wake up', symbol: '🌅' },
   shower: { word: 'Shower', symbol: '🚿' },
   teeth: { word: 'Brush teeth', symbol: '🪥' },
-  breakfast: { word: 'Breakfast', symbol: 'mb:breakfast_1' },
-  lunch: { word: 'Lunch', symbol: 'mb:lunch_1' },
-  dinner: { word: 'Dinner', symbol: '🍽️' },
+  // Mealtimes all show Eat, never a particular food (owner, Sept 2026): the food chosen shows beside it.
+  breakfast: { word: 'Breakfast', symbol: EAT_SYMBOL },
+  lunch: { word: 'Lunch', symbol: EAT_SYMBOL },
+  dinner: { word: 'Dinner', symbol: EAT_SYMBOL },
   bed: { word: 'Bed', symbol: 'mb:double_bed' },
   activity: { word: 'Activity', symbol: '⭐' },
   travel: { word: 'Travel', symbol: 'mb:travel' },

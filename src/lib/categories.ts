@@ -1,5 +1,6 @@
 import type { LibraryItem, LibraryKind, MealSlot } from '../types'
 import { SEED_CATEGORY } from './seed'
+import { EAT_SYMBOL } from './symbols'
 
 /**
  * Shelves within a kind (backlog item 3): people by who they are to her, food
@@ -24,9 +25,10 @@ export const CATEGORIES: Partial<Record<LibraryKind, Category[]>> = {
     { id: 'friends', word: 'Friends', symbol: 'mb:hug-to' },
   ],
   food: [
-    { id: 'breakfast', word: 'Breakfast', symbol: 'mb:breakfast_1' },
-    { id: 'lunch', word: 'Lunch', symbol: 'mb:lunch_1' },
-    { id: 'dinner', word: 'Dinner', symbol: 'mb:dinner_hot' },
+    // Mealtime shelves show Eat, not a food (owner, Sept 2026).
+    { id: 'breakfast', word: 'Breakfast', symbol: EAT_SYMBOL },
+    { id: 'lunch', word: 'Lunch', symbol: EAT_SYMBOL },
+    { id: 'dinner', word: 'Dinner', symbol: EAT_SYMBOL },
     { id: 'fruit', word: 'Fruit', symbol: 'mb:fruit' },
     { id: 'treats', word: 'Treats', symbol: 'mb:sweet' },
     { id: 'drinks', word: 'Drinks', symbol: 'mb:drink' },
